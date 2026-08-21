@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    ArrowLeft, Building2, Users, Search, Loader2, Link2, Copy, X,
+    ArrowLeft, Building2, Users, Search, Loader2, Link2, Copy, X, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academicApi from '../services/academicApi';
@@ -48,7 +48,8 @@ function timeLeftLabel(expiresAt) {
     return `${Math.floor(hours / 24)}d left`;
 }
 
-function InviteLinkRow({ link }) {
+function InviteLinkRow({ link, onDeleted, onDelete }) {
+    const [deleting, setDeleting] = useState(false);
     const fullUrl = `${window.location.origin}/register?invite=${link.token}`;
     const handleCopy = async () => {
         try {
@@ -56,6 +57,18 @@ function InviteLinkRow({ link }) {
             toast.success('Invite link copied');
         } catch {
             toast.error('Could not copy link');
+        }
+    };
+    const handleDelete = async () => {
+        setDeleting(true);
+        try {
+            await onDelete(link.id);
+            toast.success('Invite link deleted');
+            onDeleted();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to delete invite link'));
+        } finally {
+            setDeleting(false);
         }
     };
     return (
@@ -69,9 +82,20 @@ function InviteLinkRow({ link }) {
                 </div>
                 <div className="text-[11px] font-mono truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullUrl}</div>
             </div>
-            <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" onClick={handleCopy}>
-                <Copy size={12} /> Copy
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={handleCopy}>
+                    <Copy size={12} /> Copy
+                </button>
+                <button
+                    className="admin-action-btn text-xs"
+                    style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                    disabled={deleting}
+                    onClick={handleDelete}
+                    title="Delete invite link"
+                >
+                    {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                </button>
+            </div>
         </div>
     );
 }
@@ -142,7 +166,14 @@ function GenerateInviteModal({ institution, onClose }) {
                             <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No active links. Generate one above.</div>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                {links.map((link) => <InviteLinkRow key={link.id} link={link} />)}
+                                {links.map((link) => (
+                                    <InviteLinkRow
+                                        key={link.id}
+                                        link={link}
+                                        onDelete={(linkId) => academicApi.deleteInstitutionAdminInvite(institution.id, linkId)}
+                                        onDeleted={loadLinks}
+                                    />
+                                ))}
                             </div>
                         )}
                     </div>

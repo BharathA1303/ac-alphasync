@@ -27,6 +27,10 @@ const academicApi = {
         return api.get(`/admin/academic/institutions/${institutionId}/invite-links`);
     },
 
+    deleteInstitutionAdminInvite(institutionId, linkId) {
+        return api.delete(`/admin/academic/institutions/${institutionId}/invite-links/${linkId}`);
+    },
+
     listAcademicUsers(params = {}) {
         return api.get('/admin/academic/users', { params });
     },
@@ -42,6 +46,10 @@ const academicApi = {
 
     listMemberInvites(params = {}) {
         return api.get('/institution/invite-links', { params });
+    },
+
+    deleteMemberInvite(linkId) {
+        return api.delete(`/institution/invite-links/${linkId}`);
     },
 
     listInstitutionMembers(params = {}) {

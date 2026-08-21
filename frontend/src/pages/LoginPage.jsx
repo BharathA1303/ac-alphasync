@@ -125,9 +125,23 @@ export default function LoginPage() {
   const routeByAccountStatus = (profile) => {
     const status   = (profile?.account_status || "active").toLowerCase();
     const isActive = status === "active" && profile?.is_active !== false;
+    const role     = (profile?.role || "").toLowerCase();
     if (isActive) {
+      // Academic roles always land on their own destination, even if the
+      // user arrived via the "Sign In As Admin" (/admin) entry point out of
+      // habit — never bounce them back to the Super Admin gate.
+      if (role === "institution_admin") {
+        navigate("/institution/portal");
+        return;
+      }
+      if (role === "faculty" || role === "student") {
+        localStorage.setItem("alphasync_trading_mode", "demo");
+        localStorage.setItem("alphasync_onboarded", "1");
+        navigate("/dashboard");
+        return;
+      }
       if (adminIntent) {
-        if ((profile?.role || "").toLowerCase() === "admin") {
+        if (role === "admin") {
           navigate("/admin/panel");
         } else {
           toast.error(
@@ -139,11 +153,7 @@ export default function LoginPage() {
       }
       localStorage.setItem("alphasync_trading_mode", "demo");
       localStorage.setItem("alphasync_onboarded", "1");
-      if ((profile?.role || "").toLowerCase() === "institution_admin") {
-        navigate("/institution/portal");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
     } else {
       // Show pending / inactive state INLINE — no redirect to /account-status
       setRegisteredUser(profile);
@@ -688,22 +698,25 @@ export default function LoginPage() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
-                        padding: "10px 14px",
-                        marginBottom: "16px",
-                        borderRadius: "10px",
+                        gap: "7px",
+                        padding: "8px 12px",
+                        marginBottom: "12px",
+                        borderRadius: "9px",
                         border: "1px solid rgba(0,229,153,0.3)",
                         background: "rgba(0,229,153,0.08)",
                         color: "#00E599",
-                        fontSize: "13.5px",
+                        fontSize: "12.5px",
                         fontWeight: 500,
+                        lineHeight: 1.35,
                       }}
                     >
-                      <span role="img" aria-label="graduation cap">🎓</span>
+                      <svg viewBox="0 0 20 20" fill="none" width="14" height="14" style={{ flexShrink: 0 }}>
+                        <path d="M10 3L2 7l8 4 8-4-8-4z" stroke="#00E599" strokeWidth="1.4" strokeLinejoin="round" />
+                        <path d="M5 9v4c0 1.1 2.5 2 5 2s5-.9 5-2V9" stroke="#00E599" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                       <span>
                         Joining <strong>{inviteInfo.institutionName}</strong> as{" "}
-                        <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>{" "}
-                        (via Official Invite)
+                        <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>
                       </span>
                     </div>
                   )}
@@ -968,26 +981,51 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  <h3 className="step3-title">Account Verified</h3>
-                  <p className="step3-headline">ACCESS GRANTED — ENTER THE ARENA</p>
-                  <p className="step3-subtitle">
-                    Your AlphaSync Campus account is live and loaded with{" "}
-                    <strong>₹10,00,000 virtual capital</strong>.
-                    The charts are calling. Your learning journey starts now.
-                  </p>
+                  {inviteInfo ? (
+                    <>
+                      <h3 className="step3-title">Account Verified</h3>
+                      <p className="step3-headline">
+                        WELCOME TO {(inviteInfo.institutionName || "").toUpperCase()}
+                      </p>
+                      <p className="step3-subtitle">
+                        Your account has been created as{" "}
+                        <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>.
+                        You're all set to get started.
+                      </p>
 
-                  <button
-                    id="launch-campus-btn"
-                    type="button"
-                    className="lp-btn-primary step3-cta"
-                    onClick={handleEnterCampus}
-                  >
-                    <i className="fa fa-bolt" />&nbsp;BLAST INTO CAMPUS
-                  </button>
+                      <button
+                        id="launch-campus-btn"
+                        type="button"
+                        className="lp-btn-primary step3-cta"
+                        onClick={handleEnterCampus}
+                      >
+                        Continue
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="step3-title">Account Verified</h3>
+                      <p className="step3-headline">ACCESS GRANTED — ENTER THE ARENA</p>
+                      <p className="step3-subtitle">
+                        Your AlphaSync Campus account is live and loaded with{" "}
+                        <strong>₹10,00,000 virtual capital</strong>.
+                        The charts are calling. Your learning journey starts now.
+                      </p>
 
-                  <p className="step3-tagline">
-                    "The market opens every day. Be ready." — AlphaSync Campus
-                  </p>
+                      <button
+                        id="launch-campus-btn"
+                        type="button"
+                        className="lp-btn-primary step3-cta"
+                        onClick={handleEnterCampus}
+                      >
+                        <i className="fa fa-bolt" />&nbsp;BLAST INTO CAMPUS
+                      </button>
+
+                      <p className="step3-tagline">
+                        "The market opens every day. Be ready." — AlphaSync Campus
+                      </p>
+                    </>
+                  )}
 
                 </div>
               )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-    GraduationCap, Users, TrendingUp, Link2, Copy, Loader2, X, Search, LogOut,
+    GraduationCap, Users, TrendingUp, Link2, Copy, Loader2, X, Search, LogOut, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academicApi from '../services/academicApi';
@@ -28,7 +28,8 @@ function timeLeftLabel(expiresAt) {
     return `${Math.floor(hours / 24)}d left`;
 }
 
-function InviteLinkRow({ link }) {
+function InviteLinkRow({ link, onDeleted }) {
+    const [deleting, setDeleting] = useState(false);
     const fullUrl = `${window.location.origin}/register?invite=${link.token}`;
     const handleCopy = async () => {
         try {
@@ -36,6 +37,18 @@ function InviteLinkRow({ link }) {
             toast.success('Invite link copied');
         } catch {
             toast.error('Could not copy link');
+        }
+    };
+    const handleDelete = async () => {
+        setDeleting(true);
+        try {
+            await academicApi.deleteMemberInvite(link.id);
+            toast.success('Invite link deleted');
+            onDeleted();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to delete invite link'));
+        } finally {
+            setDeleting(false);
         }
     };
     return (
@@ -49,9 +62,20 @@ function InviteLinkRow({ link }) {
                 </div>
                 <div className="text-[11px] font-mono truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullUrl}</div>
             </div>
-            <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" onClick={handleCopy}>
-                <Copy size={12} /> Copy
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={handleCopy}>
+                    <Copy size={12} /> Copy
+                </button>
+                <button
+                    className="admin-action-btn text-xs"
+                    style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                    disabled={deleting}
+                    onClick={handleDelete}
+                    title="Delete invite link"
+                >
+                    {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                </button>
+            </div>
         </div>
     );
 }
@@ -140,7 +164,7 @@ function GenerateInviteModal({ onClose }) {
                             <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No active links. Generate one above.</div>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                {links.map((link) => <InviteLinkRow key={link.id} link={link} />)}
+                                {links.map((link) => <InviteLinkRow key={link.id} link={link} onDeleted={loadLinks} />)}
                             </div>
                         )}
                     </div>
@@ -348,37 +372,39 @@ export default function InstitutionPortalPage() {
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                 <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Name</th>
-                                <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Email</th>
                                 <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Role</th>
                                 <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>P&amp;L</th>
-                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Portfolio Value</th>
                             </tr>
                         </thead>
                         <tbody>
                             {membersLoading ? (
-                                <tr><td colSpan={5} className="text-center py-6"><Loader2 size={18} className="animate-spin inline" style={{ color: 'var(--text-muted)' }} /></td></tr>
+                                <tr><td colSpan={3} className="text-center py-6"><Loader2 size={18} className="animate-spin inline" style={{ color: 'var(--text-muted)' }} /></td></tr>
                             ) : members.length === 0 ? (
-                                <tr><td colSpan={5} className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>No members found</td></tr>
+                                <tr><td colSpan={3} className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>No members found</td></tr>
                             ) : (
                                 members.map((m) => (
                                     <tr
                                         key={m.id}
-                                        style={{ borderBottom: '1px solid var(--border)', cursor: m.role === 'student' ? 'pointer' : 'default' }}
-                                        onClick={() => m.role === 'student' && setSelectedStudentId(m.id)}
+                                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                                        className="hover:brightness-110 transition-all"
+                                        onClick={() => setSelectedStudentId(m.id)}
                                     >
                                         <td className="py-2 px-2 font-medium">{m.full_name}</td>
-                                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{m.email}</td>
-                                        <td className="py-2 px-2 capitalize">{m.role}</td>
+                                        <td className="py-2 px-2 capitalize" style={{ color: 'var(--text-secondary)' }}>{m.role}</td>
                                         <td className="py-2 px-2 text-right font-mono" style={{ color: m.pnl >= 0 ? '#10b981' : '#ef4444' }}>
                                             ₹{m.pnl.toLocaleString('en-IN')}
                                         </td>
-                                        <td className="py-2 px-2 text-right font-mono">₹{m.current_value.toLocaleString('en-IN')}</td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
+                {members.length > 0 && (
+                    <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+                        Click a member to view their detailed stats.
+                    </p>
+                )}
             </section>
 
             {showInviteModal && <GenerateInviteModal onClose={() => setShowInviteModal(false)} />}

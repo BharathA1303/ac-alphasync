@@ -234,6 +234,20 @@ async def list_institution_admin_invites(
     return {"invite_links": links}
 
 
+@router.delete("/institutions/{institution_id}/invite-links/{link_id}")
+async def delete_institution_admin_invite(
+    institution_id: str,
+    link_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await invite_service.revoke_invite_link(db, link_id, institution_id)
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["error"])
+    await db.commit()
+    return {"success": True}
+
+
 @router.get("/users")
 async def list_academic_users(
     institution_id: Optional[str] = None,

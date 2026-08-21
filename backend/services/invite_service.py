@@ -136,6 +136,29 @@ async def list_active_invite_links(
     return active
 
 
+async def revoke_invite_link(
+    db: AsyncSession, link_id, institution_id, allowed_roles: Optional[set] = None
+) -> dict:
+    """Deactivate an invite link. institution_id scopes the lookup so callers
+    can only revoke links belonging to their own institution; allowed_roles
+    further restricts which target_role links a caller may revoke (e.g. an
+    institution admin may only revoke faculty/student links, never
+    institution_admin links, even within their own institution)."""
+    link_uuid = _as_uuid(link_id)
+    institution_uuid = _as_uuid(institution_id)
+    if not link_uuid or not institution_uuid:
+        return {"success": False, "error": "Invite link not found"}
+
+    link = await db.get(InviteLink, link_uuid)
+    if not link or link.institution_id != institution_uuid:
+        return {"success": False, "error": "Invite link not found"}
+    if allowed_roles is not None and link.target_role not in allowed_roles:
+        return {"success": False, "error": "Invite link not found"}
+
+    link.is_active = False
+    return {"success": True}
+
+
 async def _get_link_by_token(db: AsyncSession, token: str) -> Optional[InviteLink]:
     token = (token or "").strip()
     if not token:

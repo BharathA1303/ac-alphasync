@@ -30,6 +30,15 @@ export default function AdminAccessPage() {
         return <Navigate to="/admin/panel" replace />;
     }
 
+    // Academic roles never belong on the Super Admin gate — send them
+    // straight to their own workspace instead of showing a "not admin" wall.
+    if (user?.role === 'institution_admin') {
+        return <Navigate to="/institution/portal" replace />;
+    }
+    if (user?.role === 'faculty' || user?.role === 'student') {
+        return <Navigate to="/dashboard" replace />;
+    }
+
     return (
         <div style={styles.shell}>
             <div style={styles.card}>
