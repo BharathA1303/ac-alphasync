@@ -41,6 +41,7 @@ import BugReportPage from './pages/BugReportPage';
 import AdminBugReportsPage from './pages/AdminBugReportsPage';
 import ChartEmbed from './pages/ChartEmbed';
 import AdminAcademicPage from './pages/AdminAcademicPage';
+import AdminInstitutionDetailPage from './pages/AdminInstitutionDetailPage';
 import InstitutionPortalPage from './pages/InstitutionPortalPage';
 
 export default function App() {
@@ -122,6 +123,9 @@ export default function App() {
                             } />
                             <Route path="/admin/academic" element={
                                 <AdminRoute><AdminAcademicPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/academic/institutions/:id" element={
+                                <AdminRoute><AdminInstitutionDetailPage /></AdminRoute>
                             } />
                             {/* ── Institution Admin portal ── */}
                             <Route path="/institution/portal" element={

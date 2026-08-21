@@ -26,6 +26,9 @@ import {
     BadgeIndianRupee,
     Star,
     Shield,
+    GraduationCap,
+    BookOpen,
+    LineChart,
 } from 'lucide-react';
 
 /**
@@ -556,17 +559,60 @@ export default function Navbar({ onMenuToggle }) {
                     </span>
                 </div>
 
-                {/* Super Admin Badge (for admin users) */}
-                {user?.role === 'admin' && (
-                    <div
-                        onClick={() => navigate('/admin/panel')}
-                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/20 transition-all select-none mr-1 shadow-sm"
-                        title="Open Super Admin Panel"
-                    >
-                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Super Admin</span>
-                    </div>
-                )}
+                {/* Role Badge — every user gets one */}
+                {(() => {
+                    const ROLE_BADGES = {
+                        admin: {
+                            label: 'Super Admin',
+                            icon: Shield,
+                            colorClass: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+                            iconClass: 'text-emerald-400',
+                            onClick: () => navigate('/admin/panel'),
+                            title: 'Open Super Admin Panel',
+                        },
+                        institution_admin: {
+                            label: 'Institution Admin',
+                            icon: GraduationCap,
+                            colorClass: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+                            iconClass: 'text-blue-400',
+                            onClick: () => navigate('/institution/portal'),
+                            title: 'Open Institution Portal',
+                        },
+                        faculty: {
+                            label: 'Faculty',
+                            icon: BookOpen,
+                            colorClass: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
+                            iconClass: 'text-purple-400',
+                        },
+                        student: {
+                            label: 'Student',
+                            icon: GraduationCap,
+                            colorClass: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+                            iconClass: 'text-amber-400',
+                        },
+                    };
+                    const badge = ROLE_BADGES[user?.role] || {
+                        label: 'Trader',
+                        icon: LineChart,
+                        colorClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400',
+                        iconClass: 'text-cyan-400',
+                    };
+                    const BadgeIcon = badge.icon;
+                    return (
+                        <div
+                            onClick={badge.onClick}
+                            className={cn(
+                                "hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all select-none mr-1 shadow-sm",
+                                badge.colorClass,
+                                badge.onClick ? "cursor-pointer hover:brightness-125" : "cursor-default"
+                            )}
+                            title={badge.title}
+                        >
+                            <BadgeIcon className={cn("w-3.5 h-3.5", badge.iconClass)} />
+                            <span className="text-xs font-bold uppercase tracking-wider">{badge.label}</span>
+                        </div>
+                    );
+                })()}
 
                 {/* Market status */}
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 mr-1">

@@ -87,6 +87,42 @@ async def list_institutions(
     }
 
 
+@router.get("/institutions/{institution_id}")
+async def get_institution(
+    institution_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    institution_uuid = _as_uuid(institution_id)
+    institution = await db.get(Institution, institution_uuid) if institution_uuid else None
+    if not institution:
+        raise HTTPException(status_code=404, detail="Institution not found")
+
+    counts_result = await db.execute(
+        select(User.role, func.count(User.id))
+        .where(User.institution_id == institution.id)
+        .group_by(User.role)
+    )
+    counts = {"institution_admin": 0, "faculty": 0, "student": 0}
+    for role, count in counts_result.all():
+        if role in counts:
+            counts[role] = count
+
+    return {
+        "institution": {
+            "id": str(institution.id),
+            "name": institution.name,
+            "code": institution.code,
+            "email_domain": institution.email_domain,
+            "status": institution.status,
+            "created_at": institution.created_at.isoformat() if institution.created_at else None,
+            "admin_count": counts["institution_admin"],
+            "faculty_count": counts["faculty"],
+            "student_count": counts["student"],
+        }
+    }
+
+
 @router.post("/institutions")
 async def create_institution(
     req: CreateInstitutionRequest,

@@ -7,6 +7,10 @@ const academicApi = {
         return api.get('/admin/academic/institutions');
     },
 
+    getInstitution(institutionId) {
+        return api.get(`/admin/academic/institutions/${institutionId}`);
+    },
+
     createInstitution(payload) {
         return api.post('/admin/academic/institutions', payload);
     },
