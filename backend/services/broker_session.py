@@ -135,6 +135,21 @@ class BrokerSessionManager:
             return True
         return False
 
+    async def destroy_non_master_sessions(self) -> int:
+        """
+        Stop and remove every session except the master one — used by admins
+        to clean up leftover per-user broker connections now that the master
+        Zebu feed serves all market data.
+
+        Returns the number of sessions destroyed.
+        """
+        user_ids = [uid for uid in self._sessions.keys() if uid != MASTER_SESSION_ID]
+        destroyed = 0
+        for user_id in user_ids:
+            if await self.destroy_session(user_id):
+                destroyed += 1
+        return destroyed
+
     def register_session(self, user_id: str, provider) -> None:
         """
         Register a pre-authenticated provider under a given user_id.

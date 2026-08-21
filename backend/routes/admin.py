@@ -323,6 +323,18 @@ async def master_feed_refresh(
     return status
 
 
+@router.post("/master-feed/disconnect-legacy-sessions")
+async def disconnect_legacy_broker_sessions(
+    admin: User = Depends(require_manage_level),
+):
+    """Close any leftover per-user broker sessions, keeping only the master feed."""
+    destroyed = await broker_session_manager.destroy_non_master_sessions()
+    status = master_session_service.get_status()
+    status["broker_sessions"] = broker_session_manager.get_status()
+    status["disconnected"] = destroyed
+    return status
+
+
 # ── User Management (require at least 'manage' for writes) ──────────
 
 

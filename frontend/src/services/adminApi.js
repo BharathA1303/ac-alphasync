@@ -218,6 +218,10 @@ const adminApi = {
         return api.post('/admin/master-feed/refresh', {}, withAdminSession());
     },
 
+    disconnectLegacyBrokerSessions() {
+        return api.post('/admin/master-feed/disconnect-legacy-sessions', {}, withAdminSession());
+    },
+
     // ── Bug Reports ─────────────────────────────────────────────────
     getBugReportStats() {
         return api.get('/bug-reports/admin/dashboard-stats', withAdminSession());
