@@ -269,11 +269,6 @@ function ManageUserModal({ user: selectedUser, userDetail, detailLoading, action
                                 { label: 'Full Name', content: <span className="text-sm font-medium">{selectedUser.full_name || '—'}</span> },
                                 { label: 'Username', content: <span className="text-sm font-mono">{selectedUser.username || '—'}</span> },
                                 { label: 'Email / Gmail', content: <span className="text-sm break-all">{selectedUser.email}</span> },
-                                {
-                                    label: 'Mobile Number', content: selectedUser.phone
-                                        ? <span className="text-sm font-mono font-semibold" style={{ color: '#10b981' }}>{selectedUser.phone}</span>
-                                        : <span className="text-sm font-semibold" style={{ color: '#f59e0b' }}>⚠ Not set</span>
-                                },
                                 { label: 'Auth Provider', content: <span className="text-sm">{selectedUser.auth_provider === 'google.com' ? '🔵 Google OAuth' : selectedUser.auth_provider === 'password' ? '🔑 Email / Password' : (selectedUser.auth_provider || '—')}</span> },
                                 {
                                     label: 'Email Verified', content: selectedUser.is_verified
@@ -1895,7 +1890,7 @@ export default function AdminPanelPage() {
                                 </colgroup>
                                 <thead>
                                     <tr style={{ background: 'var(--bg-muted)' }}>
-                                        {['Username', 'Email', 'Full Name', 'Mobile', 'Status', 'Group', 'Provider', 'Registered', 'Expires', 'Last Online', 'Action', 'Rating', 'Feedback'].map((h) => (
+                                        {['Username', 'Email', 'Full Name', 'Status', 'Group', 'Provider', 'Registered', 'Expires', 'Last Online', 'Action', 'Rating', 'Feedback'].map((h) => (
                                             <th key={h} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider"
                                                 style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
                                         ))}
@@ -1931,9 +1926,6 @@ export default function AdminPanelPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-2.5 sm:px-3 py-2.5 sm:py-3 text-xs" style={{ color: 'var(--text-secondary)' }} title={u.full_name || u.username}>{u.full_name || u.username || '—'}</td>
-                                                <td className="px-2.5 sm:px-3 py-2.5 sm:py-3 text-xs font-mono whitespace-nowrap" style={{ color: u.phone ? 'var(--text-primary)' : '#ef4444' }}>
-                                                    {u.phone || <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>Not set</span>}
-                                                </td>
                                                 <td className="px-2.5 sm:px-3 py-2.5 sm:py-3"><StatusPill status={u.account_status} /></td>
                                                 <td className="px-2.5 sm:px-3 py-2.5 sm:py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                                                     {u.group_name || 'Normal'}
@@ -2146,7 +2138,6 @@ export default function AdminPanelPage() {
                                         { label: 'Full Name', value: modalUser.full_name || '—' },
                                         { label: 'Username', value: modalUser.username || '—' },
                                         { label: 'Email', value: modalUser.email },
-                                        { label: 'Mobile', value: modalUser.phone || 'Not set' },
                                         { label: 'Auth Provider', value: modalUser.auth_provider === 'google.com' ? '🔵 Google' : modalUser.auth_provider === 'password' ? '🔑 Email' : (modalUser.auth_provider || '—') },
                                         { label: 'Email Verified', value: modalUser.is_verified ? '✅ Yes' : '❌ No' },
                                     ].map(({ label, value }) => (

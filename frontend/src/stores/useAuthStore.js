@@ -201,18 +201,4 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem('alphasync_user', JSON.stringify(updated));
         set({ user: updated });
     },
-
-    /**
-     * Save the user's mobile number as contact info.
-     */
-    submitPhone: async (phone) => {
-        const response = await api.post('/auth/set-phone', { phone });
-        const current = get().user;
-        if (current) {
-            const updated = { ...current, phone: response.data.phone };
-            localStorage.setItem('alphasync_user', JSON.stringify(updated));
-            set({ user: updated });
-        }
-        return response.data;
-    },
 }));

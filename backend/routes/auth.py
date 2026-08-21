@@ -173,10 +173,6 @@ class SyncRequest(BaseModel):
     group_token: Optional[str] = None
 
 
-class PhoneSubmitRequest(BaseModel):
-    """Phone number submission — validated and saved as contact info."""
-
-    phone: str  # 10-digit Indian mobile or +91XXXXXXXXXX
 
 
 # --- Core Dependency: get_current_user ---
@@ -647,7 +643,6 @@ async def sync_user(
             "email": user.email,
             "username": user.username,
             "full_name": user.full_name,
-            "phone": user.phone,
             "role": user.role,
             "virtual_capital": float(user.virtual_capital),
             "avatar_url": user.avatar_url,
@@ -658,65 +653,6 @@ async def sync_user(
     }
 
 
-def _normalise_phone(raw: str):
-    """Validate and normalise Indian mobile number → '+91XXXXXXXXXX' or None."""
-    digits = re.sub(r"[\s\-\(\)]", "", raw.strip())
-    if digits.startswith("+91"):
-        digits = digits[3:]
-    elif digits.startswith("91") and len(digits) == 12:
-        digits = digits[2:]
-    if not re.fullmatch(r"[6-9]\d{9}", digits):
-        return None
-    return f"+91{digits}"
-
-
-def _require_firebase_uid(credentials) -> str:
-    """Verify Firebase token and return firebase_uid; raises 401 on failure."""
-    if not credentials:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    claims = verify_id_token(credentials.credentials)
-    if not claims:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    uid = claims.get("uid")
-    if not uid:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    return uid
-
-
-@router.post("/set-phone")
-async def set_phone(
-    req: PhoneSubmitRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Save the user's Indian mobile number as contact info.
-
-    Validates the number format (10-digit, starts with 6-9) and persists it.
-    Does NOT enforce account_status so pending_approval users can complete
-    their profile. No OTP required — number is for contact purposes only.
-    """
-    firebase_uid = _require_firebase_uid(credentials)
-
-    normalised = _normalise_phone(req.phone)
-    if not normalised:
-        raise HTTPException(
-            status_code=400,
-            detail="Please enter a valid 10-digit Indian mobile number (starts with 6–9).",
-        )
-
-    result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    user.phone = normalised
-    user.updated_at = datetime.now(timezone.utc)
-    await db.commit()
-    await db.refresh(user)
-
-    logger.info("Phone saved for %s → %s", user.email, normalised)
-    return {"message": "Mobile number saved.", "phone": user.phone}
 
 
 @router.get("/me")
@@ -727,7 +663,6 @@ async def get_me(user: User = Depends(get_current_user)):
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name,
-        "phone": user.phone,
         "role": user.role,
         "virtual_capital": float(user.virtual_capital),
         "avatar_url": user.avatar_url,

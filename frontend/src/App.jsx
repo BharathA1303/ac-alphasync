@@ -31,7 +31,6 @@ import BrokerSelectPage from './pages/BrokerSelectPage';
 import BrokerCallbackPage from './pages/BrokerCallbackPage';
 import BrokersPage from './pages/BrokersPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
-import CollectPhonePage from './pages/CollectPhonePage';
 import AccountStatusPage from './pages/AccountStatusPage';
 import AdminAccessPage from './pages/AdminAccessPage';
 import AdminPanelPage from './pages/AdminPanelPage';
@@ -80,9 +79,6 @@ export default function App() {
 
                         <Route path="/account-status" element={
                             <ProtectedRoute><AccountStatusPage /></ProtectedRoute>
-                        } />
-                        <Route path="/collect-phone" element={
-                            <ProtectedRoute><CollectPhonePage /></ProtectedRoute>
                         } />
 
                         {/* ── Protected (mode/broker select, no AppShell) ── */}

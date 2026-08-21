@@ -24,7 +24,6 @@ MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2MB
 
 class UpdateProfileRequest(BaseModel):
     full_name: Optional[str] = None
-    phone: Optional[str] = None
     avatar_url: Optional[str] = None
 
 
@@ -35,7 +34,6 @@ async def get_profile(user: User = Depends(get_current_user)):
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name,
-        "phone": user.phone,
         "avatar_url": user.avatar_url,
         "role": user.role,
         "virtual_capital": (
@@ -54,8 +52,6 @@ async def update_profile(
 ):
     if req.full_name is not None:
         user.full_name = req.full_name
-    if req.phone is not None:
-        user.phone = req.phone
     if req.avatar_url is not None:
         user.avatar_url = req.avatar_url
     await db.commit()
@@ -67,7 +63,6 @@ async def update_profile(
             "email": user.email,
             "username": user.username,
             "full_name": user.full_name,
-            "phone": user.phone,
             "avatar_url": user.avatar_url,
             "role": user.role,
             "virtual_capital": float(user.virtual_capital) if user.virtual_capital is not None else None,

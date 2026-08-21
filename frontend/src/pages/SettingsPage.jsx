@@ -639,7 +639,7 @@ export default function SettingsPage() {
     return TABS.some((tab) => tab.id === next) ? next : "profile";
   }, []);
 
-  const [profile, setProfile] = useState({ full_name: "", phone: "" });
+  const [profile, setProfile] = useState({ full_name: "" });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(() => resolveTab(searchParams.get("tab")));
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -670,18 +670,9 @@ export default function SettingsPage() {
 
   const updateNotif = (key, val) => setNotifPrefs((p) => ({ ...p, [key]: val }));
 
-  // Fetch full profile with phone on mount
   useEffect(() => {
     if (user) {
-      setProfile({ full_name: user.full_name || "", phone: user.phone || "" });
-      // If phone is missing from store, fetch from profile endpoint
-      if (user.phone === undefined) {
-        api.get("/user/profile").then((res) => {
-          const p = res.data;
-          updateUser({ phone: p.phone || "" });
-          setProfile((prev) => ({ ...prev, phone: p.phone || "" }));
-        }).catch(() => {});
-      }
+      setProfile({ full_name: user.full_name || "" });
     }
   }, [user]);
 
@@ -842,17 +833,6 @@ export default function SettingsPage() {
                       onChange={(e) => setProfile((p) => ({ ...p, full_name: e.target.value }))}
                       className="input-field"
                     />
-                  </div>
-                  <div>
-                    <label className="label-text">Phone Number</label>
-                    <input
-                      type="tel"
-                      value={profile.phone}
-                      onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
-                      placeholder="+91 00000 00000"
-                      className="input-field"
-                    />
-                    <p className="text-[10px] text-gray-600 mt-1">Optional. Used for account recovery only.</p>
                   </div>
                 </div>
 

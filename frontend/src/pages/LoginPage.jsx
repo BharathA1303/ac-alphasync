@@ -75,13 +75,7 @@ export default function LoginPage() {
     }
   };
 
-  const hasPhone = (profile) => {
-    if ((profile?.role || "").toLowerCase() === "admin") return true;
-    return Boolean(profile?.phone);
-  };
-
   const handleAuthSuccess = (profile) => {
-    if (!hasPhone(profile)) { navigate("/collect-phone"); return; }
     routeByAccountStatus(profile);
   };
 
