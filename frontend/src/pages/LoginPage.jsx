@@ -202,7 +202,7 @@ export default function LoginPage() {
             <defs>
               {/* Area gradient under the trend line */}
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.28"/>
+                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.12"/>
                 <stop offset="100%" stopColor="#00B67A" stopOpacity="0"/>
               </linearGradient>
               {/* Candle glow filter */}
@@ -645,13 +645,17 @@ const LP_STYLES = `
     -webkit-mask-image: linear-gradient(to bottom right, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.2) 100%);
   }
 
-  /* Candlestick chart — right side, full height */
+  /* Candlestick chart — background only, top-right quadrant */
   .lp-chart {
     position: absolute;
     top: 0; right: 0;
-    width: 62%; height: 100%;
-    opacity: 0.7; pointer-events: none;
+    width: 55%; height: 78%;
+    opacity: 0.14;
+    pointer-events: none;
     z-index: 1;
+    /* Fade out toward the left so it never competes with text */
+    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0.3) 65%, transparent 100%);
+    mask-image: linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0.3) 65%, transparent 100%);
   }
 
   /* Shield graphic — right-center, larger and more visible */
