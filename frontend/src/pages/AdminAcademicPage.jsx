@@ -39,6 +39,16 @@ function StatusBadge({ status }) {
     );
 }
 
+function timeLeftLabel(expiresAt) {
+    if (!expiresAt) return '—';
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
+    if (diffMs <= 0) return 'Expired';
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours < 1) return '<1h left';
+    if (hours < 24) return `${hours}h left`;
+    return `${Math.floor(hours / 24)}d left`;
+}
+
 function CreateInstitutionModal({ onClose, onCreated }) {
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
@@ -99,28 +109,8 @@ function CreateInstitutionModal({ onClose, onCreated }) {
     );
 }
 
-function GenerateInviteModal({ institution, onClose }) {
-    const [expiry, setExpiry] = useState('7d');
-    const [saving, setSaving] = useState(false);
-    const [link, setLink] = useState(null);
-
-    const handleGenerate = async () => {
-        setSaving(true);
-        try {
-            const { data } = await academicApi.createInstitutionAdminInvite({
-                institution_id: institution.id,
-                expiry,
-            });
-            setLink(data?.invite_link);
-        } catch (err) {
-            toast.error(parseApiError(err, 'Failed to generate invite link'));
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const fullUrl = link ? `${window.location.origin}/register?invite=${link.token}` : '';
-
+function InviteLinkRow({ link }) {
+    const fullUrl = `${window.location.origin}/register?invite=${link.token}`;
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(fullUrl);
@@ -129,13 +119,63 @@ function GenerateInviteModal({ institution, onClose }) {
             toast.error('Could not copy link');
         }
     };
+    return (
+        <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+            <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {ROLE_LABELS[link.target_role] || link.target_role}
+                    <span className="ml-2 font-normal" style={{ color: 'var(--text-muted)' }}>
+                        {timeLeftLabel(link.expires_at)} · {link.use_count}{link.max_uses ? `/${link.max_uses}` : ''} used
+                    </span>
+                </div>
+                <div className="text-[11px] font-mono truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullUrl}</div>
+            </div>
+            <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" onClick={handleCopy}>
+                <Copy size={12} /> Copy
+            </button>
+        </div>
+    );
+}
+
+function GenerateInviteModal({ institution, onClose }) {
+    const [expiry, setExpiry] = useState('7d');
+    const [saving, setSaving] = useState(false);
+    const [links, setLinks] = useState([]);
+    const [loadingLinks, setLoadingLinks] = useState(true);
+
+    const loadLinks = useCallback(async () => {
+        setLoadingLinks(true);
+        try {
+            const { data } = await academicApi.listInstitutionAdminInvites(institution.id);
+            setLinks(data?.invite_links || []);
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to load invite links'));
+        } finally {
+            setLoadingLinks(false);
+        }
+    }, [institution.id]);
+
+    useEffect(() => { loadLinks(); }, [loadLinks]);
+
+    const handleGenerate = async () => {
+        setSaving(true);
+        try {
+            await academicApi.createInstitutionAdminInvite({ institution_id: institution.id, expiry });
+            toast.success('Invite link generated');
+            await loadLinks();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to generate invite link'));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-            <div className="w-full max-w-md rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
                 <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--border)' }}>
                     <div>
-                        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Generate Inst. Admin Link</h2>
+                        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Inst. Admin Invite Links</h2>
                         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{institution.name}</p>
                     </div>
                     <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: 'var(--text-muted)' }} onClick={onClose}>
@@ -143,78 +183,32 @@ function GenerateInviteModal({ institution, onClose }) {
                     </button>
                 </div>
                 <div className="p-5 flex flex-col gap-4">
-                    {!link ? (
-                        <>
-                            <div>
-                                <label className="label-text">Expiry</label>
-                                <div className="flex gap-2 mt-1">
-                                    {EXPIRY_OPTIONS.map((opt) => (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            className="admin-action-btn text-sm"
-                                            style={{
-                                                background: expiry === opt.value ? 'var(--brand)' : 'var(--bg-muted)',
-                                                color: expiry === opt.value ? '#04121a' : 'var(--text-primary)',
-                                                border: '1px solid var(--border)',
-                                            }}
-                                            onClick={() => setExpiry(opt.value)}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={saving} onClick={handleGenerate}>
-                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate Link
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div className="p-3 rounded-xl break-all text-sm font-mono" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                                {fullUrl}
-                            </div>
-                            <button className="admin-action-btn admin-action-btn--primary text-sm" onClick={handleCopy}>
-                                <Copy size={14} /> Copy Link
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function InstitutionCard({ institution, onGenerateLink }) {
-    return (
-        <div className="admin-card p-4 flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <Building2 size={16} style={{ color: 'var(--brand)' }} />
-                        <h3 className="font-bold truncate" style={{ color: 'var(--text-primary)' }}>{institution.name}</h3>
+                    <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                            <label className="label-text">Expiry</label>
+                            <select className="input-field text-sm" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+                                {EXPIRY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            </select>
+                        </div>
+                        <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={saving} onClick={handleGenerate}>
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate
+                        </button>
                     </div>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{institution.code}{institution.email_domain ? ` · ${institution.email_domain}` : ''}</p>
-                </div>
-                <StatusBadge status={institution.status} />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Admins</div>
-                    <div className="text-sm font-bold">{institution.admin_count}</div>
-                </div>
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Faculty</div>
-                    <div className="text-sm font-bold">{institution.faculty_count}</div>
-                </div>
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Students</div>
-                    <div className="text-sm font-bold">{institution.student_count}</div>
+
+                    <div>
+                        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Active Links</div>
+                        {loadingLinks ? (
+                            <div className="flex items-center justify-center py-6"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
+                        ) : links.length === 0 ? (
+                            <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No active links. Generate one above.</div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {links.map((link) => <InviteLinkRow key={link.id} link={link} />)}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-            <button className="admin-action-btn admin-action-btn--secondary text-sm" onClick={() => onGenerateLink(institution)}>
-                <Link2 size={14} /> Generate Admin Invite
-            </button>
         </div>
     );
 }
@@ -226,6 +220,7 @@ export default function AdminAcademicPage() {
     const [institutions, setInstitutions] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [linkModalInstitution, setLinkModalInstitution] = useState(null);
+    const [instSearch, setInstSearch] = useState('');
 
     const [members, setMembers] = useState([]);
     const [membersTotal, setMembersTotal] = useState(0);
@@ -270,6 +265,14 @@ export default function AdminAcademicPage() {
         return map;
     }, [institutions]);
 
+    const filteredInstitutions = useMemo(() => {
+        const q = instSearch.trim().toLowerCase();
+        if (!q) return institutions;
+        return institutions.filter((inst) =>
+            inst.name.toLowerCase().includes(q) || inst.code.toLowerCase().includes(q)
+        );
+    }, [institutions, instSearch]);
+
     return (
         <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6">
             <header className="flex flex-wrap items-start sm:items-center justify-between gap-3 mb-4 sm:mb-5">
@@ -293,21 +296,68 @@ export default function AdminAcademicPage() {
                 </div>
             </header>
 
-            <section className="mb-5">
-                <h2 className="text-lg font-bold admin-section-title mb-3">Institutions</h2>
-                {loading ? (
-                    <div className="flex items-center justify-center p-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
-                ) : institutions.length === 0 ? (
-                    <div className="admin-card p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No institutions yet. Create one to get started.
+            <section className="admin-card p-4 sm:p-5 mb-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h2 className="text-lg font-bold admin-section-title flex items-center gap-2">
+                        <Building2 size={16} /> Institutions ({institutions.length})
+                    </h2>
+                    <div className="relative">
+                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                        <input
+                            className="input-field text-sm pl-8"
+                            placeholder="Search institutions..."
+                            value={instSearch}
+                            onChange={(e) => setInstSearch(e.target.value)}
+                        />
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {institutions.map((inst) => (
-                            <InstitutionCard key={inst.id} institution={inst} onGenerateLink={setLinkModalInstitution} />
-                        ))}
-                    </div>
-                )}
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Institution</th>
+                                <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Status</th>
+                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Admins</th>
+                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Faculty</th>
+                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Students</th>
+                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Invite</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={6} className="text-center py-8"><Loader2 size={20} className="animate-spin inline" style={{ color: 'var(--text-muted)' }} /></td></tr>
+                            ) : filteredInstitutions.length === 0 ? (
+                                <tr><td colSpan={6} className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
+                                    {institutions.length === 0 ? 'No institutions yet. Create one to get started.' : 'No institutions match your search.'}
+                                </td></tr>
+                            ) : (
+                                filteredInstitutions.map((inst) => (
+                                    <tr key={inst.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <td className="py-2.5 px-2">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 size={14} style={{ color: 'var(--brand)' }} className="flex-shrink-0" />
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{inst.name}</div>
+                                                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{inst.code}{inst.email_domain ? ` · ${inst.email_domain}` : ''}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-2.5 px-2"><StatusBadge status={inst.status} /></td>
+                                        <td className="py-2.5 px-2 text-right font-mono">{inst.admin_count}</td>
+                                        <td className="py-2.5 px-2 text-right font-mono">{inst.faculty_count}</td>
+                                        <td className="py-2.5 px-2 text-right font-mono">{inst.student_count}</td>
+                                        <td className="py-2.5 px-2 text-right">
+                                            <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={() => setLinkModalInstitution(inst)}>
+                                                <Link2 size={12} /> Links
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             <section className="admin-card p-4 sm:p-5">

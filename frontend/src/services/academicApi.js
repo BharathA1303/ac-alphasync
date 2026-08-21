@@ -19,6 +19,10 @@ const academicApi = {
         return api.post('/admin/academic/invite-link', payload);
     },
 
+    listInstitutionAdminInvites(institutionId) {
+        return api.get(`/admin/academic/institutions/${institutionId}/invite-links`);
+    },
+
     listAcademicUsers(params = {}) {
         return api.get('/admin/academic/users', { params });
     },
@@ -30,6 +34,10 @@ const academicApi = {
 
     createMemberInvite(payload) {
         return api.post('/institution/invite-link', payload);
+    },
+
+    listMemberInvites(params = {}) {
+        return api.get('/institution/invite-links', { params });
     },
 
     listInstitutionMembers(params = {}) {

@@ -108,6 +108,31 @@ async def create_member_invite(
     return result
 
 
+@router.get("/invite-links")
+async def list_member_invites(
+    role: Optional[str] = Query(None),
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if role and role not in ("faculty", "student"):
+        raise HTTPException(status_code=400, detail="Invalid role filter")
+    if role:
+        links = await invite_service.list_active_invite_links(
+            db, admin.institution_id, target_role=role
+        )
+    else:
+        # Institution admins only ever manage faculty/student links —
+        # institution_admin links are Super-Admin-only and must never leak here.
+        student_links = await invite_service.list_active_invite_links(
+            db, admin.institution_id, target_role="student"
+        )
+        faculty_links = await invite_service.list_active_invite_links(
+            db, admin.institution_id, target_role="faculty"
+        )
+        links = sorted(student_links + faculty_links, key=lambda l: l["created_at"] or "", reverse=True)
+    return {"invite_links": links}
+
+
 @router.get("/members")
 async def list_members(
     role: Optional[str] = Query(None),

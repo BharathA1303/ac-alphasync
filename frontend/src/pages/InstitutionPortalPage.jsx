@@ -16,26 +16,20 @@ const EXPIRY_OPTIONS = [
     { value: '30d', label: '30 days' },
 ];
 
-function GenerateInviteModal({ onClose }) {
-    const [targetRole, setTargetRole] = useState('student');
-    const [expiry, setExpiry] = useState('7d');
-    const [saving, setSaving] = useState(false);
-    const [link, setLink] = useState(null);
+const ROLE_LABELS = { student: 'Student', faculty: 'Faculty' };
 
-    const handleGenerate = async () => {
-        setSaving(true);
-        try {
-            const { data } = await academicApi.createMemberInvite({ target_role: targetRole, expiry });
-            setLink(data?.invite_link);
-        } catch (err) {
-            toast.error(parseApiError(err, 'Failed to generate invite link'));
-        } finally {
-            setSaving(false);
-        }
-    };
+function timeLeftLabel(expiresAt) {
+    if (!expiresAt) return '—';
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
+    if (diffMs <= 0) return 'Expired';
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours < 1) return '<1h left';
+    if (hours < 24) return `${hours}h left`;
+    return `${Math.floor(hours / 24)}d left`;
+}
 
-    const fullUrl = link ? `${window.location.origin}/register?invite=${link.token}` : '';
-
+function InviteLinkRow({ link }) {
+    const fullUrl = `${window.location.origin}/register?invite=${link.token}`;
     const handleCopy = async () => {
         try {
             await navigator.clipboard.writeText(fullUrl);
@@ -44,73 +38,112 @@ function GenerateInviteModal({ onClose }) {
             toast.error('Could not copy link');
         }
     };
+    return (
+        <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+            <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {ROLE_LABELS[link.target_role] || link.target_role}
+                    <span className="ml-2 font-normal" style={{ color: 'var(--text-muted)' }}>
+                        {timeLeftLabel(link.expires_at)} · {link.use_count}{link.max_uses ? `/${link.max_uses}` : ''} used
+                    </span>
+                </div>
+                <div className="text-[11px] font-mono truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullUrl}</div>
+            </div>
+            <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" onClick={handleCopy}>
+                <Copy size={12} /> Copy
+            </button>
+        </div>
+    );
+}
+
+function GenerateInviteModal({ onClose }) {
+    const [targetRole, setTargetRole] = useState('student');
+    const [expiry, setExpiry] = useState('7d');
+    const [saving, setSaving] = useState(false);
+    const [links, setLinks] = useState([]);
+    const [loadingLinks, setLoadingLinks] = useState(true);
+
+    const loadLinks = useCallback(async () => {
+        setLoadingLinks(true);
+        try {
+            const { data } = await academicApi.listMemberInvites();
+            setLinks(data?.invite_links || []);
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to load invite links'));
+        } finally {
+            setLoadingLinks(false);
+        }
+    }, []);
+
+    useEffect(() => { loadLinks(); }, [loadLinks]);
+
+    const handleGenerate = async () => {
+        setSaving(true);
+        try {
+            await academicApi.createMemberInvite({ target_role: targetRole, expiry });
+            toast.success('Invite link generated');
+            await loadLinks();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to generate invite link'));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-            <div className="w-full max-w-md rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
                 <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--border)' }}>
-                    <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Generate Invite Link</h2>
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Invite Links</h2>
                     <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: 'var(--text-muted)' }} onClick={onClose}>
                         <X size={18} />
                     </button>
                 </div>
                 <div className="p-5 flex flex-col gap-4">
-                    {!link ? (
-                        <>
-                            <div>
-                                <label className="label-text">Role</label>
-                                <div className="flex gap-2 mt-1">
-                                    {['student', 'faculty'].map((role) => (
-                                        <button
-                                            key={role}
-                                            type="button"
-                                            className="admin-action-btn text-sm"
-                                            style={{
-                                                background: targetRole === role ? 'var(--brand)' : 'var(--bg-muted)',
-                                                color: targetRole === role ? '#04121a' : 'var(--text-primary)',
-                                                border: '1px solid var(--border)',
-                                            }}
-                                            onClick={() => setTargetRole(role)}
-                                        >
-                                            {role === 'student' ? 'Student' : 'Faculty'}
-                                        </button>
-                                    ))}
-                                </div>
+                    <div>
+                        <label className="label-text">Role</label>
+                        <div className="flex gap-2 mt-1">
+                            {['student', 'faculty'].map((role) => (
+                                <button
+                                    key={role}
+                                    type="button"
+                                    className="admin-action-btn text-sm"
+                                    style={{
+                                        background: targetRole === role ? 'var(--brand)' : 'var(--bg-muted)',
+                                        color: targetRole === role ? '#04121a' : 'var(--text-primary)',
+                                        border: '1px solid var(--border)',
+                                    }}
+                                    onClick={() => setTargetRole(role)}
+                                >
+                                    {ROLE_LABELS[role]}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                            <label className="label-text">Expiry</label>
+                            <select className="input-field text-sm" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+                                {EXPIRY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            </select>
+                        </div>
+                        <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={saving} onClick={handleGenerate}>
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate
+                        </button>
+                    </div>
+
+                    <div>
+                        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Active Links</div>
+                        {loadingLinks ? (
+                            <div className="flex items-center justify-center py-6"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
+                        ) : links.length === 0 ? (
+                            <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No active links. Generate one above.</div>
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                {links.map((link) => <InviteLinkRow key={link.id} link={link} />)}
                             </div>
-                            <div>
-                                <label className="label-text">Expiry</label>
-                                <div className="flex gap-2 mt-1">
-                                    {EXPIRY_OPTIONS.map((opt) => (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            className="admin-action-btn text-sm"
-                                            style={{
-                                                background: expiry === opt.value ? 'var(--brand)' : 'var(--bg-muted)',
-                                                color: expiry === opt.value ? '#04121a' : 'var(--text-primary)',
-                                                border: '1px solid var(--border)',
-                                            }}
-                                            onClick={() => setExpiry(opt.value)}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={saving} onClick={handleGenerate}>
-                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate Link
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div className="p-3 rounded-xl break-all text-sm font-mono" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                                {fullUrl}
-                            </div>
-                            <button className="admin-action-btn admin-action-btn--primary text-sm" onClick={handleCopy}>
-                                <Copy size={14} /> Copy Link
-                            </button>
-                        </>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

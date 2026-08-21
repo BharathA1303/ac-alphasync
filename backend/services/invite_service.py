@@ -101,6 +101,41 @@ def _serialize_link(link: InviteLink, institution_name: Optional[str] = None) ->
     }
 
 
+async def list_active_invite_links(
+    db: AsyncSession,
+    institution_id,
+    target_role: Optional[str] = None,
+) -> list[dict]:
+    """Active (not expired, not deactivated, not exhausted) links for an institution.
+
+    Expired/deactivated/exhausted links are simply omitted — they "disappear"
+    once no longer usable, matching the invite-link lifecycle end to end.
+    """
+    institution_uuid = _as_uuid(institution_id)
+    if not institution_uuid:
+        return []
+
+    filters = [
+        InviteLink.institution_id == institution_uuid,
+        InviteLink.is_active == True,  # noqa: E712
+        InviteLink.expires_at > _utcnow(),
+    ]
+    if target_role:
+        filters.append(InviteLink.target_role == target_role)
+
+    result = await db.execute(
+        select(InviteLink).where(*filters).order_by(InviteLink.created_at.desc())
+    )
+    links = result.scalars().all()
+
+    active = []
+    for link in links:
+        if link.max_uses and link.use_count >= link.max_uses:
+            continue
+        active.append(_serialize_link(link))
+    return active
+
+
 async def _get_link_by_token(db: AsyncSession, token: str) -> Optional[InviteLink]:
     token = (token or "").strip()
     if not token:

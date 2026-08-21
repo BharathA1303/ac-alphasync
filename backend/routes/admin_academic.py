@@ -186,6 +186,18 @@ async def create_institution_admin_invite(
     return result
 
 
+@router.get("/institutions/{institution_id}/invite-links")
+async def list_institution_admin_invites(
+    institution_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    links = await invite_service.list_active_invite_links(
+        db, institution_id, target_role="institution_admin"
+    )
+    return {"invite_links": links}
+
+
 @router.get("/users")
 async def list_academic_users(
     institution_id: Optional[str] = None,
