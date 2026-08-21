@@ -31,9 +31,10 @@ export default function LoginPage() {
   );
 
   const [tab, setTab] = useState("login");
-  const [loginEmail, setLoginEmail]     = useState("");
+  const [loginUsername, setLoginUsername] = useState("");
   const [loginPass, setLoginPass]       = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [regUsername, setRegUsername]   = useState("");
   const [regFname, setRegFname]         = useState("");
   const [regLname, setRegLname]         = useState("");
   const [regEmail, setRegEmail]         = useState("");
@@ -61,7 +62,7 @@ export default function LoginPage() {
         if ((profile?.role || "").toLowerCase() === "admin") {
           navigate("/admin/panel");
         } else {
-          toast.error(`Signed in as ${profile?.email || "this account"}, but it is not an admin account.`);
+          toast.error(`Signed in as ${profile?.username || profile?.email || "this account"}, but it is not an admin account.`);
           navigate("/admin");
         }
         return;
@@ -92,9 +93,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!loginUsername.trim()) return toast.error("Username is required");
     setLoginLoading(true);
     try {
-      const result = await loginWithEmail(loginEmail, loginPass);
+      const result = await loginWithEmail(loginUsername.trim(), loginPass);
       if ((result?.user?.account_status || "active") !== "active") {
         toast("Login successful. Your account is pending review.");
       } else {
@@ -104,12 +106,12 @@ export default function LoginPage() {
     } catch (err) {
       const code = err.code;
       if (code === "auth/email-not-verified") {
-        try { await resendVerification(loginEmail, loginPass); toast.error("Email not verified. We sent a new verification link."); }
+        try { await resendVerification(loginUsername, loginPass); toast.error("Email not verified. We sent a new verification link."); }
         catch  { toast.error("Email not verified. Check your inbox."); }
-        navigate("/verify-email", { state: { email: loginEmail, password: loginPass } });
+        navigate("/verify-email", { state: { email: loginUsername, password: loginPass } });
         return;
       } else if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
-        toast.error("Invalid email or password");
+        toast.error("Invalid username or password");
       } else if (code === "auth/too-many-requests") {
         toast.error("Too many attempts. Try again later.");
       } else {
@@ -120,21 +122,23 @@ export default function LoginPage() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!regUsername.trim()) return toast.error("Username is required");
     if (regPass.length < 6) return toast.error("Password must be at least 6 characters");
     setRegLoading(true);
     try {
       const fullName = (regFname + " " + regLname).trim();
-      const result   = await registerWithEmail(regEmail, regPass, fullName, "");
+      const result   = await registerWithEmail(regEmail.trim(), regPass, fullName, regUsername.trim());
       if (result.needsVerification) {
-        navigate("/verify-email", { state: { email: regEmail, password: regPass } });
+        navigate("/verify-email", { state: { email: regEmail || regUsername, password: regPass } });
       } else {
         localStorage.setItem("alphasync_trading_mode", "demo");
         localStorage.setItem("alphasync_onboarded", "1");
-        navigate("/dashboard");
+        toast.success("Account created successfully!");
+        handleAuthSuccess(result?.user);
       }
     } catch (err) {
       const code = err.code;
-      if (code === "auth/email-already-in-use") toast.error("Email already registered. Try signing in.");
+      if (code === "auth/email-already-in-use") toast.error("Username or Email already registered. Try signing in.");
       else if (code === "auth/weak-password")   toast.error("Password is too weak.");
       else toast.error(err.message || "Registration failed");
     } finally { setRegLoading(false); }
@@ -334,12 +338,12 @@ export default function LoginPage() {
               <form onSubmit={handleLogin}>
 
                 <div className="lp-field">
-                  <label>Email Address</label>
+                  <label>Username</label>
                   <div className="lp-inp">
-                    <i className="lp-ico fa fa-envelope"></i>
-                    <input type="email" placeholder="you@email.com" required
-                      autoComplete="email" value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)} />
+                    <i className="lp-ico fa fa-user"></i>
+                    <input type="text" placeholder="Enter your username" required
+                      autoComplete="username" value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)} />
                   </div>
                 </div>
 
@@ -386,6 +390,15 @@ export default function LoginPage() {
             {/* REGISTER */}
             <div className={"lp-panel" + (tab === "register" ? " active" : "")}>
               <form onSubmit={handleRegister}>
+
+                <div className="lp-field">
+                  <label>Username</label>
+                  <div className="lp-inp">
+                    <i className="lp-ico fa fa-user"></i>
+                    <input type="text" placeholder="Choose a unique username" required autoComplete="username"
+                      value={regUsername} onChange={(e) => setRegUsername(e.target.value)} />
+                  </div>
+                </div>
 
                 <div className="lp-field-row">
                   <div className="lp-field">

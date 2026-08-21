@@ -1895,7 +1895,7 @@ export default function AdminPanelPage() {
                                 </colgroup>
                                 <thead>
                                     <tr style={{ background: 'var(--bg-muted)' }}>
-                                        {['Email', 'Full Name', 'Mobile', 'Status', 'Group', 'Provider', 'Registered', 'Expires', 'Last Online', 'Action', 'Rating', 'Feedback'].map((h) => (
+                                        {['Username', 'Email', 'Full Name', 'Mobile', 'Status', 'Group', 'Provider', 'Registered', 'Expires', 'Last Online', 'Action', 'Rating', 'Feedback'].map((h) => (
                                             <th key={h} className="text-left px-3 py-3 text-xs font-semibold uppercase tracking-wider"
                                                 style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
                                         ))}
@@ -1903,7 +1903,7 @@ export default function AdminPanelPage() {
                                 </thead>
                                 <tbody>
                                     {usersList.length === 0 ? (
-                                        <tr><td colSpan={12} className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>No users found yet.</td></tr>
+                                        <tr><td colSpan={13} className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>No users found yet.</td></tr>
                                     ) : usersList.map((u) => {
                                         const isAdminRow = u.role === 'admin';
                                         const isDeletedMarker = Boolean(u.deleted_by_user);
@@ -1914,6 +1914,9 @@ export default function AdminPanelPage() {
                                         const lastOnline = formatLastOnline(u.last_online_at, u.is_online, u.account_status);
                                         return (
                                             <tr key={u.id} className="admin-row transition-colors" style={{ borderBottom: '1px solid rgba(148,163,184,0.12)', background: rootSelected ? 'rgba(245,158,11,0.08)' : 'transparent' }}>
+                                                <td className="px-2.5 sm:px-3 py-2.5 sm:py-3 text-xs font-mono font-bold" style={{ color: 'var(--brand)' }}>
+                                                    {u.username || '—'}
+                                                </td>
                                                 <td className="px-2.5 sm:px-3 py-2.5 sm:py-3 text-xs font-medium break-all" title={u.email}>
                                                     <span className="inline-flex items-center gap-1.5 flex-wrap">
                                                         {u.email}

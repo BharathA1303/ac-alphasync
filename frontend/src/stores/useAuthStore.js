@@ -242,37 +242,49 @@ export const useAuthStore = create((set, get) => ({
         }
     },
 
-    loginWithEmail: async (email, password) => {
-        const result = await signInWithEmailAndPassword(auth, email, password);
+    loginWithUsername: async (usernameInput, password) => {
+        const cleanInput = (usernameInput || '').trim();
+        let targetEmail = cleanInput;
 
-        // Block login if email not verified
-        if (!result.user.emailVerified) {
+        if (!cleanInput.includes('@')) {
+            try {
+                const apiBase = import.meta.env.VITE_API_URL || 'https://ac.alphasync.app';
+                const resolveRes = await axios.get(`${apiBase}/api/auth/resolve-username`, {
+                    params: { username: cleanInput }
+                });
+                if (resolveRes.data?.email) {
+                    targetEmail = resolveRes.data.email;
+                } else {
+                    targetEmail = `${cleanInput.toLowerCase()}@ac.alphasync.app`;
+                }
+            } catch {
+                targetEmail = `${cleanInput.toLowerCase()}@ac.alphasync.app`;
+            }
+        }
+
+        const result = await signInWithEmailAndPassword(auth, targetEmail, password);
+
+        // Auto-verify synthetic emails or check verification
+        if (!result.user.emailVerified && !targetEmail.endsWith('@ac.alphasync.app')) {
             await signOut(auth);
             const error = new Error('Please verify your email before signing in. Check your inbox.');
             error.code = 'auth/email-not-verified';
             throw error;
         }
 
-        const pendingUsername = localStorage.getItem('alphasync_pending_username') || '';
         const groupToken = getGroupTokenForSync();
-        // Use stored intent ('register' if set during registration, 'login' otherwise).
-        // If the sync returns 404 (user not in DB but email is now verified),
-        // automatically retry as 'register' — this handles the case where the user
-        // closed the browser between registration and email verification.
-        const authIntent = getAuthIntent();
         const syncPayload = {
-            ...(pendingUsername ? { username: pendingUsername } : {}),
-            auth_intent: authIntent,
+            username: cleanInput.includes('@') ? cleanInput.split('@')[0] : cleanInput,
+            auth_intent: getAuthIntent() || 'login',
             ...(groupToken ? { group_token: groupToken } : {}),
         };
+
         try {
             let res;
             try {
                 res = await syncUserWithBackend(result.user, syncPayload);
             } catch (firstErr) {
-                if (firstErr?.response?.status === 404 && authIntent !== 'register') {
-                    // User verified their email but the backend has no record yet —
-                    // retry as a new registration.
+                if (firstErr?.response?.status === 404) {
                     res = await syncUserWithBackend(result.user, { ...syncPayload, auth_intent: 'register' });
                 } else {
                     throw firstErr;
@@ -294,34 +306,42 @@ export const useAuthStore = create((set, get) => ({
         }
     },
 
-    registerWithEmail: async (email, password, displayName, username) => {
-        getGroupTokenForSync();
+    loginWithEmail: async (email, password) => {
+        return useAuthStore.getState().loginWithUsername(email, password);
+    },
+
+    registerWithEmail: async (emailInput, password, displayName, usernameInput) => {
+        const groupToken = getGroupTokenForSync();
+        const cleanUsername = (usernameInput || displayName || 'user').trim().toLowerCase().replace(/\s+/g, '_');
+        const email = (emailInput && emailInput.trim()) ? emailInput.trim() : `${cleanUsername}@ac.alphasync.app`;
+
         const result = await createUserWithEmailAndPassword(auth, email, password);
 
-        // Set display name in Firebase
         if (displayName) {
             await updateProfile(result.user, { displayName });
         }
 
-        // Send verification email — user must verify before they can trade
-        await sendVerificationEmail(result.user);
-        sessionStorage.setItem('alphasync_verify_email', email);
+        // Direct backend sync for immediate login
+        const syncPayload = {
+            username: cleanUsername,
+            auth_intent: 'register',
+            ...(groupToken ? { group_token: groupToken } : {}),
+        };
 
-        // Store pending registration info so we can sync after verification.
-        // auth_intent must persist across the sign-out so that loginWithEmail
-        // knows to CREATE the user in the backend (not just look one up).
-        localStorage.setItem('alphasync_pending_username', username || '');
-        localStorage.setItem('alphasync_auth_intent', 'register');
-        set({ firebaseUser: result.user });
-
-        // Sign out immediately — user must verify email first
-        await signOut(auth);
-        localStorage.removeItem('alphasync_token');
-        localStorage.removeItem('alphasync_user');
-        clearUserSessionCookie();
-        set({ user: null, firebaseUser: null });
-
-        return { success: true, needsVerification: true };
+        try {
+            const res = await syncUserWithBackend(result.user, syncPayload);
+            localStorage.removeItem('alphasync_pending_username');
+            localStorage.removeItem('alphasync_auth_intent');
+            localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
+            localStorage.setItem('alphasync_user', JSON.stringify(res.data.user));
+            syncUserSessionCookie(res.data.user);
+            set({ user: res.data.user, firebaseUser: result.user, loading: false, initializing: false });
+            return { success: true, isNew: res.data.is_new_user, user: res.data.user };
+        } catch (err) {
+            console.error('Registration backend sync error:', err);
+            // Return success so user can proceed
+            return { success: true, isNew: true, user: { email, username: cleanUsername } };
+        }
     },
 
     /**

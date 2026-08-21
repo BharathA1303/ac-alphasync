@@ -337,6 +337,27 @@ async def get_current_user_optional(
 # --- Routes ---
 
 
+@router.get("/resolve-username")
+async def resolve_username(
+    username: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve a username or email to its registered email address for login."""
+    clean = (username or "").strip().lower()
+    if not clean:
+        raise HTTPException(status_code=400, detail="Username is required")
+
+    if "@" in clean:
+        return {"email": clean, "username": clean.split("@")[0]}
+
+    result = await db.execute(select(User).where(func.lower(User.username) == clean))
+    user = result.scalar_one_or_none()
+    if user:
+        return {"email": user.email, "username": user.username}
+
+    return {"email": f"{clean}@ac.alphasync.app", "username": clean}
+
+
 @router.post("/sync")
 async def sync_user(
     req: SyncRequest,
