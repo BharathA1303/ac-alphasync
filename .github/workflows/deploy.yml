@@ -255,9 +255,9 @@ jobs:
             NGINX_CONF="/etc/nginx/sites-enabled/${DOMAIN}.conf"
             cp deploy/nginx/ac.alphasync.app.conf "${NGINX_CONF}"
 
-            mkdir -p /etc/nginx/ssl-certificates
+            mkdir -p /etc/nginx/ssl-certificates /var/www/letsencrypt
             if [ ! -f "/etc/nginx/ssl-certificates/${DOMAIN}.crt" ]; then
-              echo "Creating self-signed SSL cert..."
+              echo "Creating initial self-signed SSL cert..."
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
                 -keyout "/etc/nginx/ssl-certificates/${DOMAIN}.key" \
                 -out "/etc/nginx/ssl-certificates/${DOMAIN}.crt" \
@@ -269,6 +269,18 @@ jobs:
               echo "Nginx reloaded successfully!"
             else
               echo "WARNING: Nginx config test failed — skipping reload"
+            fi
+
+            # Request real Let's Encrypt SSL certificate via Certbot
+            if command -v certbot &>/dev/null; then
+              echo "Requesting trusted Let's Encrypt SSL certificate via Certbot..."
+              certbot certonly --webroot -w /var/www/letsencrypt -d "${DOMAIN}" --non-interactive --agree-tos -m ashok.j2346@gmail.com 2>/dev/null || true
+              if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+                cp "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" "/etc/nginx/ssl-certificates/${DOMAIN}.crt"
+                cp "/etc/letsencrypt/live/${DOMAIN}/privkey.pem" "/etc/nginx/ssl-certificates/${DOMAIN}.key"
+                systemctl reload nginx
+                echo "Trusted Let's Encrypt SSL Certificate installed!"
+              fi
             fi
 
             echo "=== Deployment finished successfully ==="
