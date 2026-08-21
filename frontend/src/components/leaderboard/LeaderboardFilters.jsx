@@ -23,8 +23,8 @@ export default function LeaderboardFilters({ activePeriod, onPeriodChange, loadi
             className={cn(
               "px-5 py-2 text-xs font-semibold tracking-wide transition-all duration-200 rounded-[16px]",
               isActive
-                ? "bg-emerald-50 text-emerald-600 border border-emerald-500/30 font-bold shadow-sm"
-                : "bg-gray-100 text-gray-500 hover:bg-emerald-50/50 hover:text-emerald-600 border border-transparent"
+                ? "bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold shadow-sm"
+                : "bg-gray-100 dark:bg-surface-800 text-gray-500 dark:text-slate-400 hover:bg-emerald-50/50 dark:hover:bg-surface-700 hover:text-emerald-600 dark:hover:text-emerald-400 border border-transparent"
             )}
           >
             {tab.label}

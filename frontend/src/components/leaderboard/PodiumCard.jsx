@@ -229,19 +229,19 @@ export default function PodiumCard({ entry, rank, displayName, displayHandle }) 
   let cardClass, badgeGradient, badgeShadow, badgeContent, phaseOffset;
   
   if (rank === 1) {
-    cardClass = "bg-white/85 backdrop-blur-[16px] border border-white/50 shadow-[0_20px_50px_rgba(16,185,129,0.12)] w-full md:w-[520px] md:h-[480px] min-h-[480px] py-8";
+    cardClass = "bg-white/85 dark:bg-surface-800/85 backdrop-blur-[16px] border border-white/50 dark:border-edge/20 shadow-[0_20px_50px_rgba(16,185,129,0.12)] w-full md:w-[520px] md:h-[480px] min-h-[480px] py-8";
     badgeGradient = "from-[#FBBF24] to-[#F59E0B]";
     badgeShadow = "shadow-[0_12px_30px_rgba(245,158,11,0.35)]";
     badgeContent = <Crown className="w-7 h-7 text-white" fill="currentColor" />;
     phaseOffset = 0;
   } else if (rank === 2) {
-    cardClass = "bg-white/85 backdrop-blur-[16px] border border-white/50 shadow-[0_16px_36px_rgba(148,163,184,0.08)] w-full md:w-[340px] md:h-[390px] min-h-[390px] py-6";
+    cardClass = "bg-white/85 dark:bg-surface-800/85 backdrop-blur-[16px] border border-white/50 dark:border-edge/20 shadow-[0_16px_36px_rgba(148,163,184,0.08)] w-full md:w-[340px] md:h-[390px] min-h-[390px] py-6";
     badgeGradient = "from-slate-300 to-slate-500";
     badgeShadow = "shadow-[0_12px_30px_rgba(148,163,184,0.35)]";
     badgeContent = <span className="font-display font-extrabold text-lg text-white">2</span>;
     phaseOffset = 1.3;
   } else {
-    cardClass = "bg-white/85 backdrop-blur-[16px] border border-white/50 shadow-[0_16px_36px_rgba(217,119,6,0.08)] w-full md:w-[340px] md:h-[390px] min-h-[390px] py-6";
+    cardClass = "bg-white/85 dark:bg-surface-800/85 backdrop-blur-[16px] border border-white/50 dark:border-edge/20 shadow-[0_16px_36px_rgba(217,119,6,0.08)] w-full md:w-[340px] md:h-[390px] min-h-[390px] py-6";
     badgeGradient = "from-amber-500 to-[#D97706]";
     badgeShadow = "shadow-[0_12px_30px_rgba(217,119,6,0.35)]";
     badgeContent = <span className="font-display font-extrabold text-lg text-white">3</span>;
@@ -298,10 +298,10 @@ export default function PodiumCard({ entry, rank, displayName, displayHandle }) 
 
         {/* Username Details */}
         <div className="space-y-0.5 max-w-full">
-          <h3 className={cn("font-display font-bold text-gray-800 truncate px-2", isRank1 ? "text-2xl" : "text-lg")}>
+          <h3 className={cn("font-display font-bold text-gray-800 dark:text-slate-100 truncate px-2", isRank1 ? "text-2xl" : "text-lg")}>
             {displayName(entry)}
           </h3>
-          <p className="text-xs font-semibold text-emerald-500/80 bg-emerald-50/50 px-2.5 py-0.5 rounded-full inline-block">
+          <p className="text-xs font-semibold text-emerald-500 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full inline-block">
             {displayHandle(entry)}
           </p>
         </div>

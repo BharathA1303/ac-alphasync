@@ -78,37 +78,37 @@ export default function TraderCard({ entry, displayName, displayHandle }) {
   const isZero = (entry.pnl ?? 0) === 0;
 
   // Rank badge styling (Top-left)
-  let rankBadgeClass = "bg-gray-100 text-gray-500 border border-gray-200/60";
+  let rankBadgeClass = "bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-slate-300 border border-gray-200/60 dark:border-edge/20";
   if (rank === 1) rankBadgeClass = "bg-gradient-to-br from-[#FBBF24] to-[#F59E0B] text-white border-none shadow-[0_4px_12px_rgba(245,158,11,0.2)] font-black";
-  else if (rank === 2) rankBadgeClass = "bg-slate-200 text-slate-700 border-none font-bold";
-  else if (rank === 3) rankBadgeClass = "bg-amber-100 text-amber-800 border-none font-bold";
+  else if (rank === 2) rankBadgeClass = "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-none font-bold";
+  else if (rank === 3) rankBadgeClass = "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-none font-bold";
 
   // Status Badge (Top-right)
   let statusBadge = null;
   
   if (entry.status) {
     statusBadge = (
-      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50/80 px-2.5 py-0.5 rounded-full border border-emerald-100/50 flex items-center gap-1 shadow-sm">
+      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-100/50 dark:border-emerald-500/20 flex items-center gap-1 shadow-sm">
         {entry.status}
       </span>
     );
   } else if (rank === 1) {
     statusBadge = (
-      <span className="text-[10px] font-bold text-amber-600 bg-amber-50/90 px-2.5 py-0.5 rounded-full border border-amber-100/50 flex items-center gap-1 shadow-sm">
+      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50/90 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-100/50 dark:border-amber-500/20 flex items-center gap-1 shadow-sm">
         <Award className="w-3 h-3 text-amber-500 fill-amber-500/20" />
         Champion
       </span>
     );
   } else if (rank > 1 && rank <= 5) {
     statusBadge = (
-      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50/80 px-2.5 py-0.5 rounded-full border border-emerald-100/50 flex items-center gap-1 shadow-sm">
+      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-100/50 dark:border-emerald-500/20 flex items-center gap-1 shadow-sm">
         <TrendingUp className="w-3 h-3 text-emerald-500" />
         Top Trader
       </span>
     );
   } else {
     statusBadge = (
-      <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2.5 py-0.5 rounded-full border border-blue-100/50 flex items-center gap-1 shadow-sm">
+      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-100/50 dark:border-blue-500/20 flex items-center gap-1 shadow-sm">
         <CheckCircle2 className="w-3 h-3 text-blue-500 fill-blue-500/10" />
         Verified
       </span>
@@ -119,7 +119,7 @@ export default function TraderCard({ entry, displayName, displayHandle }) {
     <div
       className={cn(
         "relative rounded-[24px] p-5 flex flex-col items-center justify-center text-center h-[260px] select-none transition-all duration-200 ease-in-out hover:-translate-y-[6px] hover:scale-[1.02]",
-        "bg-white/85 backdrop-blur-[16px] border border-white/50 shadow-[0_10px_40px_rgba(15,23,42,0.06)] hover:shadow-[0_20px_45px_rgba(15,23,42,0.08)]",
+        "bg-white/85 dark:bg-surface-800/85 backdrop-blur-[16px] border border-white/50 dark:border-edge/20 shadow-md hover:shadow-lg",
         rank === 1 && "border-emerald-400/60 shadow-[0_12px_44px_rgba(16,185,129,0.08)]"
       )}
     >
@@ -141,10 +141,10 @@ export default function TraderCard({ entry, displayName, displayHandle }) {
 
       {/* Name and Handle */}
       <div className="space-y-0.5 max-w-full">
-        <h4 className="font-display font-bold text-base text-gray-800 truncate px-2 leading-snug">
+        <h4 className="font-display font-bold text-base text-gray-800 dark:text-slate-100 truncate px-2 leading-snug">
           {displayName(entry)}
         </h4>
-        <p className="text-[11px] font-medium text-gray-400 truncate">
+        <p className="text-[11px] font-medium text-gray-400 dark:text-slate-400 truncate">
           {displayHandle(entry)}
         </p>
       </div>

@@ -139,8 +139,8 @@ export default function LeaderboardPage() {
                     displayHandle={displayHandle}
                 />
             ) : (
-                <div className="h-64 flex items-center justify-center border border-dashed border-gray-200 rounded-[28px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
-                    <p className="text-sm font-medium text-gray-400">
+                <div className="h-64 flex items-center justify-center border border-dashed border-gray-200 dark:border-edge/20 rounded-[28px] bg-white dark:bg-surface-800 shadow-sm">
+                    <p className="text-sm font-medium text-gray-400 dark:text-slate-400">
                         {loading ? 'Loading top traders...' : 'No data available for this period.'}
                     </p>
                 </div>
@@ -162,8 +162,8 @@ export default function LeaderboardPage() {
                     displayHandle={displayHandle}
                 />
             ) : (
-                <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-[24px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
-                    <p className="text-sm font-medium text-gray-400">
+                <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 dark:border-edge/20 rounded-[24px] bg-white dark:bg-surface-800 shadow-sm">
+                    <p className="text-sm font-medium text-gray-400 dark:text-slate-400">
                         {loading ? 'Searching leaderboard...' : 'No matching traders found.'}
                     </p>
                 </div>

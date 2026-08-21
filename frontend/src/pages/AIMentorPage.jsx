@@ -193,20 +193,12 @@ export default function AIMentorPage() {
         };
     const storageKey = useMemo(() => `mentor-history:${user?.id || 'anon'}`, [user?.id]);
     const historyCollapsedKey = useMemo(() => `mentor-history-collapsed:${user?.id || 'anon'}`, [user?.id]);
-    const refusalStyleKey = useMemo(() => `mentor-refusal-style:${user?.id || 'anon'}`, [user?.id]);
 
     const [conversations, setConversations] = useState([]);
     const [activeConversationId, setActiveConversationId] = useState('');
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
-    const [refusalStyle, setRefusalStyle] = useState(() => {
-        try {
-            return localStorage.getItem(`mentor-refusal-style:${user?.id || 'anon'}`) || 'friendly';
-        } catch {
-            return 'friendly';
-        }
-    });
     const [editingConversationId, setEditingConversationId] = useState('');
     const isDesktopLayout = useIsLgUp(true);
     const isMobileLayout = !isDesktopLayout;
@@ -373,7 +365,6 @@ export default function AIMentorPage() {
                 recent_messages: toRecentMessages(sourceMessages, appendUser ? text : ''),
                 client_time: new Date().toISOString(),
                 session_id: conversationId,
-                refusal_style: refusalStyle,
             });
             const aiMsg = {
                 ...makeMessage('ai', res.data?.reply || 'No response from model.'),
@@ -792,23 +783,6 @@ export default function AIMentorPage() {
 
                         {isMobileLayout && (
                             <div className={cn('shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto border-b', ui.panelHeader)}>
-                                <select
-                                    value={refusalStyle}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setRefusalStyle(val);
-                                        localStorage.setItem(refusalStyleKey, val);
-                                        toast.success(`Sarah's boundary mode set to ${val}`);
-                                    }}
-                                    className={cn(
-                                        'h-9 px-2 shrink-0 rounded-lg border text-xs bg-transparent focus:outline-none cursor-pointer font-medium',
-                                        isDark ? 'text-cyan-50 border-white/20 bg-[#0f1843]' : 'text-slate-800 border-slate-200 bg-white'
-                                    )}
-                                    title="Sarah's boundary mode"
-                                >
-                                    <option value="friendly" className={isDark ? 'bg-[#0f1843]' : 'bg-white'}>Friendly 😊</option>
-                                    <option value="strict" className={isDark ? 'bg-[#0f1843]' : 'bg-white'}>Strict 🛡️</option>
-                                </select>
                                 <button
                                     type="button"
                                     onClick={() => setShowStarredOnly((prev) => !prev)}
@@ -858,23 +832,6 @@ export default function AIMentorPage() {
                                         >
                                             {historyCollapsed ? <ChevronsRight className="w-3.5 h-3.5" /> : <ChevronsLeft className="w-3.5 h-3.5" />} Chats
                                         </button>
-                                        <select
-                                            value={refusalStyle}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setRefusalStyle(val);
-                                                localStorage.setItem(refusalStyleKey, val);
-                                                toast.success(`Sarah's boundary mode set to ${val}`);
-                                            }}
-                                            className={cn(
-                                                'h-8 px-2.5 rounded-lg border text-xs bg-transparent focus:outline-none cursor-pointer font-medium',
-                                                isDark ? 'text-cyan-50 border-white/20 bg-[#0b1438]' : 'text-slate-800 border-slate-200 bg-white'
-                                            )}
-                                            title="Sarah's correction mode for off-topic or inappropriate questions"
-                                        >
-                                            <option value="friendly" className={isDark ? 'bg-[#0b1438]' : 'bg-white'}>Friendly Refusal 😊</option>
-                                            <option value="strict" className={isDark ? 'bg-[#0b1438]' : 'bg-white'}>Strict Refusal 🛡️</option>
-                                        </select>
                                         <button
                                             onClick={() => setShowStarredOnly((prev) => !prev)}
                                             className={cn(
