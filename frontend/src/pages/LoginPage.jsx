@@ -375,14 +375,14 @@ export default function LoginPage() {
 
               </form>
 
-              <div className="lp-or">or continue with</div>
-
+              {/* Google Login — temporarily disabled */}
+              {/* <div className="lp-or">or continue with</div>
               <button className="lp-btn-google" onClick={handleGoogleLogin}
                       disabled={googleLoading} type="button">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
                      alt="Google" width="20" height="20" />
                 {googleLoading ? "Signing in…" : "Continue with Google"}
-              </button>
+              </button> */
 
               <p className="lp-terms">
                 By logging in, you agree to our{" "}
@@ -458,14 +458,14 @@ export default function LoginPage() {
 
               </form>
 
-              <div className="lp-or">or sign up with</div>
-
+              {/* Google Register — temporarily disabled */}
+              {/* <div className="lp-or">or sign up with</div>
               <button className="lp-btn-google" onClick={handleGoogleRegister}
                       disabled={googleLoading} type="button">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
                      alt="Google" width="20" height="20" />
                 {googleLoading ? "Signing up…" : "Sign up with Google"}
-              </button>
+              </button> */
             </div>
 
           </div>
