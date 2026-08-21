@@ -1,0 +1,252 @@
+
+ERROR:
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: ^CNXPSUBANK (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COPPERM']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COPPERM']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COPPERM']
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: COPPERM (NSE master + SearchScrip failed)
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COTTONCNDY']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['ZOMATO']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['CHANA']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['SOYBEAN']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COTTONCNDY']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['COTTONCNDY']
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: COTTONCNDY (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['CHANA']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['CHANA']
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['ZOMATO']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['ZOMATO']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['SOYBEAN']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['SOYBEAN']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: ZOMATO.NS (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: CHANA.NS (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: SOYBEAN.NS (NSE master + SearchScrip failed)
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['NIFTY_MIDCAP_100']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['NIFTY_MIDCAP_100']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['NIFTY_MIDCAP_100']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: NIFTY_MIDCAP_100.NS (NSE master + SearchScrip failed)
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['GUARSEED']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['GUARSEED']
+WARNING:services.contract_loader:ensure_nse_equity_mappings: no NSE master rows for ['GUARSEED']
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: GUARSEED.NS (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/SearchScrip "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /SearchScrip HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:No Zebu mapping for REST quote: ^CNXPHARMA (NSE master + SearchScrip failed)
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST https://go.mynt.in/NorenWClientTP/GetQuotes "HTTP/1.1 401 Unauthorized"
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}
+WARNING:providers.zebu_provider:Zebu REST /GetQuotes HTTP 401: {"stat":"Not_Ok","emsg":"Session Expired :  Invalid Session Key"}

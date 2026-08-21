@@ -1,0 +1,252 @@
+
+ERROR:
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:POWERGRID on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:POWERGRID'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['POWERGRID.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:HDFCLIFE on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:HDFCLIFE'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['HDFCLIFE.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:TATASTEEL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:TATASTEEL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['TATASTEEL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:IDFCFIRSTB on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:IDFCFIRSTB'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['IDFCFIRSTB.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:TITAN on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:TITAN'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['TITAN.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:COALINDIA on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:COALINDIA'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['COALINDIA.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:GRASIM on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:GRASIM'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['GRASIM.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ONGC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ONGC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ONGC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:IRCTC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:IRCTC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['IRCTC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:VBL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:VBL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['VBL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:KOTAKBANK on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:KOTAKBANK'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['KOTAKBANK.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:INDUSINDBK on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:INDUSINDBK'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['INDUSINDBK.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:AXISBANK on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:AXISBANK'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['AXISBANK.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SAIL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SAIL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SAIL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ACC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ACC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ACC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:HINDUNILVR on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:HINDUNILVR'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['HINDUNILVR.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:PEL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:PEL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['PEL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ZYDUSLIFE on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ZYDUSLIFE'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ZYDUSLIFE.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:MAXHEALTH on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:MAXHEALTH'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['MAXHEALTH.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SBILIFE on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SBILIFE'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SBILIFE.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:BEL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:BEL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['BEL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ADANIPORTS on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ADANIPORTS'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ADANIPORTS.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:INFY on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:INFY'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['INFY.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:DRREDDY on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:DRREDDY'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['DRREDDY.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ICICIBANK on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ICICIBANK'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ICICIBANK.NS']
+INFO:market.quote_metrics:[QUOTE_RECOVERY] ICICIBANK.NS reason=stale_detector
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:PIDILITIND on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:PIDILITIND'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['PIDILITIND.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:PETRONET on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:PETRONET'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['PETRONET.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:HAVELLS on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:HAVELLS'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['HAVELLS.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:CONCOR on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:CONCOR'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['CONCOR.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:OFSS on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:OFSS'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['OFSS.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:HDFCBANK on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:HDFCBANK'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['HDFCBANK.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SHRIRAMFIN on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SHRIRAMFIN'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SHRIRAMFIN.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SBIN on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SBIN'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SBIN.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:APOLLOHOSP on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:APOLLOHOSP'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['APOLLOHOSP.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:WIPRO on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:WIPRO'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['WIPRO.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:IDX:FINNIFTY on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:IDX:FINNIFTY'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['^CNXFIN']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:TATACONSUM on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:TATACONSUM'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['TATACONSUM.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:IOC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:IOC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['IOC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:INDHOTEL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:INDHOTEL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['INDHOTEL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:BAJAJFINSV on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:BAJAJFINSV'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['BAJAJFINSV.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:DMART on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:DMART'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['DMART.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:MUTHOOTFIN on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:MUTHOOTFIN'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['MUTHOOTFIN.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:DABUR on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:DABUR'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['DABUR.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:BAJFINANCE on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:BAJFINANCE'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['BAJFINANCE.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:BERGEPAINT on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:BERGEPAINT'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['BERGEPAINT.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:M&M on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:M&M'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['M&M.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:JSWSTEEL on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:JSWSTEEL'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['JSWSTEEL.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:NHPC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:NHPC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['NHPC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:EICHERMOT on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:EICHERMOT'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['EICHERMOT.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:NTPC on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:NTPC'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['NTPC.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ICICIPRULI on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ICICIPRULI'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ICICIPRULI.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:TATAMOTORS on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:TATAMOTORS'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['TATAMOTORS.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SIEMENS on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SIEMENS'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SIEMENS.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:BAJAJ-AUTO on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:BAJAJ-AUTO'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['BAJAJ-AUTO.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:RELIANCE on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:RELIANCE'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['RELIANCE.NS']
+INFO:market.quote_metrics:[QUOTE_RECOVERY] RELIANCE.NS reason=stale_detector
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:HEROMOTOCO on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:HEROMOTOCO'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['HEROMOTOCO.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:IDX:NIFTY50 on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:IDX:NIFTY50'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['^NSEI']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:RECLTD on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:RECLTD'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['RECLTD.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:SUNPHARMA on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:SUNPHARMA'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['SUNPHARMA.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ASIANPAINT on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ASIANPAINT'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ASIANPAINT.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:ULTRACEMCO on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:ULTRACEMCO'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['ULTRACEMCO.NS']
+INFO:data_layer.simulator.brownian_bridge:Tick cache hit for NSE:EQ:NESTLEIND on 2026-06-01 (version 1)
+INFO:services.internal_sim_engine:Internal sim engine: session sess_fcb1fd8ca3c142d0 subscribed to ['NSE:EQ:NESTLEIND'] -> 104 resolved
+INFO:providers.internal_sim_provider:InternalSimProvider: Subscribed 104 symbols on session sess_fcb1fd8ca3c142d0
+INFO:websocket.manager:Provider subscribe forwarded: ['NESTLEIND.NS']

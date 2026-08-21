@@ -1,0 +1,43 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+__pycache__/
+*.pyc
+
+# ── Environment / Secrets ────────────────────────────────────
+.env
+.env.local
+.env.production
+deploy/.env.production
+firebase-credentials.json
+firebase-service-account.json
+*-adminsdk-*.json
+
+# ── Build outputs ────────────────────────────────────────────
+frontend/dist/
+backend/*.db
+alphasync_mobile/
+
+# ── Database dumps / backups (contain real data) ─────────────
+backups/
+logs/db_restore_*.log
+*.sql
+!backend/strategies/zeroloss/migration.sql
+# Data migration dump — must be committed so CI can SCP it to the server
+!alphasync_demo.sql
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker volumes ───────────────────────────────────────────
+pgdata/
+redisdata/
+
+# ── Uploads ──────────────────────────────────────────────────
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep

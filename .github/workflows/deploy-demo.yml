@@ -1,0 +1,395 @@
+name: Deploy Demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_db_migration:
+        description: "Load alphasync_demo.sql into the live demo DB (REPLACES current data; a pre-migration backup is taken first)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write   # required to push images to GHCR
+
+concurrency:
+  group: deploy-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # Image names unique to THIS repo (demo.001).
+  # Existing alphasync-demo-backend/frontend are linked to netguy001/demo-alpha
+  # and cannot be pushed to by this repo's GITHUB_TOKEN.
+  # Local docker-compose tags (asbroker-backend:latest) are unaffected —
+  # they are applied via `docker tag` on the server after pull.
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/demo001-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/demo001-frontend
+
+# ── Job 1a: Build & push backend image ──────────────────────────────────────
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.before || 'HEAD~1' }}
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.demo
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=asbroker-backend
+          cache-to: type=gha,mode=max,scope=asbroker-backend
+
+# ── Job 1b: Build & push frontend image (parallel with backend) ──────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend assets
+        working-directory: frontend
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_ENABLE_PROGRESSIVE_OPTIONS: ${{ secrets.VITE_ENABLE_PROGRESSIVE_OPTIONS }}
+          VITE_PROGRESSIVE_DEBUG: ${{ secrets.VITE_PROGRESSIVE_DEBUG }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
+          npm run build
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.demo.prebuilt
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=asbroker-frontend
+          cache-to: type=gha,mode=max,scope=asbroker-frontend
+
+# ── Job 2: Deploy (runs only after both builds succeed) ──────────────────────
+  deploy:
+    name: Deploy to Contabo
+    runs-on: ubuntu-latest
+    needs: [changes, build-backend, build-frontend]
+    if: |
+      always() &&
+      needs.changes.result == 'success' &&
+      (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped') &&
+      (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')
+    timeout-minutes: 15
+    # Job-level env so appleboy/ssh-action envs: can read them reliably.
+    # (Step-level env: is NOT reliably visible to envs: in this action version.)
+    env:
+      BACKEND_IMAGE: ${{ format('ghcr.io/{0}/demo001-backend', github.repository_owner) }}
+      FRONTEND_IMAGE: ${{ format('ghcr.io/{0}/demo001-frontend', github.repository_owner) }}
+      GH_TOKEN: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+      GH_ACTOR: ${{ github.repository_owner }}
+      RUN_DB_MIGRATION: ${{ github.event.inputs.run_db_migration }}
+      GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+      GROK_API: ${{ secrets.GROK_API }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      ZEBU_API_SECRET: ${{ secrets.ZEBU_API_SECRET }}
+      ZEBU_VENDOR_CODE: ${{ secrets.ZEBU_VENDOR_CODE }}
+      BROKER_ENCRYPTION_KEY: ${{ secrets.BROKER_ENCRYPTION_KEY }}
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Write Firebase credentials file — uploaded via SCP to avoid SSH quoting issues
+      - name: Write Firebase credentials file
+        run: |
+          if [ -n "$FIREBASE_CREDS" ]; then
+            printf '%s' "$FIREBASE_CREDS" > firebase-credentials.json
+          else
+            printf '{}' > firebase-credentials.json
+            echo "WARNING: FIREBASE_CREDENTIALS_JSON secret not set — using empty credentials"
+          fi
+        env:
+          FIREBASE_CREDS: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+
+      # Upload only small config files (~5 KB total, not a giant image tarball)
+      # Use native OpenSSH + retries to avoid intermittent drone-scp handshake resets.
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Upload deploy assets to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: "22"
+          RUN_DB_MIGRATION: ${{ github.event.inputs.run_db_migration }}
+        run: |
+          set -euo pipefail
+
+          retry() {
+            local attempts="$1" delay="$2"
+            shift 2
+            local n=1
+            until "$@"; do
+              if [ "${n}" -ge "${attempts}" ]; then
+                echo "ERROR: command failed after ${attempts} attempts: $*"
+                return 1
+              fi
+              echo "Attempt ${n}/${attempts} failed. Retrying in ${delay}s..."
+              sleep "${delay}"
+              n=$((n + 1))
+            done
+          }
+
+          SSH_OPTS=(
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile=$HOME/.ssh/known_hosts
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=6
+            -o ConnectTimeout=20
+            -P "$SERVER_PORT"
+          )
+
+          retry 4 5 ssh "${SSH_OPTS[@]}" "${SERVER_USER}@${SERVER_HOST}" "mkdir -p /opt/alphasync-demo/deploy/nginx /opt/alphasync-demo/scripts"
+          retry 4 5 scp "${SSH_OPTS[@]}" docker-compose.demo.yml "${SERVER_USER}@${SERVER_HOST}:/opt/alphasync-demo/docker-compose.demo.yml"
+          retry 4 5 scp "${SSH_OPTS[@]}" deploy/nginx/demo.alphasync.app.conf "${SERVER_USER}@${SERVER_HOST}:/opt/alphasync-demo/deploy/nginx/demo.alphasync.app.conf"
+          retry 4 5 scp "${SSH_OPTS[@]}" firebase-credentials.json "${SERVER_USER}@${SERVER_HOST}:/opt/alphasync-demo/firebase-credentials.json"
+
+          # DB migration assets — uploaded ONLY when the operator triggered
+          # this run with run_db_migration=true. Normal pushes never ship the
+          # dump, so the live data can never be touched by an ordinary deploy.
+          if [ "${RUN_DB_MIGRATION}" = "true" ]; then
+            echo "run_db_migration=true — uploading dump + migration script"
+            retry 4 5 scp "${SSH_OPTS[@]}" scripts/db_migrate.sh "${SERVER_USER}@${SERVER_HOST}:/opt/alphasync-demo/scripts/db_migrate.sh"
+            retry 4 5 scp "${SSH_OPTS[@]}" alphasync_demo.sql "${SERVER_USER}@${SERVER_HOST}:/opt/alphasync-demo/alphasync_demo.sql"
+          else
+            echo "run_db_migration not set — skipping DB dump upload (data untouched)"
+          fi
+
+      # Pull pre-built images from GHCR on server — only changed layers transferred
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          command_timeout: 12m
+          envs: BACKEND_IMAGE,FRONTEND_IMAGE,GH_TOKEN,GH_ACTOR,RUN_DB_MIGRATION,GROK_API_KEY,GROK_API,GROQ_API_KEY,XAI_API_KEY,ZEBU_API_SECRET,ZEBU_VENDOR_CODE,BROKER_ENCRYPTION_KEY,TWILIO_ACCOUNT_SID,TWILIO_AUTH_TOKEN,TWILIO_PHONE_NUMBER
+          script: |
+            set -eo pipefail
+            DEPLOY_DIR="/opt/alphasync-demo"
+            DOMAIN="demo.alphasync.app"
+
+            retry() {
+              local attempts="$1" delay="$2"
+              shift 2
+              local n=1
+              until "$@"; do
+                if [ "${n}" -ge "${attempts}" ]; then
+                  echo "ERROR: command failed after ${attempts} attempts: $*"
+                  return 1
+                fi
+                echo "Attempt ${n}/${attempts} failed. Retrying in ${delay}s..."
+                sleep "${delay}"
+                n=$((n + 1))
+              done
+            }
+
+            echo "=== Preparing deploy directory ==="
+            mkdir -p "${DEPLOY_DIR}"
+            cd "${DEPLOY_DIR}"
+            if [ -f .env ]; then
+              echo "=== Cleaning legacy Zebu Master credentials from local .env ==="
+              sed -i '/ZEBU_MASTER_USER_ID/d' .env
+              sed -i '/ZEBU_MASTER_PASSWORD/d' .env
+              sed -i '/ZEBU_MASTER_DOB/d' .env
+            fi
+
+            echo "=== Logging in to GHCR ==="
+            retry 4 8 bash -c 'echo "${GH_TOKEN}" | docker login ghcr.io -u "${GH_ACTOR}" --password-stdin'
+
+            echo "=== Pulling prebuilt images (only changed layers transferred) ==="
+            retry 4 10 docker pull "${BACKEND_IMAGE}:latest"
+            retry 4 10 docker pull "${FRONTEND_IMAGE}:latest"
+
+            # Retag to local names expected by docker-compose.demo.yml
+            docker tag "${BACKEND_IMAGE}:latest" asbroker-backend:latest
+            docker tag "${FRONTEND_IMAGE}:latest" asbroker-frontend:latest
+
+            echo "=== Verifying uploaded files ==="
+            ls -la docker-compose.demo.yml deploy/nginx/demo.alphasync.app.conf || true
+            test -f firebase-credentials.json && echo "Firebase credentials present" \
+              || echo "WARNING: firebase-credentials.json missing"
+
+            # Ensure either secret name works during compose interpolation
+            if [ -z "${GROK_API_KEY}" ] && [ -n "${GROK_API}" ]; then
+              export GROK_API_KEY="${GROK_API}"
+            fi
+            if [ -z "${GROK_API_KEY}" ] && [ -n "${GROQ_API_KEY}" ]; then
+              export GROK_API_KEY="${GROQ_API_KEY}"
+            fi
+            if [ -z "${GROK_API_KEY}" ] && [ -n "${XAI_API_KEY}" ]; then
+              export GROK_API_KEY="${XAI_API_KEY}"
+            fi
+            if [ -z "${XAI_API_KEY}" ] && [ -n "${GROK_API_KEY}" ]; then
+              export XAI_API_KEY="${GROK_API_KEY}"
+            fi
+
+            echo "=== Updating ONLY the brokerdemo stack (other stacks untouched) ==="
+            # SAFETY: scoped strictly to project 'brokerdemo'.
+            #  - NO `--remove-orphans` (it deletes containers outside this compose
+            #    file's services and previously wiped the simalpha stack).
+            #  - NO blanket `docker rm -f` of other stacks' containers.
+            # `up -d` recreates only brokerdemo services whose config changed;
+            # the alphasync-* and simalpha-* stacks are never referenced.
+            GROK_API_KEY="${GROK_API_KEY}" XAI_API_KEY="${XAI_API_KEY}" \
+              docker compose -p brokerdemo -f docker-compose.demo.yml up -d --no-build
+
+            echo "=== Waiting for backend health (max 180s) ==="
+            HEALTHY=0
+            for i in $(seq 1 60); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' brokerdemo-backend 2>/dev/null || echo "unknown")
+              if [ "${STATUS}" = "healthy" ]; then
+                echo "Backend healthy after $((i * 3))s!"
+                HEALTHY=1
+                break
+              fi
+              STATE=$(docker inspect --format='{{.State.Status}}' brokerdemo-backend 2>/dev/null || echo "unknown")
+              if [ "${STATE}" = "exited" ] || [ "${STATE}" = "dead" ]; then
+                echo "ERROR: Backend container crashed. Last 100 log lines:"
+                docker logs brokerdemo-backend --tail 100 2>&1
+                exit 1
+              fi
+              if [ "${STATUS}" = "unhealthy" ]; then
+                echo "ERROR: Backend marked unhealthy. Last 100 log lines:"
+                docker logs brokerdemo-backend --tail 100 2>&1
+                exit 1
+              fi
+              echo "  waiting... ($((i * 3))s elapsed, status=${STATUS} state=${STATE})"
+              sleep 3
+            done
+
+            if [ "${HEALTHY}" -eq 0 ]; then
+              echo "ERROR: Backend did not become healthy in 180s. Last 100 log lines:"
+              docker logs brokerdemo-backend --tail 100 2>&1
+              exit 1
+            fi
+
+            # ── Optional one-shot DB migration ──────────────────────────
+            # Runs ONLY when this workflow_dispatch run set run_db_migration=true.
+            # The pg container is already healthy at this point (backend
+            # health-checks depend on it). Full pre-migration backup is taken
+            # by the script before anything is dropped.
+            if [ "${RUN_DB_MIGRATION}" = "true" ]; then
+              echo "=== Running DB migration (run_db_migration=true) ==="
+              if [ ! -f scripts/db_migrate.sh ] || [ ! -f alphasync_demo.sql ]; then
+                echo "ERROR: migration requested but scripts/db_migrate.sh or alphasync_demo.sql missing on server."
+                exit 1
+              fi
+              FORCE_YES=1 bash scripts/db_migrate.sh
+              echo "=== DB migration finished — restarting backend to pick up fresh data ==="
+              docker restart brokerdemo-backend >/dev/null 2>&1 || true
+            else
+              echo "=== Skipping DB migration (run_db_migration not set) ==="
+            fi
+
+            echo "=== Installing Nginx config ==="
+            NGINX_CONF="/etc/nginx/sites-enabled/${DOMAIN}.conf"
+            cp deploy/nginx/demo.alphasync.app.conf "${NGINX_CONF}"
+
+            mkdir -p /etc/nginx/ssl-certificates
+            if [ ! -f "/etc/nginx/ssl-certificates/${DOMAIN}.crt" ]; then
+              echo "Creating self-signed SSL cert..."
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout "/etc/nginx/ssl-certificates/${DOMAIN}.key" \
+                -out "/etc/nginx/ssl-certificates/${DOMAIN}.crt" \
+                -subj "/CN=${DOMAIN}" 2>/dev/null
+            fi
+
+            if nginx -t 2>&1; then
+              systemctl reload nginx
+              echo "Nginx reloaded!"
+            else
+              echo "WARNING: Nginx config test failed — skipping reload"
+            fi
+
+            echo ""
+            echo "=== Final status ==="
+            docker compose -p brokerdemo -f docker-compose.demo.yml ps
+            docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+
+            # Clean up dangling images in background
+            docker image prune -f &>/dev/null &
+
+            echo "Deploy complete! https://${DOMAIN}"
