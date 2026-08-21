@@ -192,29 +192,38 @@ export default function LoginPage() {
         <div className="lp-glow lp-glow-tr" />
         <div className="lp-glow lp-glow-bl" />
 
-        {/* Candlestick chart in top-right corner */}
+        {/* Candlestick chart — top-right, full height, diagonal rise */}
         <div className="lp-chart" aria-hidden>
-          <svg viewBox="0 0 500 380" preserveAspectRatio="xMaxYMin meet" width="100%" height="100%">
-            {/* Green candles rising right */}
-            {[
-              [300,240,260,230,255,265],[320,210,230,200,225,235],[340,175,200,165,195,205],
-              [360,145,170,135,165,175],[380,110,140,100,135,145],[400,80,112,70,107,117],
-              [420,52,85,42,80,90],[440,28,60,18,55,65],[460,8,40,0,35,45]
-            ].map(([x,y1,y2,wick1,body1,body2],i)=>(
-              <g key={`gc${i}`}>
-                <line x1={x} y1={wick1} x2={x} y2={y2+10} stroke="#00B67A" strokeWidth="1.5"/>
-                <rect x={x-7} y={body1} width="14" height={body2-body1} fill="#00B67A" rx="2" opacity="0.85"/>
-              </g>
-            ))}
-            {/* Red candles mixed in */}
-            {[
-              [330,215,235,208,220,232],[390,95,120,88,105,118],[450,18,45,12,28,42]
-            ].map(([x,y1,y2,wick1,body1,body2],i)=>(
-              <g key={`rc${i}`}>
-                <line x1={x} y1={wick1} x2={x} y2={y2+10} stroke="#F87171" strokeWidth="1.5"/>
-                <rect x={x-7} y={body1} width="14" height={body2-body1} fill="#F87171" rx="2" opacity="0.75"/>
-              </g>
-            ))}
+          <svg viewBox="0 0 360 480" preserveAspectRatio="xMaxYMin meet" width="100%" height="100%">
+            {/* Rising green candles */}
+            <g opacity="0.9">
+              <line x1="40" y1="380" x2="40" y2="340" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="32" y="345" width="16" height="30" fill="#00B67A" rx="2"/>
+              <line x1="80" y1="340" x2="80" y2="295" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="72" y="302" width="16" height="32" fill="#00B67A" rx="2"/>
+              <line x1="120" y1="305" x2="120" y2="258" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="112" y="265" width="16" height="35" fill="#00B67A" rx="2"/>
+              <line x1="200" y1="238" x2="200" y2="190" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="192" y="196" width="16" height="36" fill="#00B67A" rx="2"/>
+              <line x1="240" y1="198" x2="240" y2="152" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="232" y="158" width="16" height="34" fill="#00B67A" rx="2"/>
+              <line x1="280" y1="158" x2="280" y2="110" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="272" y="116" width="16" height="36" fill="#00B67A" rx="2"/>
+              <line x1="320" y1="112" x2="320" y2="65" stroke="#00B67A" strokeWidth="2"/>
+              <rect x="312" y="70" width="16" height="36" fill="#00B67A" rx="2"/>
+            </g>
+            {/* Bearish red candles mixed in */}
+            <g opacity="0.85">
+              <line x1="160" y1="275" x2="160" y2="232" stroke="#F87171" strokeWidth="2"/>
+              <rect x="152" y="238" width="16" height="30" fill="#F87171" rx="2"/>
+              <line x1="360" y1="68" x2="360" y2="32" stroke="#F87171" strokeWidth="2"/>
+              <rect x="352" y="36" width="16" height="26" fill="#F87171" rx="2"/>
+            </g>
+            {/* Trend line */}
+            <polyline
+              points="40,360 80,318 120,282 160,254 200,214 240,175 280,130 320,88 360,52"
+              fill="none" stroke="#00B67A" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.3"
+            />
           </svg>
         </div>
 
@@ -276,7 +285,7 @@ export default function LoginPage() {
               <div className="lp-icon"><i className="fa fa-file-contract"></i></div>
               <div className="lp-feat-txt">
                 <strong>Educational Purpose Only</strong>
-                <span>Designed solely for learning and simulation purposes. Not intended for real trading or advisory.</span>
+                <span>Solely for learning & simulation. Not for real trading.</span>
               </div>
             </div>
 
@@ -284,7 +293,7 @@ export default function LoginPage() {
               <div className="lp-icon"><i className="fa fa-ban"></i></div>
               <div className="lp-feat-txt">
                 <strong>No Real Money or Advisory</strong>
-                <span>No real funds, no investment advice, no guarantees. We do not provide tips or recommendations.</span>
+                <span>No real funds, no investment advice, no guarantees.</span>
               </div>
             </div>
 
@@ -292,7 +301,7 @@ export default function LoginPage() {
               <div className="lp-icon"><i className="fa fa-chart-bar"></i></div>
               <div className="lp-feat-txt">
                 <strong>Data from Authorised Sources</strong>
-                <span>Market data is from NSE &amp; BSE and displayed in compliance with SEBI guidelines.</span>
+                <span>NSE &amp; BSE data displayed per SEBI guidelines.</span>
               </div>
             </div>
 
@@ -300,7 +309,7 @@ export default function LoginPage() {
               <div className="lp-icon"><i className="fa fa-scale-balanced"></i></div>
               <div className="lp-feat-txt">
                 <strong>Transparent &amp; Fair</strong>
-                <span>Transparent pricing, clear terms and unbiased educational content.</span>
+                <span>Clear pricing, unbiased educational content.</span>
               </div>
             </div>
 
@@ -308,7 +317,7 @@ export default function LoginPage() {
               <div className="lp-icon"><i className="fa fa-lock"></i></div>
               <div className="lp-feat-txt">
                 <strong>Privacy &amp; Security</strong>
-                <span>Your data is encrypted and protected. We follow strict privacy and security policies.</span>
+                <span>Encrypted data, strict privacy &amp; security policies.</span>
               </div>
             </div>
 
@@ -335,14 +344,6 @@ export default function LoginPage() {
           <span><i className="fa fa-graduation-cap"></i>Ethical &amp; Responsible Learning</span>
         </div>
 
-        {/* ── SEBI disclaimer ── */}
-        <div className="lp-disclaimer">
-          <i className="fa fa-shield-halved"></i>
-          <span>
-            SEBI does not regulate virtual trading platforms for educational purposes.
-            AlphaSync Campus is not registered with SEBI and does not provide financial services.
-          </span>
-        </div>
 
       </div>
 
@@ -576,12 +577,12 @@ const LP_STYLES = `
   }
   @keyframes lpGlow { 0%,100%{transform:scale(1);opacity:.75} 50%{transform:scale(1.08);opacity:1} }
 
-  /* Candlestick chart — top-right corner only */
+  /* Candlestick chart — top-right, diagonal rising bars */
   .lp-chart {
     position: absolute;
     top: 0; right: 0;
-    width: 55%; height: 45%;
-    opacity: 0.45; pointer-events: none;
+    width: 58%; height: 60%;
+    opacity: 0.6; pointer-events: none;
     z-index: 1;
   }
 
@@ -622,61 +623,64 @@ const LP_STYLES = `
     letter-spacing: .05em;
   }
 
-  /* ── Hero ──────────────────────────────────────────── */
+  /* ── Hero — scrollable internally, never overflows page ── */
   .lp-hero {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     position: relative; z-index: 2;
-    padding: .75rem 0 .5rem;
+    padding: 1.25rem 0 .75rem;
     min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
   }
+  .lp-hero::-webkit-scrollbar { display: none; }
 
   .lp-left h1 {
-    font-size: clamp(1.5rem, 2.6vw, 2.25rem);
-    line-height: 1.15; letter-spacing: -.5px;
+    font-size: clamp(1.65rem, 2.8vw, 2.5rem);
+    line-height: 1.18; letter-spacing: -.5px;
     font-weight: 800; font-family: var(--f-display);
-    color: #FFFFFF; margin: 0 0 .6rem;
+    color: #FFFFFF; margin: 0 0 .9rem;
   }
   .lp-accent-txt { color: #00B67A; }
 
   .lp-sub {
-    font-size: .875rem;
-    color: rgba(255,255,255,0.68); line-height: 1.6;
-    max-width: 480px; margin-bottom: .75rem;
+    font-size: .9rem;
+    color: rgba(255,255,255,0.68); line-height: 1.65;
+    max-width: 480px; margin-bottom: 1rem;
   }
 
   /* SEBI label */
   .lp-sebi-label {
-    font-size: .68rem; font-weight: 700;
+    font-size: .7rem; font-weight: 700;
     color: #00B67A;
     text-transform: uppercase; letter-spacing: .12em;
-    margin-bottom: .6rem;
+    margin-bottom: .85rem;
   }
 
   /* Features */
-  .lp-feats { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .75rem; }
+  .lp-feats { display: flex; flex-direction: column; gap: .65rem; margin-bottom: 1rem; }
 
   .lp-feat {
-    display: flex; align-items: flex-start; gap: .9rem;
+    display: flex; align-items: center; gap: 1rem;
   }
 
   .lp-icon {
-    width: 36px; height: 36px; border-radius: 10px;
+    width: 38px; height: 38px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: .85rem; flex-shrink: 0;
+    font-size: .9rem; flex-shrink: 0;
     background: rgba(0, 182, 122, 0.12);
     border: 1px solid rgba(0, 182, 122, 0.25);
     color: #00B67A;
   }
 
-  .lp-feat-txt { line-height: 1.35; padding-top: 2px; }
+  .lp-feat-txt { line-height: 1.35; }
   .lp-feat-txt strong {
     display: block; color: #FFFFFF;
     font-size: .875rem; font-weight: 600; margin-bottom: .1rem;
   }
-  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.55); font-size: .78rem; }
+  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.55); font-size: .8rem; }
 
   /* Capital banner */
   .lp-capital {
@@ -707,9 +711,9 @@ const LP_STYLES = `
   .lp-trust {
     display: flex; align-items: center;
     justify-content: space-between; gap: .25rem;
-    padding-top: .75rem;
+    padding: .9rem 0 .5rem;
     flex-shrink: 0; position: relative; z-index: 2;
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(255,255,255,0.07);
   }
   .lp-trust span {
     display: inline-flex; align-items: center; justify-content: center; gap: .3rem;
@@ -718,15 +722,6 @@ const LP_STYLES = `
     flex: 1;
   }
   .lp-trust span i { font-size: .8rem; color: rgba(0,182,122,0.8); }
-
-  /* SEBI disclaimer */
-  .lp-disclaimer {
-    display: flex; align-items: flex-start; gap: .6rem;
-    padding: .6rem 0 0;
-    flex-shrink: 0; position: relative; z-index: 2;
-  }
-  .lp-disclaimer i { color: rgba(0,182,122,0.5); font-size: .8rem; flex-shrink: 0; margin-top: 2px; }
-  .lp-disclaimer span { font-size: .7rem; color: rgba(255,255,255,0.3); line-height: 1.4; }
 
   /* ══════════════════════════════════════════════════════
      RIGHT — pure white
