@@ -184,111 +184,164 @@ export default function LoginPage() {
       <style dangerouslySetInnerHTML={{ __html: LP_STYLES }} />
 
       {/* ═══════════════════════════════════════════════
-          LEFT — FULL BLEED dark navy (no margin/radius)
+          LEFT — FULL BLEED dark navy — Campus design
           ═══════════════════════════════════════════════ */}
       <div className="lp-left">
 
+        {/* Background glows */}
         <div className="lp-glow lp-glow-tr" />
         <div className="lp-glow lp-glow-bl" />
 
-        {/* candlestick chart bg */}
+        {/* Candlestick chart in top-right corner */}
         <div className="lp-chart" aria-hidden>
-          <svg viewBox="0 0 640 520" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
-            <defs>
-              <linearGradient id="lpGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor="#00B67A" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#00B67A" stopOpacity="0"    />
-              </linearGradient>
-            </defs>
-            <polygon
-              points="0,460 60,418 115,394 170,410 220,368 275,342 325,295 378,316 425,268 478,248 525,206 572,182 610,158 640,138 640,520 0,520"
-              fill="url(#lpGrad)"
-            />
-            <polyline
-              points="0,460 60,418 115,394 170,410 220,368 275,342 325,295 378,316 425,268 478,248 525,206 572,182 610,158 640,138"
-              fill="none" stroke="#00B67A" strokeWidth="1.8"
-              strokeLinecap="round" strokeLinejoin="round"
-            />
-            <line x1="60"  y1="406" x2="60"  y2="430" stroke="#00B67A" strokeWidth="1.5"/><rect x="52"  y="410" width="16" height="16" fill="#00B67A" rx="2"/>
-            <line x1="275" y1="330" x2="275" y2="356" stroke="#00B67A" strokeWidth="1.5"/><rect x="267" y="334" width="16" height="17" fill="#00B67A" rx="2"/>
-            <line x1="425" y1="256" x2="425" y2="280" stroke="#00B67A" strokeWidth="1.5"/><rect x="417" y="260" width="16" height="17" fill="#00B67A" rx="2"/>
-            <line x1="525" y1="194" x2="525" y2="218" stroke="#00B67A" strokeWidth="1.5"/><rect x="517" y="198" width="16" height="18" fill="#00B67A" rx="2"/>
-            <line x1="610" y1="146" x2="610" y2="168" stroke="#00B67A" strokeWidth="1.5"/><rect x="602" y="150" width="16" height="16" fill="#00B67A" rx="2"/>
-            <line x1="170" y1="398" x2="170" y2="424" stroke="#F87171" strokeWidth="1.5"/><rect x="162" y="403" width="16" height="18" fill="#F87171" rx="2"/>
-            <line x1="378" y1="303" x2="378" y2="328" stroke="#F87171" strokeWidth="1.5"/><rect x="370" y="308" width="16" height="16" fill="#F87171" rx="2"/>
-            <line x1="478" y1="236" x2="478" y2="260" stroke="#F87171" strokeWidth="1.5"/><rect x="470" y="241" width="16" height="14" fill="#F87171" rx="2"/>
+          <svg viewBox="0 0 500 380" preserveAspectRatio="xMaxYMin meet" width="100%" height="100%">
+            {/* Green candles rising right */}
+            {[
+              [300,240,260,230,255,265],[320,210,230,200,225,235],[340,175,200,165,195,205],
+              [360,145,170,135,165,175],[380,110,140,100,135,145],[400,80,112,70,107,117],
+              [420,52,85,42,80,90],[440,28,60,18,55,65],[460,8,40,0,35,45]
+            ].map(([x,y1,y2,wick1,body1,body2],i)=>(
+              <g key={`gc${i}`}>
+                <line x1={x} y1={wick1} x2={x} y2={y2+10} stroke="#00B67A" strokeWidth="1.5"/>
+                <rect x={x-7} y={body1} width="14" height={body2-body1} fill="#00B67A" rx="2" opacity="0.85"/>
+              </g>
+            ))}
+            {/* Red candles mixed in */}
+            {[
+              [330,215,235,208,220,232],[390,95,120,88,105,118],[450,18,45,12,28,42]
+            ].map(([x,y1,y2,wick1,body1,body2],i)=>(
+              <g key={`rc${i}`}>
+                <line x1={x} y1={wick1} x2={x} y2={y2+10} stroke="#F87171" strokeWidth="1.5"/>
+                <rect x={x-7} y={body1} width="14" height={body2-body1} fill="#F87171" rx="2" opacity="0.75"/>
+              </g>
+            ))}
           </svg>
         </div>
 
-        {/* ── Logo: white-logo.png + WHITE "AlphaSync" text ── */}
+        {/* Shield graphic — positioned right-center */}
+        <div className="lp-shield" aria-hidden>
+          <svg viewBox="0 0 200 240" width="100%" height="100%">
+            <defs>
+              <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#1a3a4a"/>
+                <stop offset="100%" stopColor="#0d2535"/>
+              </linearGradient>
+              <linearGradient id="shieldEdge" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.6"/>
+                <stop offset="100%" stopColor="#00B67A" stopOpacity="0.1"/>
+              </linearGradient>
+            </defs>
+            {/* Shield body */}
+            <path d="M100 8 L180 40 L180 120 C180 168 142 200 100 218 C58 200 20 168 20 120 L20 40 Z"
+              fill="url(#shieldGrad)" stroke="url(#shieldEdge)" strokeWidth="2"/>
+            {/* Inner shield highlight */}
+            <path d="M100 22 L168 50 L168 118 C168 160 134 190 100 206 C66 190 32 160 32 118 L32 50 Z"
+              fill="rgba(0,182,122,0.05)" stroke="rgba(0,182,122,0.15)" strokeWidth="1"/>
+            {/* Checkmark */}
+            <polyline points="60,118 88,145 145,90" fill="none"
+              stroke="#00B67A" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"
+              opacity="0.9"/>
+          </svg>
+        </div>
+
+        {/* ── Logo ── */}
         <div className="lp-logo">
           <img src="/white-logo.png" alt="AlphaSync" className="lp-logo-icon" />
           <span className="lp-logo-name">AlphaSync</span>
-          <span className="lp-logo-badge">{"α·SIM"}</span>
+          <span className="lp-logo-badge">Campus</span>
         </div>
 
-        {/* ── Hero ── */}
+        {/* ── Main content area ── */}
         <div className="lp-hero">
 
-
+          {/* Hero headline */}
           <h1>
-            Trade the market.<br />
-            <span className="lp-accent-txt">Risk absolutely nothing.</span>
+            Learn. Backtest. Trade.<br/>
+            <span className="lp-accent-txt">Comply. Grow.</span>
           </h1>
 
           <p className="lp-sub">
-            Practice with {"₹"}10 Lakh of virtual capital on live NSE &amp; BSE data.
-            No real money, no risk — just pure trading experience.
+            AlphaSync Campus is an AI-powered learning and trading platform built
+            with SEBI compliance at its core. Learn, practice and build your strategies
+            in a 100% virtual and risk-free environment.
           </p>
 
-          {/* Features — NO rectangular box overlays */}
+          {/* SEBI section label */}
+          <div className="lp-sebi-label">Designed with SEBI-Aligned Compliance Controls</div>
+
+          {/* 5 compliance features */}
           <div className="lp-feats">
 
             <div className="lp-feat">
-              <div className="lp-icon lp-icon-a"><i className="fa fa-chart-line"></i></div>
+              <div className="lp-icon"><i className="fa fa-file-contract"></i></div>
               <div className="lp-feat-txt">
-                <strong>Live Market Data</strong>
-                <span>Real-time NSE &amp; BSE prices — same data as professional traders</span>
+                <strong>Educational Purpose Only</strong>
+                <span>Designed solely for learning and simulation purposes. Not intended for real trading or advisory.</span>
               </div>
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon lp-icon-b"><i className="fa fa-key"></i></div>
+              <div className="lp-icon"><i className="fa fa-ban"></i></div>
               <div className="lp-feat-txt">
-                <strong>Broker Credentials Setup</strong>
-                <span>Secure login using your broker credentials &amp; API keys</span>
+                <strong>No Real Money or Advisory</strong>
+                <span>No real funds, no investment advice, no guarantees. We do not provide tips or recommendations.</span>
               </div>
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon lp-icon-c"><i className="fa fa-chart-pie"></i></div>
+              <div className="lp-icon"><i className="fa fa-chart-bar"></i></div>
               <div className="lp-feat-txt">
-                <strong>Full Analytics Dashboard</strong>
-                <span>P&amp;L tracking, position sizing, risk metrics &amp; strategy reports</span>
+                <strong>Data from Authorised Sources</strong>
+                <span>Market data is from NSE &amp; BSE and displayed in compliance with SEBI guidelines.</span>
+              </div>
+            </div>
+
+            <div className="lp-feat">
+              <div className="lp-icon"><i className="fa fa-scale-balanced"></i></div>
+              <div className="lp-feat-txt">
+                <strong>Transparent &amp; Fair</strong>
+                <span>Transparent pricing, clear terms and unbiased educational content.</span>
+              </div>
+            </div>
+
+            <div className="lp-feat">
+              <div className="lp-icon"><i className="fa fa-lock"></i></div>
+              <div className="lp-feat-txt">
+                <strong>Privacy &amp; Security</strong>
+                <span>Your data is encrypted and protected. We follow strict privacy and security policies.</span>
               </div>
             </div>
 
           </div>
 
-          {/* Virtual capital */}
+          {/* Capital banner */}
           <div className="lp-capital">
-            <div>
-              <div className="lp-cap-lbl">Starting Virtual Capital</div>
-              <div className="lp-cap-amt">{"₹"}10,00,000</div>
+            <div className="lp-cap-icon"><i className="fa fa-graduation-cap"></i></div>
+            <div className="lp-cap-text">
+              Start your learning journey with{" "}
+              <span className="lp-cap-amt">{"₹"}10,00,000</span>
+              {" "}virtual capital in Campus.
             </div>
-            <button className="lp-cap-btn" type="button">
-              <i className="fa fa-rotate"></i> Reset anytime
-            </button>
           </div>
 
         </div>
 
         {/* ── Trust strip ── */}
         <div className="lp-trust">
-          <span><i className="fa fa-circle-check"></i>100% Virtual Trading</span>
-          <span><i className="fa fa-chart-line"></i>Live Market Data</span>
-          <span><i className="fa fa-shield-halved"></i>Secure &amp; Private</span>
-          <span><i className="fa fa-circle-info"></i>No Hidden Charges</span>
+          <span><i className="fa fa-shield-halved"></i>SEBI Aligned</span>
+          <span><i className="fa fa-lock"></i>Secure &amp; Private</span>
+          <span><i className="fa fa-ban"></i>No Investment Advice</span>
+          <span><i className="fa fa-arrows-rotate"></i>Continuous Compliance</span>
+          <span><i className="fa fa-graduation-cap"></i>Ethical &amp; Responsible Learning</span>
+        </div>
+
+        {/* ── SEBI disclaimer ── */}
+        <div className="lp-disclaimer">
+          <i className="fa fa-shield-halved"></i>
+          <span>
+            SEBI does not regulate virtual trading platforms for educational purposes.
+            AlphaSync Campus is not registered with SEBI and does not provide financial services.
+          </span>
         </div>
 
       </div>
@@ -499,46 +552,61 @@ const LP_STYLES = `
      LEFT — FULL BLEED (zero margin, zero border-radius)
      ══════════════════════════════════════════════════════ */
   .lp-left {
-    background: linear-gradient(155deg, #060D1A 0%, #08152A 52%, #0A1B32 100%);
+    background: linear-gradient(155deg, #060D1A 0%, #071422 50%, #0A1B2E 100%);
     display: flex;
     flex-direction: column;
-    padding: 2rem 2.75rem;
+    padding: 1.5rem 2rem 1rem;
     position: relative;
     overflow: hidden;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
   }
-  .lp-left::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+  .lp-left::-webkit-scrollbar { display: none; }
 
   .lp-glow { position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
   .lp-glow-tr {
     width: 640px; height: 640px;
-    background: radial-gradient(circle, rgba(20,90,195,0.13) 0%, transparent 62%);
+    background: radial-gradient(circle, rgba(0,182,122,0.07) 0%, transparent 62%);
     top: -230px; right: -180px;
   }
   .lp-glow-bl {
     width: 480px; height: 480px;
-    background: radial-gradient(circle, rgba(0,155,185,0.09) 0%, transparent 65%);
+    background: radial-gradient(circle, rgba(0,155,185,0.06) 0%, transparent 65%);
     bottom: -150px; left: -110px;
     animation: lpGlow 9s ease-in-out infinite;
   }
   @keyframes lpGlow { 0%,100%{transform:scale(1);opacity:.75} 50%{transform:scale(1.08);opacity:1} }
 
+  /* Candlestick chart — top-right corner only */
   .lp-chart {
-    position: absolute; inset: 0;
-    opacity: 0.11; pointer-events: none; overflow: hidden;
+    position: absolute;
+    top: 0; right: 0;
+    width: 55%; height: 45%;
+    opacity: 0.45; pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Shield graphic — right center */
+  .lp-shield {
+    position: absolute;
+    right: -2%; top: 50%;
+    transform: translateY(-55%);
+    width: 220px; height: 265px;
+    opacity: 0.22;
+    pointer-events: none;
+    z-index: 1;
   }
 
   /* ── Logo ─────────────────────────────────────────── */
   .lp-logo {
-    display: flex; align-items: center; gap: .9rem;
+    display: flex; align-items: center; gap: .75rem;
     flex-shrink: 0; position: relative; z-index: 2;
   }
   .lp-logo-icon {
-    height: 48px; width: 48px; object-fit: contain;
+    height: 40px; width: 40px; object-fit: contain;
   }
   .lp-logo-name {
     color: #FFFFFF;
-    font-size: 1.625rem;
+    font-size: 1.5rem;
     font-weight: 700;
     font-family: var(--f-display);
     letter-spacing: -.02em;
@@ -546,115 +614,119 @@ const LP_STYLES = `
   }
   .lp-logo-badge {
     font-size: .72rem; font-weight: 700;
-    background: rgba(0,182,122,0.1);
+    background: rgba(0,182,122,0.15);
     color: #00B67A;
-    border: 1px solid rgba(0,182,122,0.3);
-    padding: .2rem .65rem;
+    border: 1px solid rgba(0,182,122,0.4);
+    padding: .22rem .7rem;
     border-radius: var(--r-pill);
     letter-spacing: .05em;
   }
 
   /* ── Hero ──────────────────────────────────────────── */
   .lp-hero {
-    flex: 1; display: flex; flex-direction: column;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     position: relative; z-index: 2;
-    padding: 1.25rem 0 .75rem;
-  }
-
-  .lp-pill {
-    display: inline-flex; align-items: center; gap: .4rem;
-    background: rgba(0,182,122,0.08);
-    border: 1px solid rgba(0,182,122,0.2);
-    color: #00B67A;
-    font-size: .8rem; font-weight: 700; letter-spacing: .08em;
-    padding: .4rem 1.1rem; border-radius: var(--r-pill);
-    margin-bottom: 2rem; width: fit-content;
+    padding: .75rem 0 .5rem;
+    min-height: 0;
   }
 
   .lp-left h1 {
-    font-size: clamp(1.875rem, 3vw, 2.75rem);
-    line-height: 1.2; letter-spacing: -.75px;
+    font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+    line-height: 1.15; letter-spacing: -.5px;
     font-weight: 800; font-family: var(--f-display);
-    color: #FFFFFF; margin: 0 0 1rem;
+    color: #FFFFFF; margin: 0 0 .6rem;
   }
   .lp-accent-txt { color: #00B67A; }
 
   .lp-sub {
-    font-size: .975rem;
-    color: rgba(255,255,255,0.7); line-height: 1.7;
-    max-width: 520px; margin-bottom: 1.75rem;
+    font-size: .875rem;
+    color: rgba(255,255,255,0.68); line-height: 1.6;
+    max-width: 480px; margin-bottom: .75rem;
   }
 
-  /* Features — CLEAN rows, zero box overlays */
-  .lp-feats { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.75rem; }
+  /* SEBI label */
+  .lp-sebi-label {
+    font-size: .68rem; font-weight: 700;
+    color: #00B67A;
+    text-transform: uppercase; letter-spacing: .12em;
+    margin-bottom: .6rem;
+  }
+
+  /* Features */
+  .lp-feats { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .75rem; }
 
   .lp-feat {
-    display: flex; align-items: center; gap: 1.1rem;
-    padding: .15rem 0;
+    display: flex; align-items: flex-start; gap: .9rem;
   }
 
   .lp-icon {
-    width: 46px; height: 46px; border-radius: 50%;
+    width: 36px; height: 36px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; flex-shrink: 0;
-    background: rgba(0, 182, 122, 0.08);
-    border: 1px solid rgba(0, 182, 122, 0.2);
+    font-size: .85rem; flex-shrink: 0;
+    background: rgba(0, 182, 122, 0.12);
+    border: 1px solid rgba(0, 182, 122, 0.25);
     color: #00B67A;
   }
 
-  .lp-feat-txt { line-height: 1.4; }
+  .lp-feat-txt { line-height: 1.35; padding-top: 2px; }
   .lp-feat-txt strong {
     display: block; color: #FFFFFF;
-    font-size: .95rem; font-weight: 600; margin-bottom: .2rem;
+    font-size: .875rem; font-weight: 600; margin-bottom: .1rem;
   }
-  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.65); font-size: .84rem; }
+  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.55); font-size: .78rem; }
 
-  /* Capital card */
+  /* Capital banner */
   .lp-capital {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 1.25rem 1.625rem;
-    display: flex; align-items: center;
-    justify-content: space-between; gap: .75rem;
-    width: 100%; max-width: 600px;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: .85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
   }
-  .lp-cap-lbl {
-    font-size: .75rem; font-weight: 600;
-    color: rgba(255,255,255,0.4);
-    text-transform: uppercase; letter-spacing: .08em; margin-bottom: .4rem;
+  .lp-cap-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: rgba(0,182,122,0.12); border: 1px solid rgba(0,182,122,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: #00B67A; font-size: 1rem;
+  }
+  .lp-cap-text {
+    font-size: .875rem; color: rgba(255,255,255,0.8); line-height: 1.45;
   }
   .lp-cap-amt {
-    font-size: clamp(1.625rem, 2.5vw, 2.125rem);
     font-weight: 700; color: #00B67A;
-    font-family: var(--f-mono); letter-spacing: -.02em; line-height: 1;
+    font-family: var(--f-mono);
   }
-  .lp-cap-btn {
-    display: inline-flex; align-items: center; gap: .4rem;
-    font-size: .8rem; font-weight: 500;
-    background: transparent; color: #94A3B8;
-    border: 1px solid rgba(255,255,255,0.15);
-    padding: .5rem 1rem; border-radius: var(--r-pill);
-    cursor: pointer; font-family: var(--f-sans);
-    transition: var(--ease); white-space: nowrap;
-  }
-  .lp-cap-btn:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); }
 
-  /* Trust */
+  /* Trust strip — 5 items */
   .lp-trust {
     display: flex; align-items: center;
-    justify-content: space-between; gap: .5rem;
-    padding-top: 1.25rem;
+    justify-content: space-between; gap: .25rem;
+    padding-top: .75rem;
     flex-shrink: 0; position: relative; z-index: 2;
+    border-top: 1px solid rgba(255,255,255,0.06);
   }
   .lp-trust span {
-    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
-    font-size: .82rem; font-weight: 500;
-    color: rgba(255,255,255,0.65); white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: .3rem;
+    font-size: .7rem; font-weight: 500;
+    color: rgba(255,255,255,0.55); white-space: nowrap;
     flex: 1;
   }
-  .lp-trust span i { font-size: .9rem; color: #FFFFFF; }
+  .lp-trust span i { font-size: .8rem; color: rgba(0,182,122,0.8); }
+
+  /* SEBI disclaimer */
+  .lp-disclaimer {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .6rem 0 0;
+    flex-shrink: 0; position: relative; z-index: 2;
+  }
+  .lp-disclaimer i { color: rgba(0,182,122,0.5); font-size: .8rem; flex-shrink: 0; margin-top: 2px; }
+  .lp-disclaimer span { font-size: .7rem; color: rgba(255,255,255,0.3); line-height: 1.4; }
 
   /* ══════════════════════════════════════════════════════
      RIGHT — pure white
@@ -864,22 +936,28 @@ const LP_STYLES = `
      RESPONSIVE
      ══════════════════════════════════════════════════════ */
   @media (min-width: 1440px) {
-    .lp-left      { padding: 2.25rem 3.25rem; }
+    .lp-left      { padding: 1.75rem 2.75rem 1.25rem; }
     .lp-nav       { padding: 2rem 3rem 1rem; }
     .lp-form-area { padding: 1rem 2.5rem 2.5rem; }
     .lp-card      { max-width: 480px; padding: 2rem 2.5rem 2rem; }
     .lp-card-head h2 { font-size: 2.125rem; }
-    .lp-capital   { max-width: 640px; }
+    .lp-left h1   { font-size: 2.25rem; }
+    .lp-feat-txt strong { font-size: .9rem; }
+    .lp-feat-txt span { font-size: .8rem; }
   }
 
   @media (max-width: 1280px) and (min-width: 901px) {
-    .lp-left      { padding: 1.75rem 2.25rem; }
+    .lp-left      { padding: 1.25rem 1.75rem .85rem; }
     .lp-nav       { padding: 1.25rem 2rem .5rem; gap: 1.25rem; }
     .lp-form-area { padding: .75rem 1.5rem 1.75rem; }
     .lp-card      { max-width: 460px; padding: 1.75rem 2.25rem 1.5rem; }
-    .lp-capital   { max-width: 520px; }
-    .lp-left h1   { font-size: clamp(1.625rem, 3.5vw, 2.5rem); }
+    .lp-left h1   { font-size: clamp(1.375rem, 2.8vw, 2rem); }
     .lp-card-head h2 { font-size: 1.75rem; }
+    .lp-feats     { gap: .35rem; }
+    .lp-sub       { margin-bottom: .5rem; }
+    .lp-sebi-label { margin-bottom: .45rem; }
+    .lp-capital   { padding: .7rem 1rem; }
+    .lp-shield    { width: 180px; height: 215px; }
   }
 
   @media (max-width: 900px) {
