@@ -191,65 +191,114 @@ export default function LoginPage() {
         {/* Background glows */}
         <div className="lp-glow lp-glow-tr" />
         <div className="lp-glow lp-glow-bl" />
+        <div className="lp-glow lp-glow-mid" />
 
-        {/* Candlestick chart — top-right, full height, diagonal rise */}
+        {/* Subtle grid overlay */}
+        <div className="lp-grid" aria-hidden />
+
+        {/* ── Premium Candlestick Chart (right half, full height diagonal) ── */}
         <div className="lp-chart" aria-hidden>
-          <svg viewBox="0 0 360 480" preserveAspectRatio="xMaxYMin meet" width="100%" height="100%">
-            {/* Rising green candles */}
-            <g opacity="0.9">
-              <line x1="40" y1="380" x2="40" y2="340" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="32" y="345" width="16" height="30" fill="#00B67A" rx="2"/>
-              <line x1="80" y1="340" x2="80" y2="295" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="72" y="302" width="16" height="32" fill="#00B67A" rx="2"/>
-              <line x1="120" y1="305" x2="120" y2="258" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="112" y="265" width="16" height="35" fill="#00B67A" rx="2"/>
-              <line x1="200" y1="238" x2="200" y2="190" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="192" y="196" width="16" height="36" fill="#00B67A" rx="2"/>
-              <line x1="240" y1="198" x2="240" y2="152" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="232" y="158" width="16" height="34" fill="#00B67A" rx="2"/>
-              <line x1="280" y1="158" x2="280" y2="110" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="272" y="116" width="16" height="36" fill="#00B67A" rx="2"/>
-              <line x1="320" y1="112" x2="320" y2="65" stroke="#00B67A" strokeWidth="2"/>
-              <rect x="312" y="70" width="16" height="36" fill="#00B67A" rx="2"/>
-            </g>
-            {/* Bearish red candles mixed in */}
-            <g opacity="0.85">
-              <line x1="160" y1="275" x2="160" y2="232" stroke="#F87171" strokeWidth="2"/>
-              <rect x="152" y="238" width="16" height="30" fill="#F87171" rx="2"/>
-              <line x1="360" y1="68" x2="360" y2="32" stroke="#F87171" strokeWidth="2"/>
-              <rect x="352" y="36" width="16" height="26" fill="#F87171" rx="2"/>
-            </g>
+          <svg viewBox="0 0 420 560" preserveAspectRatio="xMaxYMin meet" width="100%" height="100%">
+            <defs>
+              {/* Area gradient under the trend line */}
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.28"/>
+                <stop offset="100%" stopColor="#00B67A" stopOpacity="0"/>
+              </linearGradient>
+              {/* Candle glow filter */}
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+
+            {/* Horizontal grid lines */}
+            {[100,180,260,340,420,500].map(y => (
+              <line key={y} x1="0" y1={y} x2="420" y2={y}
+                stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+            ))}
+
+            {/* Area fill under trend */}
+            <polygon
+              points="30,510 70,462 110,418 150,382 190,338 230,296 270,248 310,204 350,158 390,114 420,88 420,560 30,560"
+              fill="url(#areaGrad)"
+            />
+
             {/* Trend line */}
             <polyline
-              points="40,360 80,318 120,282 160,254 200,214 240,175 280,130 320,88 360,52"
-              fill="none" stroke="#00B67A" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.3"
+              points="30,510 70,462 110,418 150,382 190,338 230,296 270,248 310,204 350,158 390,114"
+              fill="none" stroke="#00B67A" strokeWidth="2" opacity="0.5"
             />
+
+            {/* Green bullish candles — rising diagonally */}
+            <g filter="url(#glow)" opacity="0.95">
+              {/* candle: [x, wickTop, wickBot, bodyTop, bodyH] */}
+              {[[30,498,522,504,16],[70,448,474,454,16],[110,404,432,410,18],
+                [190,324,352,330,18],[230,282,312,288,20],[270,234,266,240,20],
+                [310,190,222,196,22],[350,144,178,150,22],[390,100,136,106,24]
+              ].map(([x,wt,wb,bt,bh],i)=>(
+                <g key={`gb${i}`}>
+                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#00B67A" strokeWidth="1.5" opacity="0.6"/>
+                  <rect x={x-9} y={bt} width="18" height={bh} fill="#00B67A" rx="3"/>
+                </g>
+              ))}
+            </g>
+
+            {/* Red bearish candles mixed in */}
+            <g filter="url(#glow)" opacity="0.9">
+              {[[150,368,394,374,16],[420,76,106,80,20]].map(([x,wt,wb,bt,bh],i)=>(
+                <g key={`rb${i}`}>
+                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#F87171" strokeWidth="1.5" opacity="0.6"/>
+                  <rect x={x-9} y={bt} width="18" height={bh} fill="#F87171" rx="3"/>
+                </g>
+              ))}
+            </g>
+
+            {/* Volume bars at bottom */}
+            {[[30,540,14],[70,536,18],[110,532,22],[150,538,12],[190,530,26],[230,527,30],
+              [270,524,34],[310,520,38],[350,516,42],[390,512,46],[420,524,30]
+            ].map(([x,y,h],i)=>(
+              <rect key={`vol${i}`} x={x-7} y={y} width="14" height={h}
+                fill={i===3||i===9 ? "#F87171" : "#00B67A"} opacity="0.18" rx="2"/>
+            ))}
           </svg>
         </div>
 
-        {/* Shield graphic — positioned right-center */}
+        {/* ── Shield with checkmark — right-center, premium glow ── */}
         <div className="lp-shield" aria-hidden>
-          <svg viewBox="0 0 200 240" width="100%" height="100%">
+          <svg viewBox="0 0 220 260" width="100%" height="100%">
             <defs>
-              <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#1a3a4a"/>
-                <stop offset="100%" stopColor="#0d2535"/>
+              <radialGradient id="shieldGlow" cx="50%" cy="40%" r="60%">
+                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.08"/>
+                <stop offset="100%" stopColor="#00B67A" stopOpacity="0"/>
+              </radialGradient>
+              <linearGradient id="shieldGrad" x1="0" y1="0" x2="0.8" y2="1">
+                <stop offset="0%" stopColor="#1C3D50"/>
+                <stop offset="100%" stopColor="#0C2030"/>
               </linearGradient>
               <linearGradient id="shieldEdge" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.6"/>
-                <stop offset="100%" stopColor="#00B67A" stopOpacity="0.1"/>
+                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.7"/>
+                <stop offset="60%" stopColor="#00B67A" stopOpacity="0.2"/>
+                <stop offset="100%" stopColor="#00B67A" stopOpacity="0.05"/>
               </linearGradient>
             </defs>
+            {/* Outer glow halo */}
+            <ellipse cx="110" cy="130" rx="110" ry="130" fill="url(#shieldGlow)"/>
             {/* Shield body */}
-            <path d="M100 8 L180 40 L180 120 C180 168 142 200 100 218 C58 200 20 168 20 120 L20 40 Z"
-              fill="url(#shieldGrad)" stroke="url(#shieldEdge)" strokeWidth="2"/>
-            {/* Inner shield highlight */}
-            <path d="M100 22 L168 50 L168 118 C168 160 134 190 100 206 C66 190 32 160 32 118 L32 50 Z"
-              fill="rgba(0,182,122,0.05)" stroke="rgba(0,182,122,0.15)" strokeWidth="1"/>
+            <path d="M110 10 L196 45 L196 130 C196 182 156 216 110 234 C64 216 24 182 24 130 L24 45 Z"
+              fill="url(#shieldGrad)" stroke="url(#shieldEdge)" strokeWidth="2.5"/>
+            {/* Inner rim */}
+            <path d="M110 26 L180 57 L180 128 C180 172 148 202 110 218 C72 202 40 172 40 128 L40 57 Z"
+              fill="none" stroke="rgba(0,182,122,0.18)" strokeWidth="1"/>
+            {/* Sheen highlight */}
+            <path d="M110 10 L196 45 L196 90 C175 72 148 60 110 52 C72 60 45 72 24 90 L24 45 Z"
+              fill="rgba(255,255,255,0.04)"/>
             {/* Checkmark */}
-            <polyline points="60,118 88,145 145,90" fill="none"
-              stroke="#00B67A" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"
-              opacity="0.9"/>
+            <polyline points="68,128 96,158 158,100" fill="none"
+              stroke="#00B67A" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="68,128 96,158 158,100" fill="none"
+              stroke="rgba(255,255,255,0.15)" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round"
+              style={{mixBlendMode:"overlay"}}/>
           </svg>
         </div>
 
@@ -553,10 +602,10 @@ const LP_STYLES = `
      LEFT — FULL BLEED (zero margin, zero border-radius)
      ══════════════════════════════════════════════════════ */
   .lp-left {
-    background: linear-gradient(155deg, #060D1A 0%, #071422 50%, #0A1B2E 100%);
+    background: linear-gradient(155deg, #050C18 0%, #06111E 45%, #091828 100%);
     display: flex;
     flex-direction: column;
-    padding: 1.5rem 2rem 1rem;
+    padding: 1.75rem 2.25rem 1.25rem;
     position: relative;
     overflow: hidden;
     scrollbar-width: none;
@@ -565,34 +614,53 @@ const LP_STYLES = `
 
   .lp-glow { position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
   .lp-glow-tr {
-    width: 640px; height: 640px;
-    background: radial-gradient(circle, rgba(0,182,122,0.07) 0%, transparent 62%);
-    top: -230px; right: -180px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(0,182,122,0.10) 0%, transparent 60%);
+    top: -280px; right: -220px;
   }
   .lp-glow-bl {
-    width: 480px; height: 480px;
-    background: radial-gradient(circle, rgba(0,155,185,0.06) 0%, transparent 65%);
-    bottom: -150px; left: -110px;
-    animation: lpGlow 9s ease-in-out infinite;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,150,180,0.07) 0%, transparent 65%);
+    bottom: -180px; left: -130px;
+    animation: lpGlowBl 9s ease-in-out infinite;
   }
-  @keyframes lpGlow { 0%,100%{transform:scale(1);opacity:.75} 50%{transform:scale(1.08);opacity:1} }
+  .lp-glow-mid {
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(0,182,122,0.05) 0%, transparent 70%);
+    top: 50%; right: 15%;
+    transform: translateY(-50%);
+    animation: lpGlowMid 12s ease-in-out infinite;
+  }
+  @keyframes lpGlowBl  { 0%,100%{transform:scale(1);opacity:.75} 50%{transform:scale(1.1);opacity:1} }
+  @keyframes lpGlowMid { 0%,100%{transform:translateY(-50%) scale(1);opacity:.6} 50%{transform:translateY(-50%) scale(1.15);opacity:1} }
 
-  /* Candlestick chart — top-right, diagonal rising bars */
+  /* Subtle dot grid background */
+  .lp-grid {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none; z-index: 0;
+    mask-image: linear-gradient(to bottom right, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.2) 100%);
+    -webkit-mask-image: linear-gradient(to bottom right, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.2) 100%);
+  }
+
+  /* Candlestick chart — right side, full height */
   .lp-chart {
     position: absolute;
     top: 0; right: 0;
-    width: 58%; height: 60%;
-    opacity: 0.6; pointer-events: none;
+    width: 62%; height: 100%;
+    opacity: 0.7; pointer-events: none;
     z-index: 1;
   }
 
-  /* Shield graphic — right center */
+  /* Shield graphic — right-center, larger and more visible */
   .lp-shield {
     position: absolute;
-    right: -2%; top: 50%;
-    transform: translateY(-55%);
-    width: 220px; height: 265px;
-    opacity: 0.22;
+    right: 3%; top: 52%;
+    transform: translateY(-50%);
+    width: 270px; height: 325px;
+    opacity: 0.28;
     pointer-events: none;
     z-index: 1;
   }
@@ -630,7 +698,7 @@ const LP_STYLES = `
     flex-direction: column;
     justify-content: center;
     position: relative; z-index: 2;
-    padding: 1.25rem 0 .75rem;
+    padding: 1.5rem 0 1rem;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: none;
@@ -638,59 +706,60 @@ const LP_STYLES = `
   .lp-hero::-webkit-scrollbar { display: none; }
 
   .lp-left h1 {
-    font-size: clamp(1.65rem, 2.8vw, 2.5rem);
+    font-size: clamp(1.75rem, 3vw, 2.6rem);
     line-height: 1.18; letter-spacing: -.5px;
     font-weight: 800; font-family: var(--f-display);
-    color: #FFFFFF; margin: 0 0 .9rem;
+    color: #FFFFFF; margin: 0 0 1.1rem;
   }
   .lp-accent-txt { color: #00B67A; }
 
   .lp-sub {
-    font-size: .9rem;
-    color: rgba(255,255,255,0.68); line-height: 1.65;
-    max-width: 480px; margin-bottom: 1rem;
+    font-size: .925rem;
+    color: rgba(255,255,255,0.68); line-height: 1.7;
+    max-width: 480px; margin-bottom: 1.35rem;
   }
 
   /* SEBI label */
   .lp-sebi-label {
-    font-size: .7rem; font-weight: 700;
+    font-size: .72rem; font-weight: 700;
     color: #00B67A;
-    text-transform: uppercase; letter-spacing: .12em;
-    margin-bottom: .85rem;
+    text-transform: uppercase; letter-spacing: .14em;
+    margin-bottom: 1rem;
   }
 
   /* Features */
-  .lp-feats { display: flex; flex-direction: column; gap: .65rem; margin-bottom: 1rem; }
+  .lp-feats { display: flex; flex-direction: column; gap: .9rem; margin-bottom: 1.25rem; }
 
   .lp-feat {
-    display: flex; align-items: center; gap: 1rem;
+    display: flex; align-items: center; gap: 1.1rem;
   }
 
   .lp-icon {
-    width: 38px; height: 38px; border-radius: 10px;
+    width: 40px; height: 40px; border-radius: 11px;
     display: flex; align-items: center; justify-content: center;
     font-size: .9rem; flex-shrink: 0;
-    background: rgba(0, 182, 122, 0.12);
-    border: 1px solid rgba(0, 182, 122, 0.25);
+    background: rgba(0, 182, 122, 0.13);
+    border: 1px solid rgba(0, 182, 122, 0.28);
     color: #00B67A;
+    box-shadow: 0 0 12px rgba(0,182,122,0.08);
   }
 
-  .lp-feat-txt { line-height: 1.35; }
+  .lp-feat-txt { line-height: 1.4; }
   .lp-feat-txt strong {
     display: block; color: #FFFFFF;
-    font-size: .875rem; font-weight: 600; margin-bottom: .1rem;
+    font-size: .9rem; font-weight: 600; margin-bottom: .15rem;
   }
-  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.55); font-size: .8rem; }
+  .lp-feat-txt span { display: block; color: rgba(255,255,255,0.55); font-size: .82rem; }
 
   /* Capital banner */
   .lp-capital {
-    background: rgba(255,255,255,0.035);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,182,122,0.06);
+    border: 1px solid rgba(0,182,122,0.18);
     border-radius: 14px;
-    padding: .85rem 1.25rem;
+    padding: 1rem 1.4rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.1rem;
     width: 100%;
   }
   .lp-cap-icon {
