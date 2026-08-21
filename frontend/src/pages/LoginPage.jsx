@@ -202,20 +202,38 @@ export default function LoginPage() {
             <defs>
               {/* Area gradient under the trend line */}
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00B67A" stopOpacity="0.12"/>
+                <stop offset="0%" stopColor="#00E599" stopOpacity="0.22"/>
+                <stop offset="55%" stopColor="#00B67A" stopOpacity="0.06"/>
                 <stop offset="100%" stopColor="#00B67A" stopOpacity="0"/>
+              </linearGradient>
+              {/* Candle body gradients */}
+              <linearGradient id="candleGreen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3DE8A8"/>
+                <stop offset="100%" stopColor="#00A968"/>
+              </linearGradient>
+              <linearGradient id="candleRed" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FB9C9C"/>
+                <stop offset="100%" stopColor="#E45858"/>
               </linearGradient>
               {/* Candle glow filter */}
               <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feGaussianBlur stdDeviation="2.4" result="blur"/>
                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="6"/>
               </filter>
             </defs>
 
             {/* Horizontal grid lines */}
             {[100,180,260,340,420,500].map(y => (
               <line key={y} x1="0" y1={y} x2="420" y2={y}
-                stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="2 5"/>
+            ))}
+            {/* Vertical guide lines */}
+            {[70,150,230,310,390].map(x => (
+              <line key={`v${x}`} x1={x} y1="60" x2={x} y2="560"
+                stroke="rgba(255,255,255,0.025)" strokeWidth="1"/>
             ))}
 
             {/* Area fill under trend */}
@@ -227,29 +245,36 @@ export default function LoginPage() {
             {/* Trend line */}
             <polyline
               points="30,510 70,462 110,418 150,382 190,338 230,296 270,248 310,204 350,158 390,114"
-              fill="none" stroke="#00B67A" strokeWidth="2" opacity="0.5"
+              fill="none" stroke="#00E599" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.55"
             />
 
+            {/* Endpoint marker with soft halo */}
+            <circle cx="390" cy="114" r="14" fill="#00E599" opacity="0.16" filter="url(#softGlow)"/>
+            <circle cx="390" cy="114" r="4.5" fill="#00E599"/>
+            <circle cx="390" cy="114" r="4.5" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1"/>
+
             {/* Green bullish candles — rising diagonally */}
-            <g filter="url(#glow)" opacity="0.95">
+            <g filter="url(#glow)">
               {/* candle: [x, wickTop, wickBot, bodyTop, bodyH] */}
               {[[30,498,522,504,16],[70,448,474,454,16],[110,404,432,410,18],
                 [190,324,352,330,18],[230,282,312,288,20],[270,234,266,240,20],
                 [310,190,222,196,22],[350,144,178,150,22],[390,100,136,106,24]
               ].map(([x,wt,wb,bt,bh],i)=>(
                 <g key={`gb${i}`}>
-                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#00B67A" strokeWidth="1.5" opacity="0.6"/>
-                  <rect x={x-9} y={bt} width="18" height={bh} fill="#00B67A" rx="3"/>
+                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#00A968" strokeWidth="1.5" opacity="0.7"/>
+                  <rect x={x-8} y={bt} width="16" height={bh} fill="url(#candleGreen)" rx="3.5"
+                    stroke="rgba(255,255,255,0.18)" strokeWidth="0.75"/>
                 </g>
               ))}
             </g>
 
             {/* Red bearish candles mixed in */}
-            <g filter="url(#glow)" opacity="0.9">
+            <g filter="url(#glow)">
               {[[150,368,394,374,16],[420,76,106,80,20]].map(([x,wt,wb,bt,bh],i)=>(
                 <g key={`rb${i}`}>
-                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#F87171" strokeWidth="1.5" opacity="0.6"/>
-                  <rect x={x-9} y={bt} width="18" height={bh} fill="#F87171" rx="3"/>
+                  <line x1={x} y1={wt} x2={x} y2={wb} stroke="#E45858" strokeWidth="1.5" opacity="0.7"/>
+                  <rect x={x-8} y={bt} width="16" height={bh} fill="url(#candleRed)" rx="3.5"
+                    stroke="rgba(255,255,255,0.18)" strokeWidth="0.75"/>
                 </g>
               ))}
             </g>
@@ -258,8 +283,8 @@ export default function LoginPage() {
             {[[30,540,14],[70,536,18],[110,532,22],[150,538,12],[190,530,26],[230,527,30],
               [270,524,34],[310,520,38],[350,516,42],[390,512,46],[420,524,30]
             ].map(([x,y,h],i)=>(
-              <rect key={`vol${i}`} x={x-7} y={y} width="14" height={h}
-                fill={i===3||i===9 ? "#F87171" : "#00B67A"} opacity="0.18" rx="2"/>
+              <rect key={`vol${i}`} x={x-6.5} y={y} width="13" height={h}
+                fill={i===3||i===9 ? "#E45858" : "#00B67A"} opacity="0.22" rx="2.5"/>
             ))}
           </svg>
         </div>
@@ -331,7 +356,13 @@ export default function LoginPage() {
           <div className="lp-feats">
 
             <div className="lp-feat">
-              <div className="lp-icon"><i className="fa fa-file-contract"></i></div>
+              <div className="lp-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 2.75h8.5L19 7.25V19.5a1.75 1.75 0 0 1-1.75 1.75h-9.5A1.75 1.75 0 0 1 6 19.5v-16.75Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M14.25 2.75V6.5A1.75 1.75 0 0 0 16 8.25h3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M8.75 12.25h6.5M8.75 15.25h6.5M8.75 9.25h2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
               <div className="lp-feat-txt">
                 <strong>Educational Purpose Only</strong>
                 <span>Solely for learning & simulation. Not for real trading.</span>
@@ -339,7 +370,12 @@ export default function LoginPage() {
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon"><i className="fa fa-ban"></i></div>
+              <div className="lp-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M6.5 17.5l11-11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
               <div className="lp-feat-txt">
                 <strong>No Real Money or Advisory</strong>
                 <span>No real funds, no investment advice, no guarantees.</span>
@@ -347,7 +383,13 @@ export default function LoginPage() {
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon"><i className="fa fa-chart-bar"></i></div>
+              <div className="lp-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="13" width="3.4" height="7.25" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                  <rect x="10.3" y="8.5" width="3.4" height="11.75" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                  <rect x="16.6" y="4.5" width="3.4" height="15.75" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                </svg>
+              </div>
               <div className="lp-feat-txt">
                 <strong>Data from Authorised Sources</strong>
                 <span>NSE &amp; BSE data displayed per SEBI guidelines.</span>
@@ -355,7 +397,15 @@ export default function LoginPage() {
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon"><i className="fa fa-scale-balanced"></i></div>
+              <div className="lp-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 3v18M8 21h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M12 5.5 4.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M12 5.5 19.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M2.5 8 4.5 8 6.5 12.5a2.6 2.6 0 0 1-4 0L4.5 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M17.5 8 19.5 8 21.5 12.5a2.6 2.6 0 0 1-4 0L19.5 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                </svg>
+              </div>
               <div className="lp-feat-txt">
                 <strong>Transparent &amp; Fair</strong>
                 <span>Clear pricing, unbiased educational content.</span>
@@ -363,7 +413,14 @@ export default function LoginPage() {
             </div>
 
             <div className="lp-feat">
-              <div className="lp-icon"><i className="fa fa-lock"></i></div>
+              <div className="lp-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="5" y="10.75" width="14" height="9.5" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M8 10.75V7.5a4 4 0 0 1 8 0v3.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="12" cy="15" r="1.35" fill="currentColor"/>
+                  <path d="M12 16.35V17.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
               <div className="lp-feat-txt">
                 <strong>Privacy &amp; Security</strong>
                 <span>Encrypted data, strict privacy &amp; security policies.</span>
@@ -742,11 +799,12 @@ const LP_STYLES = `
     width: 40px; height: 40px; border-radius: 11px;
     display: flex; align-items: center; justify-content: center;
     font-size: .9rem; flex-shrink: 0;
-    background: rgba(0, 182, 122, 0.13);
-    border: 1px solid rgba(0, 182, 122, 0.28);
+    background: linear-gradient(155deg, rgba(0,182,122,0.16), rgba(0,182,122,0.06));
+    border: 1px solid rgba(0, 182, 122, 0.3);
     color: #00B67A;
-    box-shadow: 0 0 12px rgba(0,182,122,0.08);
+    box-shadow: 0 0 12px rgba(0,182,122,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
   }
+  .lp-icon svg { width: 20px; height: 20px; }
 
   .lp-feat-txt { line-height: 1.4; }
   .lp-feat-txt strong {
