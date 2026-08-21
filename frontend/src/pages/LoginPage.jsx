@@ -1094,15 +1094,27 @@ const LP_STYLES = `
   .lp-right {
     background: #F0F4F8;
     display: flex; flex-direction: column;
-    overflow: hidden; /* prevent page-level scroll */
+    overflow: hidden; /* browser window never shows scrollbar */
   }
 
+  /*
+   * lp-form-area is the ONLY scroller on the right side.
+   * flex-direction:column + margin:auto on the card = centered when
+   * there is space; scrollable (invisibly) when content is taller
+   * than the available height (zoom-in / small screens).
+   */
   .lp-form-area {
-    flex: 1; display: flex;
-    align-items: center; justify-content: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;   /* needed so margin:auto on card works */
+    align-items: center;
     padding: 1.5rem 2rem;
-    overflow: hidden; /* no outer scroll — card handles it internally */
+    overflow-y: auto;         /* scroll internally when needed */
+    overflow-x: hidden;
+    scrollbar-width: none;    /* Firefox: hide scrollbar */
+    -ms-overflow-style: none; /* IE/Edge */
   }
+  .lp-form-area::-webkit-scrollbar { display: none; } /* Chrome/Safari */
 
   /* ── Card ── */
   .lp-card {
@@ -1114,12 +1126,10 @@ const LP_STYLES = `
     box-shadow:
       0 24px 48px rgba(15,23,42,0.06),
       0 6px 16px rgba(15,23,42,0.03);
-    /* Card itself scrolls internally if needed, with hidden scrollbar */
-    max-height: calc(100dvh - 3rem);
-    overflow-y: auto;
-    scrollbar-width: none;
+    /* margin:auto centres vertically when lp-form-area has spare space */
+    margin: auto;
+    /* Do NOT set max-height or overflow here — lp-form-area handles it */
   }
-  .lp-card::-webkit-scrollbar { display: none; }
 
   /* ── Secure badge ── */
   .lp-secure-badge {
@@ -1464,30 +1474,32 @@ const LP_STYLES = `
   }
 
   @media (max-width: 900px) {
-    .lp-shell       { grid-template-columns: 1fr; }
-    .lp-left        { display: none; }
-    .lp-right       { height: 100dvh; }
-    .lp-form-area   { padding: 1rem 1.5rem; align-items: flex-start; overflow-y: auto; }
-    .lp-card        { max-width: 520px; margin: 0 auto; max-height: none; overflow-y: visible; }
+    .lp-shell     { grid-template-columns: 1fr; }
+    .lp-left      { display: none; }
+    .lp-right     { height: 100dvh; overflow: hidden; }
+    /* lp-form-area already scrolls with hidden bar — just adjust padding */
+    .lp-form-area { padding: 1rem 1.5rem; }
+    .lp-card      { max-width: 520px; }
   }
 
   @media (max-width: 480px) {
-    .lp-form-area { padding: .75rem 1rem; }
-    .lp-card      { max-width: 100%; padding: 1.5rem 1.25rem; border-radius: 16px; }
+    .lp-form-area    { padding: .75rem 1rem; }
+    .lp-card         { max-width: 100%; padding: 1.5rem 1.25rem; border-radius: 16px; }
     .lp-card-head h2 { font-size: 1.35rem; }
     .lp-card-head p  { font-size: .85rem; }
-    .lp-inp input    { height: 48px; }
-    .lp-btn-primary  { height: 50px; }
+    .lp-inp input    { height: 46px; }
+    .lp-btn-primary  { height: 48px; }
     .step-label      { font-size: .66rem; }
     .step-circle     { width: 30px; height: 30px; font-size: .78rem; }
     .step-line       { top: 15px; left: calc(50% + 15px); width: calc(100% - 30px); }
   }
 
+  /* Landscape / short viewport — same hidden-scroll approach, no max-height */
   @media (max-height: 620px) and (orientation: landscape) {
-    .lp-shell     { height: auto; min-height: 100dvh; grid-template-columns: 1fr; overflow-y: auto; }
+    .lp-shell     { height: 100dvh; overflow: hidden; }
     .lp-left      { display: none; }
-    .lp-right     { height: auto; min-height: 100dvh; overflow-y: auto; }
-    .lp-form-area { overflow-y: auto; }
-    .lp-card      { max-height: none; overflow-y: visible; }
+    .lp-shell     { grid-template-columns: 1fr; }
+    .lp-right     { height: 100dvh; overflow: hidden; }
+    .lp-form-area { padding: .75rem 1.5rem; }
   }
 `;
