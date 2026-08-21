@@ -16,6 +16,10 @@ aiosqlite>=0.20.0,<1.0
 # ── Firebase Authentication ────────────────────────────────────
 firebase-admin>=6.4.0,<7.0
 
+# ── Direct Auth (JWT + bcrypt — no Firebase required) ──────────
+python-jose[cryptography]>=3.3.0,<4.0
+passlib[bcrypt]>=1.7.4,<2.0
+
 # ── Market Provider & Cache ─────────────────────────────────────
 redis[asyncio]>=5.0.0,<6.0
 

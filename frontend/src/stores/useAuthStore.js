@@ -1,80 +1,29 @@
+/**
+ * useAuthStore.js — Direct username/password auth (no Firebase for login/register).
+ *
+ * Flow:
+ *  1. User submits username + password form
+ *  2. Frontend calls POST /api/auth/register-direct  OR  POST /api/auth/login-direct
+ *  3. Backend returns { token, user }
+ *  4. JWT token stored in localStorage and sent as Bearer on every API call
+ *  5. All subsequent API calls use this JWT
+ *
+ * Firebase is NOT used for login/register. Firebase SDK is still imported
+ * for Google sign-in (disabled for now) and the initAuth listener gracefully
+ * handles the absence of a Firebase session.
+ */
 import { create } from 'zustand';
-import {
-    auth,
-    googleProvider,
-    signInWithPopup,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    sendPasswordResetEmail,
-    sendEmailVerification,
-    updateProfile,
-    DEMO_MODE,
-} from '../config/firebase';
+import axios from 'axios';
 import api from '../services/api';
 import {
     setUserSessionCookie,
     clearUserSessionCookie,
 } from '../utils/authSessionCookie';
 
-const pendingSyncRequests = new Map();
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 const GROUP_TOKEN_STORAGE_KEY = 'alphasync_group_token';
-
-const VERIFICATION_CONTINUE_PATH = '/verify-email';
-
-function getVerificationActionSettings() {
-    const origin = window.location.origin;
-    return {
-        url: `${origin}${VERIFICATION_CONTINUE_PATH}`,
-        handleCodeInApp: false,
-    };
-}
-
-async function sendVerificationEmail(user) {
-    const actionCodeSettings = getVerificationActionSettings();
-    try {
-        await sendEmailVerification(user, actionCodeSettings);
-    } catch {
-        await sendEmailVerification(user);
-    }
-}
-
-async function syncUserWithBackend(firebaseUser, payload = {}) {
-    const key = `${firebaseUser?.uid || 'unknown'}:${JSON.stringify(payload || {})}`;
-    if (pendingSyncRequests.has(key)) {
-        return pendingSyncRequests.get(key);
-    }
-
-    const requestPromise = (async () => {
-        const firstToken = await firebaseUser.getIdToken();
-        localStorage.setItem('alphasync_token', firstToken);
-
-        try {
-            return await api.post('/auth/sync', payload);
-        } catch (err) {
-            if (err?.response?.status !== 401) {
-                throw err;
-            }
-
-            const refreshedToken = await firebaseUser.getIdToken(true);
-            localStorage.setItem('alphasync_token', refreshedToken);
-            return await api.post('/auth/sync', payload);
-        }
-    })();
-
-    pendingSyncRequests.set(key, requestPromise);
-    try {
-        return await requestPromise;
-    } finally {
-        pendingSyncRequests.delete(key);
-    }
-}
-
-function getAuthIntent() {
-    const intent = (localStorage.getItem('alphasync_auth_intent') || 'login').toLowerCase();
-    return intent === 'register' ? 'register' : 'login';
-}
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function getGroupTokenForSync() {
     try {
@@ -84,45 +33,27 @@ function getGroupTokenForSync() {
             localStorage.setItem(GROUP_TOKEN_STORAGE_KEY, fromUrl);
             return fromUrl;
         }
-    } catch {
-    }
-
+    } catch { }
     try {
-        const stored = (localStorage.getItem(GROUP_TOKEN_STORAGE_KEY) || '').trim();
-        return stored || '';
+        return (localStorage.getItem(GROUP_TOKEN_STORAGE_KEY) || '').trim();
     } catch {
         return '';
     }
 }
 
-async function clearInvalidSession() {
-    try {
-        await signOut(auth);
-    } catch {
-    }
-    localStorage.removeItem('alphasync_token');
-    localStorage.removeItem('alphasync_user');
-    clearUserSessionCookie();
-    try {
-        sessionStorage.removeItem('alphasync_admin_session');
-    } catch {
-    }
-}
-
-function syncUserSessionCookie(user) {
+function syncUserSessionCookie() {
     setUserSessionCookie();
 }
 
-/**
- * Auth store — Firebase-based authentication.
- *
- * Flow:
- *   1. User signs in via Firebase (Google popup / email+password)
- *   2. Firebase returns an ID token
- *   3. ID token sent to backend POST /api/auth/sync to find-or-create local user
- *   4. Backend returns local user profile
- *   5. All subsequent API calls use the Firebase ID token as Bearer
- */
+function clearSession() {
+    localStorage.removeItem('alphasync_token');
+    localStorage.removeItem('alphasync_user');
+    clearUserSessionCookie();
+    try { sessionStorage.removeItem('alphasync_admin_session'); } catch { }
+}
+
+// ── Store ─────────────────────────────────────────────────────────────────────
+
 export const useAuthStore = create((set, get) => ({
     /** @type {object|null} */
     user: (() => {
@@ -132,274 +63,132 @@ export const useAuthStore = create((set, get) => ({
         } catch { return null; }
     })(),
 
-    /** @type {import('firebase/auth').User|null} */
+    /** @type {null} — kept for compatibility with components that read it */
     firebaseUser: null,
 
     /** @type {boolean} */
-    loading: true,
+    loading: false,
 
     /** @type {boolean} */
-    initializing: true,
+    initializing: false,
 
-    // ─── Initialize Firebase auth listener ────────────────────────────────────
-
-    /**
-     * Call once on app mount to listen for Firebase auth state changes.
-     * Automatically gets fresh tokens and syncs with backend.
-     */
+    // ─── Initialize (no-op — no Firebase listener needed) ─────────────────────
     initAuth: () => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                // For email/password users, don't sync until email is verified
-                const isEmailProvider = firebaseUser.providerData?.[0]?.providerId === 'password';
-                if (isEmailProvider && !firebaseUser.emailVerified) {
-                    // Unverified email user — don't sync, sign them out
-                    await signOut(auth);
-                    localStorage.removeItem('alphasync_token');
-                    localStorage.removeItem('alphasync_user');
-                    clearUserSessionCookie();
-                    set({ user: null, firebaseUser: null, loading: false, initializing: false });
-                    return;
-                }
-
-                set({ firebaseUser, loading: true });
-                try {
-                    const pendingUsername = localStorage.getItem('alphasync_pending_username') || '';
-                    const authIntent = getAuthIntent();
-                    const groupToken = getGroupTokenForSync();
-                    const res = await syncUserWithBackend(
-                        firebaseUser,
-                        {
-                            ...(pendingUsername ? { username: pendingUsername } : {}),
-                            auth_intent: authIntent,
-                            ...(groupToken ? { group_token: groupToken } : {}),
-                        }
-                    );
-                    localStorage.removeItem('alphasync_pending_username');
-                    localStorage.removeItem('alphasync_auth_intent');
-                    localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
-                    localStorage.setItem('alphasync_user', JSON.stringify(res.data.user));
-                    syncUserSessionCookie(res.data.user);
-                    set({ user: res.data.user, loading: false, initializing: false });
-                } catch (err) {
-                    console.error('Auth sync failed:', err?.response?.data?.detail || err?.response?.data || err.message);
-                    localStorage.removeItem('alphasync_auth_intent');
-                    await clearInvalidSession();
-                    set({ user: null, firebaseUser: null, loading: false, initializing: false });
-                }
+        // Restore user from localStorage on app mount
+        try {
+            const stored = localStorage.getItem('alphasync_user');
+            const token = localStorage.getItem('alphasync_token');
+            if (stored && token) {
+                set({ user: JSON.parse(stored), loading: false, initializing: false });
             } else {
-                localStorage.removeItem('alphasync_token');
-                localStorage.removeItem('alphasync_user');
-                clearUserSessionCookie();
-                set({ user: null, firebaseUser: null, loading: false, initializing: false });
+                set({ user: null, loading: false, initializing: false });
             }
-        });
-        return unsubscribe;
+        } catch {
+            set({ user: null, loading: false, initializing: false });
+        }
+        return () => { }; // no unsubscribe needed
     },
 
     // ─── Actions ──────────────────────────────────────────────────────────────
 
-    loginWithGoogle: async (intent = 'login') => {
-        const authIntent = intent === 'register' ? 'register' : 'login';
-        const groupToken = getGroupTokenForSync();
-        localStorage.setItem('alphasync_auth_intent', authIntent);
-
-        // Avoid sticky-account reuse; force fresh account selection in popup.
-        try {
-            await signOut(auth);
-        } catch {
-        }
-
-        const result = await signInWithPopup(auth, googleProvider);
-
-        try {
-            const res = await syncUserWithBackend(result.user, {
-                auth_intent: authIntent,
-                ...(groupToken ? { group_token: groupToken } : {}),
-            });
-            localStorage.removeItem('alphasync_auth_intent');
-            localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
-            localStorage.setItem('alphasync_user', JSON.stringify(res.data.user));
-            syncUserSessionCookie(res.data.user);
-            set({ user: res.data.user, firebaseUser: result.user, loading: false, initializing: false });
-            return { success: true, isNew: res.data.is_new_user, user: res.data.user };
-        } catch (err) {
-            const detail = err.response?.data?.detail;
-            console.error('Auth sync error:', detail || err.message);
-            localStorage.removeItem('alphasync_auth_intent');
-            if (err?.response?.status === 401) {
-                await clearInvalidSession();
-                set({ user: null, firebaseUser: null });
-            }
-            if (err?.response?.status === 404) {
-                await clearInvalidSession();
-                set({ user: null, firebaseUser: null });
-            }
-            const error = new Error(detail || err.message);
-            error.code = err.code;
-            error.response = err.response;
-            throw error;
-        }
-    },
-
-    loginWithUsername: async (usernameInput, password) => {
-        const cleanInput = (usernameInput || '').trim();
-        let targetEmail = cleanInput;
-
-        if (!cleanInput.includes('@')) {
-            try {
-                const apiBase = import.meta.env.VITE_API_URL || 'https://ac.alphasync.app';
-                const resolveRes = await axios.get(`${apiBase}/api/auth/resolve-username`, {
-                    params: { username: cleanInput }
-                });
-                if (resolveRes.data?.email) {
-                    targetEmail = resolveRes.data.email;
-                } else {
-                    targetEmail = `${cleanInput.toLowerCase()}@ac.alphasync.app`;
-                }
-            } catch {
-                targetEmail = `${cleanInput.toLowerCase()}@ac.alphasync.app`;
-            }
-        }
-
-        const result = await signInWithEmailAndPassword(auth, targetEmail, password);
-
-        // Auto-verify synthetic emails or check verification
-        if (!result.user.emailVerified && !targetEmail.endsWith('@ac.alphasync.app')) {
-            await signOut(auth);
-            const error = new Error('Please verify your email before signing in. Check your inbox.');
-            error.code = 'auth/email-not-verified';
-            throw error;
-        }
-
-        const groupToken = getGroupTokenForSync();
-        const syncPayload = {
-            username: cleanInput.includes('@') ? cleanInput.split('@')[0] : cleanInput,
-            auth_intent: getAuthIntent() || 'login',
-            ...(groupToken ? { group_token: groupToken } : {}),
-        };
-
-        try {
-            let res;
-            try {
-                res = await syncUserWithBackend(result.user, syncPayload);
-            } catch (firstErr) {
-                if (firstErr?.response?.status === 404) {
-                    res = await syncUserWithBackend(result.user, { ...syncPayload, auth_intent: 'register' });
-                } else {
-                    throw firstErr;
-                }
-            }
-            localStorage.removeItem('alphasync_pending_username');
-            localStorage.removeItem('alphasync_auth_intent');
-            localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
-            localStorage.setItem('alphasync_user', JSON.stringify(res.data.user));
-            syncUserSessionCookie(res.data.user);
-            set({ user: res.data.user, firebaseUser: result.user, loading: false, initializing: false });
-            return { success: true, isNew: res.data.is_new_user, user: res.data.user };
-        } catch (err) {
-            if (err?.response?.status === 401) {
-                await clearInvalidSession();
-                set({ user: null, firebaseUser: null });
-            }
-            throw err;
-        }
-    },
-
-    loginWithEmail: async (email, password) => {
-        return useAuthStore.getState().loginWithUsername(email, password);
-    },
-
+    /**
+     * Register with username + password — calls backend directly, no Firebase.
+     */
     registerWithEmail: async (emailInput, password, displayName, usernameInput) => {
+        const username = (usernameInput || '').trim().toLowerCase().replace(/\s+/g, '_');
+        const fullName = (displayName || username).trim();
         const groupToken = getGroupTokenForSync();
-        const cleanUsername = (usernameInput || displayName || 'user').trim().toLowerCase().replace(/\s+/g, '_');
-        const email = (emailInput && emailInput.trim()) ? emailInput.trim() : `${cleanUsername}@ac.alphasync.app`;
 
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-
-        if (displayName) {
-            await updateProfile(result.user, { displayName });
-        }
-
-        // Direct backend sync for immediate login
-        const syncPayload = {
-            username: cleanUsername,
-            auth_intent: 'register',
+        const payload = {
+            username,
+            password,
+            full_name: fullName,
+            ...(emailInput && emailInput.trim() ? { email: emailInput.trim() } : {}),
             ...(groupToken ? { group_token: groupToken } : {}),
         };
 
-        try {
-            const res = await syncUserWithBackend(result.user, syncPayload);
-            localStorage.removeItem('alphasync_pending_username');
-            localStorage.removeItem('alphasync_auth_intent');
-            localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
-            localStorage.setItem('alphasync_user', JSON.stringify(res.data.user));
-            syncUserSessionCookie(res.data.user);
-            set({ user: res.data.user, firebaseUser: result.user, loading: false, initializing: false });
-            return { success: true, isNew: res.data.is_new_user, user: res.data.user };
-        } catch (err) {
-            console.error('Registration backend sync error:', err);
-            // Return success so user can proceed
-            return { success: true, isNew: true, user: { email, username: cleanUsername } };
-        }
+        const res = await axios.post(`${API_BASE}/api/auth/register-direct`, payload);
+        const { token, user } = res.data;
+
+        localStorage.setItem('alphasync_token', token);
+        localStorage.setItem('alphasync_user', JSON.stringify(user));
+        localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
+        syncUserSessionCookie();
+        set({ user, firebaseUser: null, loading: false, initializing: false });
+
+        return { success: true, isNew: true, user };
     },
 
     /**
-     * Resend verification email to the current or provided email.
+     * Login with username + password — calls backend directly, no Firebase.
      */
-    resendVerification: async (email, password) => {
-        if (!email || !password) {
-            const err = new Error('Please enter your password to resend verification email.');
-            err.code = 'auth/missing-password';
-            throw err;
-        }
+    loginWithEmail: async (usernameInput, password) => {
+        const username = (usernameInput || '').trim();
+        const res = await axios.post(`${API_BASE}/api/auth/login-direct`, {
+            username,
+            password,
+        });
+        const { token, user } = res.data;
 
-        // Sign in temporarily to get the user object for resend
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        if (!result.user.emailVerified) {
-            await sendVerificationEmail(result.user);
-        }
-        await signOut(auth);
-        return { sent: !result.user.emailVerified, alreadyVerified: result.user.emailVerified };
+        localStorage.setItem('alphasync_token', token);
+        localStorage.setItem('alphasync_user', JSON.stringify(user));
+        syncUserSessionCookie();
+        set({ user, firebaseUser: null, loading: false, initializing: false });
+
+        return { success: true, isNew: false, user };
     },
 
-    resetPassword: async (email) => {
-        await sendPasswordResetEmail(auth, email);
+    /**
+     * Alias for loginWithEmail — used by some existing components.
+     */
+    loginWithUsername: async (usernameInput, password) => {
+        return get().loginWithEmail(usernameInput, password);
     },
 
+    /**
+     * Google sign-in — disabled for now.
+     */
+    loginWithGoogle: async () => {
+        throw Object.assign(
+            new Error('Google sign-in is disabled. Please use username and password.'),
+            { code: 'auth/google-disabled' }
+        );
+    },
+
+    /**
+     * Logout — clear token and user.
+     */
     logout: async () => {
-        try {
-            await api.post('/auth/logout');
-        } catch {
-            // Best-effort
-        }
-        await signOut(auth);
-        localStorage.removeItem('alphasync_token');
-        localStorage.removeItem('alphasync_user');
-        localStorage.removeItem('alphasync_onboarded');
-        clearUserSessionCookie();
-        try {
-            sessionStorage.removeItem('alphasync_admin_session');
-        } catch {
-        }
+        try { await api.post('/auth/logout'); } catch { }
+        clearSession();
         set({ user: null, firebaseUser: null });
     },
 
     /**
-     * Get a fresh Firebase ID token (auto-refreshes if expired).
-     * Used by the API interceptor.
+     * Resend verification — not needed for direct auth (no email verification).
+     */
+    resendVerification: async () => {
+        throw Object.assign(
+            new Error('Email verification not required for direct login.'),
+            { code: 'auth/not-required' }
+        );
+    },
+
+    /**
+     * Reset password — for direct auth, admin must reset manually for now.
+     */
+    resetPassword: async () => {
+        throw Object.assign(
+            new Error('Password reset is not yet available. Contact admin.'),
+            { code: 'auth/not-supported' }
+        );
+    },
+
+    /**
+     * Get the current JWT token (used by API interceptor).
      */
     getToken: async () => {
-        const { firebaseUser } = get();
-        if (!firebaseUser) {
-            // Try getting from Firebase auth directly
-            const currentUser = auth.currentUser;
-            if (currentUser) {
-                return await currentUser.getIdToken();
-            }
-            return null;
-        }
-        return await firebaseUser.getIdToken();
+        return localStorage.getItem('alphasync_token') || null;
     },
 
     /**
@@ -414,14 +203,7 @@ export const useAuthStore = create((set, get) => ({
     },
 
     /**
-     * Step 1 — request an OTP to be sent to the supplied phone number.
-     * Returns the server response { message, expires_in, cooldown }.
-     * Throws on validation or rate-limit errors.
-     */
-    /**
-     * Save the user's mobile number as contact info (no OTP required).
-     * Validates format on the backend (+91, 10-digit, starts with 6-9).
-     * Patches the in-memory store so callers see the phone immediately.
+     * Save the user's mobile number as contact info.
      */
     submitPhone: async (phone) => {
         const response = await api.post('/auth/set-phone', { phone });

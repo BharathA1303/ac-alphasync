@@ -1,6 +1,5 @@
-//api.js - Axios instance with auth token handling and rate limit backoff
+// api.js - Axios instance with JWT auth token handling and rate limit backoff
 import axios from 'axios';
-import { auth } from '../config/firebase';
 import { clearUserSessionCookie } from '../utils/authSessionCookie';
 
 const api = axios.create({
@@ -11,15 +10,13 @@ const api = axios.create({
 
 /**
  * 429 backoff tracker — when rate-limited, pause ALL requests until cooldown expires.
- * This prevents the cascading 429 avalanche where failed requests trigger more requests.
  */
 let _rateLimitedUntil = 0;
 export const isRateLimited = () => Date.now() < _rateLimitedUntil;
 
-// Add auth token to requests + skip if rate-limited
+// Add JWT auth token to every request
 api.interceptors.request.use(async (config) => {
     // If we're in a 429 cooldown, reject immediately for polling/market requests
-    // to prevent flooding the server with requests that will all fail
     if (
         isRateLimited() &&
         config.url?.includes('/market/') &&
@@ -29,8 +26,7 @@ api.interceptors.request.use(async (config) => {
     }
 
     // Broker connect/refresh calls may retry across multiple broker API
-    // hosts server-side — give them more room than the default 15s so the
-    // browser doesn't cancel before the backend can return a real error.
+    // hosts server-side — give them more room than the default 15s.
     if (config.url?.includes('/broker/')) {
         config.timeout = 35000;
     }
@@ -40,18 +36,14 @@ api.interceptors.request.use(async (config) => {
         config.timeout = 30000;
     }
 
+    // Read JWT from localStorage (set by useAuthStore after login/register)
     try {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            // getIdToken() auto-refreshes if token is expired
-            const token = await currentUser.getIdToken();
+        const token = localStorage.getItem('alphasync_token');
+        if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-            // Also keep localStorage in sync for WebSocket connections
-            localStorage.setItem('alphasync_token', token);
         }
     } catch {
-        // If token refresh fails, let the request proceed without auth
-        // The backend will return 401 and the app will redirect to login
+        // Ignore — request proceeds without auth
     }
     return config;
 });
@@ -60,7 +52,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        // 429 — rate limited: set backoff so all polling pauses
+        // 429 — rate limited
         if (error.response?.status === 429) {
             const retryAfter = parseInt(error.response.headers?.['retry-after'] || '30', 10);
             _rateLimitedUntil = Date.now() + retryAfter * 1000;
@@ -70,24 +62,9 @@ api.interceptors.response.use(
 
         if (
             error.response?.status === 401 &&
-            !error.config?.url?.includes('/auth/sync') &&
             !error.config?.url?.includes('/auth/logout')
         ) {
-            // Firebase token might be revoked or user deleted server-side
-            const currentUser = auth.currentUser;
-            if (currentUser) {
-                try {
-                    // Force token refresh — if Firebase rejects, sign out
-                    const newToken = await currentUser.getIdToken(true);
-                    error.config.headers.Authorization = `Bearer ${newToken}`;
-                    return api(error.config);
-                } catch {
-                    // Firebase session is truly invalid
-                    _forceLogout();
-                }
-            } else {
-                _forceLogout();
-            }
+            _forceLogout();
         }
 
         return Promise.reject(error);
@@ -95,7 +72,6 @@ api.interceptors.response.use(
 );
 
 function _forceLogout() {
-    auth.signOut?.().catch(() => { });
     localStorage.removeItem('alphasync_token');
     localStorage.removeItem('alphasync_user');
     clearUserSessionCookie();

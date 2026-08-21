@@ -188,19 +188,44 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    Verify Firebase ID token and return the local User.
+    Verify token and return the local User.
 
-    Every protected route depends on this. The frontend sends the
-    Firebase ID token as a Bearer token in the Authorization header.
+    Accepts two token types:
+    1. Direct JWT  — issued by /api/auth/login-direct or /api/auth/register-direct
+    2. Firebase ID token — issued by Firebase SDK (legacy path)
 
-    In DEBUG mode without Firebase credentials, a demo user is
-    auto-created so the app works out of the box.
+    Every protected route depends on this.
     """
     if not credentials:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    token = credentials.credentials
+
+    # ── Try direct JWT first ──────────────────────────────────────────
+    try:
+        from jose import jwt as _jose_jwt, JWTError
+        payload = _jose_jwt.decode(
+            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        user_id = payload.get("sub")
+        if user_id:
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if user:
+                account_status = (getattr(user, "account_status", None) or "active").strip().lower()
+                if account_status != "active":
+                    raise HTTPException(status_code=403, detail=f"Account status: {account_status}")
+                if hasattr(user, "access_expires_at") and user.access_expires_at:
+                    expires_at = _coerce_utc_datetime(user.access_expires_at)
+                    if expires_at and datetime.now(timezone.utc) > expires_at:
+                        raise HTTPException(status_code=403, detail="Access expired")
+                return user
+    except (JWTError, Exception):
+        pass  # Not a direct JWT — try Firebase below
+
+    # ── Fall back to Firebase token ───────────────────────────────────
     # Verify Firebase ID token
-    claims = verify_id_token(credentials.credentials)
+    claims = verify_id_token(token)
     if not claims:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 

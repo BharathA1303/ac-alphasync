@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     FIREBASE_CREDENTIALS_JSON: str = ""  # JSON string of service account key
     FIREBASE_CREDENTIALS_PATH: str = ""  # Path to service account JSON file
 
+    # Direct Auth (JWT — used when Firebase is disabled)
+    JWT_SECRET_KEY: str = "alphasync-jwt-secret-change-in-production-xyz789"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 10080  # 7 days
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     CORS_ORIGIN_REGEX: str = r"https?://(localhost|127\.0\.0\.1):\d+"

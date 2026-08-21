@@ -377,6 +377,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # Import and include routers
 from routes.auth import router as auth_router
+from routes.direct_auth import router as direct_auth_router
 from routes.market import router as market_router
 from routes.orders import router as orders_router
 from routes.portfolio import router as portfolio_router
@@ -393,6 +394,7 @@ from routes.mentor import router as mentor_router
 from routes.bug_reports import router as bug_reports_router
 from routes.feedback import router as feedback_router
 
+app.include_router(direct_auth_router)  # Firebase-free auth (must be first)
 app.include_router(auth_router)
 app.include_router(market_router)
 app.include_router(orders_router)

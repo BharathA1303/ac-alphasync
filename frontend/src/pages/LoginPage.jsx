@@ -104,18 +104,16 @@ export default function LoginPage() {
       }
       handleAuthSuccess(result?.user);
     } catch (err) {
-      const code = err.code;
-      if (code === "auth/email-not-verified") {
-        try { await resendVerification(loginUsername, loginPass); toast.error("Email not verified. We sent a new verification link."); }
-        catch  { toast.error("Email not verified. Check your inbox."); }
-        navigate("/verify-email", { state: { email: loginUsername, password: loginPass } });
-        return;
-      } else if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail || err?.message || "Login failed";
+      if (status === 401) {
         toast.error("Invalid username or password");
-      } else if (code === "auth/too-many-requests") {
+      } else if (status === 403) {
+        toast.error("Account is inactive or pending review");
+      } else if (status === 429) {
         toast.error("Too many attempts. Try again later.");
       } else {
-        toast.error(err.message || "Login failed");
+        toast.error(detail);
       }
     } finally { setLoginLoading(false); }
   };
@@ -128,19 +126,20 @@ export default function LoginPage() {
     try {
       const fullName = (regFname + " " + regLname).trim();
       const result   = await registerWithEmail(regEmail.trim(), regPass, fullName, regUsername.trim());
-      if (result.needsVerification) {
-        navigate("/verify-email", { state: { email: regEmail || regUsername, password: regPass } });
-      } else {
-        localStorage.setItem("alphasync_trading_mode", "demo");
-        localStorage.setItem("alphasync_onboarded", "1");
-        toast.success("Account created successfully!");
-        handleAuthSuccess(result?.user);
-      }
+      localStorage.setItem("alphasync_trading_mode", "demo");
+      localStorage.setItem("alphasync_onboarded", "1");
+      toast.success("Account created successfully!");
+      handleAuthSuccess(result?.user);
     } catch (err) {
-      const code = err.code;
-      if (code === "auth/email-already-in-use") toast.error("Username or Email already registered. Try signing in.");
-      else if (code === "auth/weak-password")   toast.error("Password is too weak.");
-      else toast.error(err.message || "Registration failed");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail || err?.message || "Registration failed";
+      if (status === 409) {
+        toast.error("Username already taken. Choose a different one.");
+      } else if (status === 400) {
+        toast.error(detail);
+      } else {
+        toast.error(detail);
+      }
     } finally { setRegLoading(false); }
   };
 
