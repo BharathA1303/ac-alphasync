@@ -22,6 +22,7 @@ import {
   Gem,
   FlipHorizontal2,
   Lightbulb,
+  GraduationCap,
 } from "lucide-react";
 
 /* ─── Avatar helpers ─────────────────────────────────────── */
@@ -299,6 +300,24 @@ export default function Sidebar({ collapsed, onToggle }) {
                   onNavigate={closeMobileDrawer}
                 />
               )}
+              {user?.role === 'admin' && (
+                <SidebarItem
+                  to="/admin/academic"
+                  icon={GraduationCap}
+                  label="Inst. Manage"
+                  collapsed={collapsed}
+                  onNavigate={closeMobileDrawer}
+                />
+              )}
+              {user?.role === 'institution_admin' && (
+                <SidebarItem
+                  to="/institution/portal"
+                  icon={GraduationCap}
+                  label="Institution Portal"
+                  collapsed={collapsed}
+                  onNavigate={closeMobileDrawer}
+                />
+              )}
             </div>
           ) : (
             <>
@@ -321,6 +340,34 @@ export default function Sidebar({ collapsed, onToggle }) {
                       to="/admin/panel"
                       icon={Shield}
                       label="Admin Panel"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                  </div>
+                </div>
+              )}
+              {user?.role === 'admin' && (
+                <div>
+                  <SectionLabel label="Academic" collapsed={collapsed} />
+                  <div className="space-y-0.5">
+                    <SidebarItem
+                      to="/admin/academic"
+                      icon={GraduationCap}
+                      label="Inst. Manage"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                  </div>
+                </div>
+              )}
+              {user?.role === 'institution_admin' && (
+                <div>
+                  <SectionLabel label="Institution" collapsed={collapsed} />
+                  <div className="space-y-0.5">
+                    <SidebarItem
+                      to="/institution/portal"
+                      icon={GraduationCap}
+                      label="Institution Portal"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
                     />

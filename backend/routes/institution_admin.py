@@ -1,0 +1,219 @@
+"""
+Institution Admin Workspace API — scoped strictly to the caller's own institution.
+
+All queries filter by admin.institution_id server-side; institution_id is
+never accepted from the client for these routes, so Institution Admin A can
+never see Institution B's members or stats.
+"""
+
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy import select, func, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database.connection import get_db
+from models.user import User
+from models.portfolio import Portfolio, Transaction
+from models.order import Order
+from dependencies.institution import require_institution_admin
+from services import invite_service
+from services.invite_service import _as_uuid
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/institution", tags=["InstitutionAdmin"])
+
+_EXPIRY_HOURS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
+
+
+class CreateMemberInviteRequest(BaseModel):
+    target_role: str  # "faculty" | "student"
+    expiry: str = "7d"
+    max_uses: int = 0
+
+
+@router.get("/dashboard")
+async def get_dashboard(
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    inst_id = admin.institution_id
+
+    counts_result = await db.execute(
+        select(User.role, func.count(User.id))
+        .where(User.institution_id == inst_id, User.role.in_(("faculty", "student")))
+        .group_by(User.role)
+    )
+    counts = {role: count for role, count in counts_result.all()}
+
+    pnl_result = await db.execute(
+        select(func.coalesce(func.sum(Portfolio.total_pnl), 0))
+        .join(User, User.id == Portfolio.user_id)
+        .where(User.institution_id == inst_id, User.role.in_(("faculty", "student")))
+    )
+    total_pnl = float(pnl_result.scalar() or 0)
+
+    top_student_result = await db.execute(
+        select(User.id, User.full_name, User.username, Portfolio.total_pnl)
+        .join(Portfolio, Portfolio.user_id == User.id)
+        .where(User.institution_id == inst_id, User.role == "student")
+        .order_by(Portfolio.total_pnl.desc())
+        .limit(1)
+    )
+    top_row = top_student_result.first()
+    top_student = (
+        {
+            "id": str(top_row[0]),
+            "full_name": top_row[1],
+            "username": top_row[2],
+            "pnl": float(top_row[3] or 0),
+        }
+        if top_row
+        else None
+    )
+
+    return {
+        "institution_id": str(inst_id),
+        "total_students": counts.get("student", 0),
+        "total_faculty": counts.get("faculty", 0),
+        "total_pnl": round(total_pnl, 2),
+        "top_student": top_student,
+    }
+
+
+@router.post("/invite-link")
+async def create_member_invite(
+    req: CreateMemberInviteRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if req.target_role not in ("faculty", "student"):
+        raise HTTPException(status_code=400, detail="target_role must be 'faculty' or 'student'")
+
+    expires_in_hours = _EXPIRY_HOURS.get(req.expiry, _EXPIRY_HOURS["7d"])
+    result = await invite_service.create_invite_link(
+        db,
+        institution_id=admin.institution_id,  # forced server-side
+        target_role=req.target_role,
+        created_by_user_id=admin.id,
+        expires_in_hours=expires_in_hours,
+        max_uses=req.max_uses,
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    await db.commit()
+    return result
+
+
+@router.get("/members")
+async def list_members(
+    role: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    page: int = 1,
+    page_size: int = 25,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    filters = [User.institution_id == admin.institution_id, User.role.in_(("faculty", "student"))]
+    if role:
+        if role not in ("faculty", "student"):
+            raise HTTPException(status_code=400, detail="Invalid role filter")
+        filters.append(User.role == role)
+    if search:
+        like = f"%{search.strip()}%"
+        filters.append(or_(User.full_name.ilike(like), User.email.ilike(like), User.username.ilike(like)))
+
+    count_result = await db.execute(select(func.count(User.id)).where(*filters))
+    total = count_result.scalar() or 0
+
+    page = max(page, 1)
+    page_size = max(min(page_size, 100), 1)
+    result = await db.execute(
+        select(User, Portfolio)
+        .outerjoin(Portfolio, Portfolio.user_id == User.id)
+        .where(*filters)
+        .order_by(User.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = result.all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "members": [
+            {
+                "id": str(u.id),
+                "full_name": u.full_name,
+                "email": u.email,
+                "username": u.username,
+                "role": u.role,
+                "pnl": float(p.total_pnl) if p else 0.0,
+                "pnl_percent": float(p.total_pnl_percent) if p else 0.0,
+                "current_value": float(p.current_value) if p else 0.0,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u, p in rows
+        ],
+    }
+
+
+@router.get("/student-stats/{student_id}")
+async def get_student_stats(
+    student_id: str,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    student_uuid = _as_uuid(student_id)
+    student = await db.get(User, student_uuid) if student_uuid else None
+    if not student or student.institution_id != admin.institution_id or student.role not in ("student", "faculty"):
+        raise HTTPException(status_code=404, detail="Student not found in your institution")
+
+    portfolio_result = await db.execute(select(Portfolio).where(Portfolio.user_id == student.id))
+    portfolio = portfolio_result.scalar_one_or_none()
+
+    trade_count_result = await db.execute(
+        select(func.count(Order.id)).where(Order.user_id == student.id, Order.status == "FILLED")
+    )
+    trade_count = trade_count_result.scalar() or 0
+
+    recent_tx_result = await db.execute(
+        select(Transaction)
+        .where(Transaction.user_id == student.id)
+        .order_by(Transaction.created_at.desc())
+        .limit(50)
+    )
+    recent_transactions = recent_tx_result.scalars().all()
+
+    return {
+        "student": {
+            "id": str(student.id),
+            "full_name": student.full_name,
+            "email": student.email,
+            "username": student.username,
+            "role": student.role,
+        },
+        "portfolio": {
+            "current_value": float(portfolio.current_value) if portfolio else 0.0,
+            "total_invested": float(portfolio.total_invested) if portfolio else 0.0,
+            "available_capital": float(portfolio.available_capital) if portfolio else 0.0,
+            "total_pnl": float(portfolio.total_pnl) if portfolio else 0.0,
+            "total_pnl_percent": float(portfolio.total_pnl_percent) if portfolio else 0.0,
+        },
+        "trade_count": trade_count,
+        "recent_transactions": [
+            {
+                "symbol": tx.symbol,
+                "type": tx.transaction_type,
+                "quantity": tx.quantity,
+                "price": float(tx.price),
+                "total_value": float(tx.total_value),
+                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+            }
+            for tx in recent_transactions
+        ],
+    }

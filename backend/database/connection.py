@@ -117,6 +117,7 @@ async def init_db():
         from models import broker as broker_model  # noqa
         from models import futures_order  # noqa  — futures paper trading tables
         from models import futures_watchlist  # noqa  — futures watchlist tables
+        from models import institution, invite_link  # noqa  — academic multi-tenancy tables
         from strategies.zeroloss import models as zeroloss_models  # noqa
 
         # Ensure admin panel models (TwoFactorAuth, AdminSession, etc.) are loaded
@@ -276,6 +277,16 @@ async def init_db():
             await _ensure_users_column(
                 "admin_assigned_at", "admin_assigned_at DATETIME"
             )
+            # Academic multi-tenancy columns
+            await _ensure_users_column(
+                "institution_id", "institution_id CHAR(36)"
+            )
+            await _ensure_users_column(
+                "invited_via_token", "invited_via_token VARCHAR(64)"
+            )
+            await conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_users_institution_id ON users (institution_id);")
+            )
 
             # ZeroLoss strategy columns for per-user isolation
             async def _ensure_zeroloss_signal_column(column_name: str, ddl: str):
@@ -427,6 +438,32 @@ async def init_db():
                     END IF;
                 EXCEPTION WHEN others THEN
                     RAISE NOTICE 'Admin migration note: %', SQLERRM;
+                END $$;
+            """
+                )
+            )
+
+            # ── Academic multi-tenancy columns on users table ────────────────
+            await conn.execute(
+                text(
+                    """
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'users' AND column_name = 'institution_id'
+                    ) THEN
+                        ALTER TABLE users ADD COLUMN institution_id UUID REFERENCES institutions(id);
+                        CREATE INDEX IF NOT EXISTS ix_users_institution_id ON users (institution_id);
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'users' AND column_name = 'invited_via_token'
+                    ) THEN
+                        ALTER TABLE users ADD COLUMN invited_via_token VARCHAR(64);
+                    END IF;
+                EXCEPTION WHEN others THEN
+                    RAISE NOTICE 'Academic migration note: %', SQLERRM;
                 END $$;
             """
                 )

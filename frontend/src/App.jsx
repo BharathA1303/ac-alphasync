@@ -9,6 +9,7 @@ import { ResponsiveHardeningRoot } from './responsive/hardening';
 import AppShell from './components/layout/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import InstitutionRoute from './components/InstitutionRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './stores/useAuthStore';
 
@@ -39,6 +40,8 @@ import AdminDataFeedPage from './pages/AdminDataFeedPage';
 import BugReportPage from './pages/BugReportPage';
 import AdminBugReportsPage from './pages/AdminBugReportsPage';
 import ChartEmbed from './pages/ChartEmbed';
+import AdminAcademicPage from './pages/AdminAcademicPage';
+import InstitutionPortalPage from './pages/InstitutionPortalPage';
 
 export default function App() {
     useEffect(() => {
@@ -116,6 +119,13 @@ export default function App() {
                             } />
                             <Route path="/admin/data-feed" element={
                                 <AdminRoute><AdminDataFeedPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/academic" element={
+                                <AdminRoute><AdminAcademicPage /></AdminRoute>
+                            } />
+                            {/* ── Institution Admin portal ── */}
+                            <Route path="/institution/portal" element={
+                                <InstitutionRoute><InstitutionPortalPage /></InstitutionRoute>
                             } />
                         </Route>
 

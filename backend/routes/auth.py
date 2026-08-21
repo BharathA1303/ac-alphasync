@@ -35,6 +35,7 @@ from core.event_bus import event_bus, Event, EventType
 from core.admin_runtime_flags import admin_runtime_flags
 from config.settings import settings
 from services.email_service import send_registration_received_email
+from services import invite_service
 
 logger = logging.getLogger(__name__)
 
@@ -200,10 +201,17 @@ async def get_current_user(
     # ── Try direct JWT first (stdlib HMAC-SHA256, no external deps) ──────
     try:
         from routes.direct_auth import decode_direct_jwt
+        import uuid as _uuid
         user_id = decode_direct_jwt(token)
         if user_id:
-            result = await db.execute(select(User).where(User.id == user_id))
-            user = result.scalar_one_or_none()
+            try:
+                user_uuid = _uuid.UUID(str(user_id))
+            except (ValueError, AttributeError, TypeError):
+                user_uuid = None
+            user = None
+            if user_uuid:
+                result = await db.execute(select(User).where(User.id == user_uuid))
+                user = result.scalar_one_or_none()
             if user:
                 account_status = (getattr(user, "account_status", None) or "active").strip().lower()
                 if account_status != "active":
@@ -376,6 +384,15 @@ async def resolve_username(
         return {"email": user.email, "username": user.username}
 
     return {"email": f"{clean}@ac.alphasync.app", "username": clean}
+
+
+@router.get("/invite-info")
+async def get_invite_info(token: str, db: AsyncSession = Depends(get_db)):
+    """Public lookup used by the registration UI to show an invite banner."""
+    validation = await invite_service.validate_invite_token(db, token)
+    if not validation["valid"]:
+        return {"valid": False}
+    return validation
 
 
 @router.post("/sync")

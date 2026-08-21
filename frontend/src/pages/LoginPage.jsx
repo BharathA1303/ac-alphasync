@@ -1,7 +1,8 @@
 // LoginPage.jsx — Combined Login + Register (3-Step Registration Flow)
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuthStore } from "../stores/useAuthStore";
+import { useAuthStore, peekInviteToken } from "../stores/useAuthStore";
+import academicApi from "../services/academicApi";
 import api from "../services/api";
 import toast from "react-hot-toast";
 import usePageMeta from "../hooks/usePageMeta";
@@ -105,6 +106,7 @@ export default function LoginPage() {
   const [regLoading,      setRegLoading]      = useState(false);
   const [refreshLoading,  setRefreshLoading]  = useState(false);
   const [registeredUser,  setRegisteredUser]  = useState(null);
+  const [inviteInfo,      setInviteInfo]      = useState(null); // { institution_name, target_role } | null
 
   /* --- Password match helpers --- */
   const passMatch    = regConfirmPass.length > 0 && regPass === regConfirmPass;
@@ -137,7 +139,11 @@ export default function LoginPage() {
       }
       localStorage.setItem("alphasync_trading_mode", "demo");
       localStorage.setItem("alphasync_onboarded", "1");
-      navigate("/dashboard");
+      if ((profile?.role || "").toLowerCase() === "institution_admin") {
+        navigate("/institution/portal");
+      } else {
+        navigate("/dashboard");
+      }
     } else {
       // Show pending / inactive state INLINE — no redirect to /account-status
       setRegisteredUser(profile);
@@ -153,6 +159,29 @@ export default function LoginPage() {
     if (tab === "register" && regStep > 1) return;
     routeByAccountStatus(existingUser);
   }, [existingUser, adminIntent]);
+
+  /* ─── Invite link banner (?invite=TOKEN) ────────────────────────────────── */
+  useEffect(() => {
+    const token = peekInviteToken();
+    if (!token) return;
+    setTab("register");
+    academicApi.getInviteInfo(token)
+      .then((res) => {
+        if (res?.data?.valid) {
+          setInviteInfo({
+            institutionName: res.data.institution_name,
+            targetRole: res.data.target_role,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const INVITE_ROLE_LABELS = {
+    institution_admin: "Institution Admin",
+    faculty: "Faculty",
+    student: "Student",
+  };
 
   /* ─── Login ──────────────────────────────────────────────────────────────── */
   const handleLogin = async (e) => {
@@ -201,11 +230,16 @@ export default function LoginPage() {
       const result = await registerWithEmail(
         regEmail.trim(), regPass, regFullName.trim(), regUsername.trim()
       );
-      toast.success("Account created! Awaiting admin verification.");
-      setRegisteredUser(result?.user);
       const status = (result?.user?.account_status || "pending_approval").toLowerCase();
-      if (status === "active" && result?.user?.is_active !== false) {
-        setRegStep(3); // First-ever user (admin) — skip straight to complete
+      const isActive = status === "active" && result?.user?.is_active !== false;
+      if (inviteInfo) {
+        toast.success(`Account created! Welcome to ${inviteInfo.institutionName}.`);
+      } else {
+        toast.success("Account created! Awaiting admin verification.");
+      }
+      setRegisteredUser(result?.user);
+      if (isActive) {
+        setRegStep(3); // First-ever user (admin) or invite-based signup — skip straight to complete
       } else {
         setRegStep(2);
       }
@@ -245,7 +279,11 @@ export default function LoginPage() {
   const handleEnterCampus = () => {
     localStorage.setItem("alphasync_trading_mode", "demo");
     localStorage.setItem("alphasync_onboarded", "1");
-    navigate("/dashboard");
+    if ((registeredUser?.role || "").toLowerCase() === "institution_admin") {
+      navigate("/institution/portal");
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   /* ─── Forgot password ────────────────────────────────────────────────────── */
@@ -643,6 +681,32 @@ export default function LoginPage() {
               {/* ── STEP 1: Account Details ── */}
               {regStep === 1 && (
                 <form onSubmit={handleRegister} id="register-step1-form">
+
+                  {inviteInfo && (
+                    <div
+                      className="lp-invite-banner"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "10px 14px",
+                        marginBottom: "16px",
+                        borderRadius: "10px",
+                        border: "1px solid rgba(0,229,153,0.3)",
+                        background: "rgba(0,229,153,0.08)",
+                        color: "#00E599",
+                        fontSize: "13.5px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      <span role="img" aria-label="graduation cap">🎓</span>
+                      <span>
+                        Joining <strong>{inviteInfo.institutionName}</strong> as{" "}
+                        <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>{" "}
+                        (via Official Invite)
+                      </span>
+                    </div>
+                  )}
 
                   <div className="lp-field">
                     <label htmlFor="reg-fullname">Full Name</label>

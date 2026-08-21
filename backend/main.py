@@ -401,6 +401,8 @@ from routes.options import router as options_router
 from routes.mentor import router as mentor_router
 from routes.bug_reports import router as bug_reports_router
 from routes.feedback import router as feedback_router
+from routes.admin_academic import router as admin_academic_router
+from routes.institution_admin import router as institution_admin_router
 
 app.include_router(direct_auth_router)  # Firebase-free auth (must be first)
 app.include_router(auth_router)
@@ -419,6 +421,8 @@ app.include_router(options_router)
 app.include_router(mentor_router)
 app.include_router(bug_reports_router)
 app.include_router(feedback_router)
+app.include_router(admin_academic_router)
+app.include_router(institution_admin_router)
 
 # ── Serve uploaded files (avatars etc.) ───────────────────────────────────────
 os.makedirs("uploads/avatars", exist_ok=True)

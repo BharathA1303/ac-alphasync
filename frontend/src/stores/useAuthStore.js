@@ -23,6 +23,7 @@ import {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const GROUP_TOKEN_STORAGE_KEY = 'alphasync_group_token';
+const INVITE_TOKEN_STORAGE_KEY = 'alphasync_invite_token';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function getGroupTokenForSync() {
@@ -36,6 +37,32 @@ function getGroupTokenForSync() {
     } catch { }
     try {
         return (localStorage.getItem(GROUP_TOKEN_STORAGE_KEY) || '').trim();
+    } catch {
+        return '';
+    }
+}
+
+function getInviteTokenForSync() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const fromUrl = (params.get('invite') || '').trim();
+        if (fromUrl) {
+            localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, fromUrl);
+            return fromUrl;
+        }
+    } catch { }
+    try {
+        return (localStorage.getItem(INVITE_TOKEN_STORAGE_KEY) || '').trim();
+    } catch {
+        return '';
+    }
+}
+
+export function peekInviteToken() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const fromUrl = (params.get('invite') || '').trim();
+        return fromUrl || (localStorage.getItem(INVITE_TOKEN_STORAGE_KEY) || '').trim();
     } catch {
         return '';
     }
@@ -98,6 +125,7 @@ export const useAuthStore = create((set, get) => ({
         const username = (usernameInput || '').trim().toLowerCase().replace(/\s+/g, '_');
         const fullName = (displayName || username).trim();
         const groupToken = getGroupTokenForSync();
+        const inviteToken = getInviteTokenForSync();
 
         const payload = {
             username,
@@ -105,6 +133,7 @@ export const useAuthStore = create((set, get) => ({
             full_name: fullName,
             ...(emailInput && emailInput.trim() ? { email: emailInput.trim() } : {}),
             ...(groupToken ? { group_token: groupToken } : {}),
+            ...(inviteToken ? { invite_token: inviteToken } : {}),
         };
 
         const res = await axios.post(`${API_BASE}/api/auth/register-direct`, payload);
@@ -113,6 +142,7 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem('alphasync_token', token);
         localStorage.setItem('alphasync_user', JSON.stringify(user));
         localStorage.removeItem(GROUP_TOKEN_STORAGE_KEY);
+        localStorage.removeItem(INVITE_TOKEN_STORAGE_KEY);
         syncUserSessionCookie();
         set({ user, firebaseUser: null, loading: false, initializing: false });
 

@@ -54,6 +54,13 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     phone = Column(String(20), nullable=True)
 
+    # ── Academic multi-tenancy ──────────────────────────────────────
+    # role also accepts "institution_admin" | "faculty" | "student"
+    institution_id = Column(
+        UUID(as_uuid=True), ForeignKey("institutions.id"), nullable=True
+    )
+    invited_via_token = Column(String(64), nullable=True)
+
     # ── Admin hierarchy ────────────────────────────────────────────
     # "root" = super admin (only one, set via ROOT_ADMIN_EMAIL config)
     # "manage" = full user management access
@@ -109,6 +116,7 @@ class User(Base):
     __table_args__ = (
         Index("ix_users_role_active", "role", "is_active"),
         Index("ix_users_account_status", "account_status"),
+        Index("ix_users_institution_id", "institution_id"),
     )
 
 

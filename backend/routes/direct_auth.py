@@ -27,6 +27,7 @@ from database.connection import get_db
 from models.user import User
 from models.portfolio import Portfolio
 from config.settings import settings
+from services import invite_service
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ def _serialize_user(user: User) -> dict:
         "virtual_capital": float(user.virtual_capital or 0),
         "auth_provider": user.auth_provider,
         "admin_level": user.admin_level,
+        "institution_id": str(user.institution_id) if user.institution_id else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -144,6 +146,7 @@ class DirectRegisterRequest(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     group_token: Optional[str] = None
+    invite_token: Optional[str] = None
 
 
 class DirectLoginRequest(BaseModel):
@@ -188,27 +191,58 @@ async def register_direct(
 
     full_name = (req.full_name or username).strip()
 
-    user = User(
-        email=email,
-        username=username,
-        full_name=full_name,
-        password_hash=_hash_password(req.password),
-        auth_provider="direct",
-        is_verified=True,
-        is_active=True,
-        virtual_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
-        role="admin" if is_first_user else "user",
-        admin_level="root" if is_first_user else None,
-        account_status="active" if is_first_user else "pending_approval",
-        approved_at=datetime.now(timezone.utc) if is_first_user else None,
-        access_duration_days=None if is_first_user else _AUTO_APPROVAL_DURATION_DAYS,
-        access_expires_at=(
-            None if is_first_user
-            else datetime.now(timezone.utc) + timedelta(days=_AUTO_APPROVAL_DURATION_DAYS)
-        ),
-    )
-    db.add(user)
-    await db.flush()
+    # Validate invite token up front (before creating the user) so a bad
+    # token never leaves a half-registered account behind.
+    invite_validation = None
+    invite_token = (req.invite_token or "").strip()
+    if invite_token:
+        invite_validation = await invite_service.validate_invite_token(db, invite_token)
+        if not invite_validation["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail=invite_validation.get("reason") or "Invite link is invalid or expired",
+            )
+
+    if invite_validation:
+        # Invite-based registration: instant role/institution assignment,
+        # no pending-approval bottleneck.
+        user = User(
+            email=email,
+            username=username,
+            full_name=full_name,
+            password_hash=_hash_password(req.password),
+            auth_provider="direct",
+            is_verified=True,
+            is_active=True,
+            virtual_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
+            role="user",
+            account_status="pending_approval",
+        )
+        db.add(user)
+        await db.flush()
+        await invite_service.consume_invite_token(db, invite_token, user)
+    else:
+        user = User(
+            email=email,
+            username=username,
+            full_name=full_name,
+            password_hash=_hash_password(req.password),
+            auth_provider="direct",
+            is_verified=True,
+            is_active=True,
+            virtual_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
+            role="admin" if is_first_user else "user",
+            admin_level="root" if is_first_user else None,
+            account_status="active" if is_first_user else "pending_approval",
+            approved_at=datetime.now(timezone.utc) if is_first_user else None,
+            access_duration_days=None if is_first_user else _AUTO_APPROVAL_DURATION_DAYS,
+            access_expires_at=(
+                None if is_first_user
+                else datetime.now(timezone.utc) + timedelta(days=_AUTO_APPROVAL_DURATION_DAYS)
+            ),
+        )
+        db.add(user)
+        await db.flush()
 
     portfolio = Portfolio(
         user_id=user.id,
