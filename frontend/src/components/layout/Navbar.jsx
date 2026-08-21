@@ -12,6 +12,7 @@ import { cn } from '../../utils/cn';
 import { useMarketSession } from '../../hooks/useMarketSession';
 import { formatCurrency, formatPercent, pnlColorClass } from '../../utils/formatters';
 import { buildPortfolioMetrics } from '../../utils/portfolioMetrics';
+import { useAuthStore } from '../../stores/useAuthStore';
 import {
     Search,
     Menu,
@@ -26,6 +27,7 @@ import {
     TrendingUp,
     BadgeIndianRupee,
     Star,
+    Shield,
 } from 'lucide-react';
 
 /**
@@ -141,6 +143,7 @@ export default function Navbar({ onMenuToggle }) {
             || Object.entries(brokers).find(([, info]) => info.status === 'expired');
     }, [brokers]);
 
+    const user = useAuthStore((s) => s.user);
     const connectedBroker = connectedBrokerEntry?.[0] || null;
     const connectedInfo = connectedBrokerEntry?.[1] || null;
     const connectedMeta = useMemo(() => connectedBroker ? getBrokerMeta(connectedBroker) : null, [connectedBroker]);
@@ -562,20 +565,34 @@ export default function Navbar({ onMenuToggle }) {
                     )}
                 </div>
 
+                {/* Super Admin Badge (for admin users) */}
+                {user?.role === 'admin' && (
+                    <div
+                        onClick={() => navigate('/admin/panel')}
+                        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/20 transition-all select-none mr-1 shadow-sm"
+                        title="Open Super Admin Panel"
+                    >
+                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Super Admin</span>
+                    </div>
+                )}
+
                 {/* Market status */}
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 mr-1">
                     <div className={cn('w-2 h-2 rounded-full', statusColor, marketOpen && 'animate-pulse')} />
                     <span className="text-xs text-gray-400 font-medium">{statusText}</span>
                 </div>
 
-                {/* WebSocket status */}
-                <div
-                    className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/40 mr-1"
-                    title={`Transport: ${wsStatus}${hasFreshQuotes && wsStatus !== 'connected' ? ' • Data: active (fallback)' : ''}`}
-                >
-                    <div className={cn('w-1.5 h-1.5 rounded-full', wsColor)} />
-                    <span className="text-xs text-gray-500">{wsLabel}</span>
-                </div>
+                {/* WebSocket status — hidden when frozen (Market Closed is enough) */}
+                {effectiveWsStatus !== 'frozen' && (
+                    <div
+                        className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-800/40 mr-1"
+                        title={`Transport: ${wsStatus}${hasFreshQuotes && wsStatus !== 'connected' ? ' • Data: active (fallback)' : ''}`}
+                    >
+                        <div className={cn('w-1.5 h-1.5 rounded-full', wsColor)} />
+                        <span className="text-xs text-gray-500">{wsLabel}</span>
+                    </div>
+                )}
 
                 {/* Theme toggle */}
                 <button
