@@ -18,13 +18,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-COMPOSE_PROJECT="brokerdemo"
-COMPOSE_FILE="docker-compose.demo.yml"
-PG_CONTAINER="brokerdemo-pg"
+COMPOSE_PROJECT="acalphasync"
+COMPOSE_FILE="docker-compose.yml"
+PG_CONTAINER="acalphasync-pg"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 RETENTION_DAYS="${DB_BACKUP_RETENTION_DAYS:-14}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-BACKUP_FILE="${BACKUP_DIR}/alphasync_demo_${TIMESTAMP}.sql"
+BACKUP_FILE="${BACKUP_DIR}/acalphasync_${TIMESTAMP}.sql"
 
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; RED='\033[0;31m'; NC='\033[0m'
 info() { echo -e "${CYAN}>>>${NC} $*"; }

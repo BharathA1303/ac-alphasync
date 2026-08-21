@@ -17,7 +17,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import Optional
@@ -436,9 +436,15 @@ async def sync_user(
                     user.access_duration_days = None
                     user.deactivation_reason = None
             else:
+                # Check if this is the first user in the DB (initial platform admin setup)
+                user_count_res = await db.execute(select(func.count(User.id)))
+                total_existing_users = user_count_res.scalar() or 0
+                is_first_user = (total_existing_users == 0)
+                is_admin_user = admin_allowlisted or is_first_user
+
                 if (
                     auth_intent == "login"
-                    and not admin_allowlisted
+                    and not is_admin_user
                     and not effective_auto_approval
                 ):
                     raise HTTPException(
@@ -476,29 +482,33 @@ async def sync_user(
                     auth_provider=provider,
                     avatar_url=picture,
                     virtual_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
-                    is_verified=(email_verified or admin_allowlisted),
-                    role=("admin" if admin_allowlisted else "user"),
+                    is_verified=(email_verified or is_admin_user),
+                    role=("admin" if is_admin_user else "user"),
+                    admin_level=("root" if is_first_user else ("manage" if admin_allowlisted else None)),
                     account_status=(
                         "active"
-                        if (admin_allowlisted or effective_auto_approval)
+                        if (is_admin_user or effective_auto_approval)
                         else "pending_approval"
                     ),
-                    is_active=(admin_allowlisted or effective_auto_approval),
+                    is_active=(is_admin_user or effective_auto_approval),
                     approved_at=(
                         datetime.now(timezone.utc)
-                        if effective_auto_approval and not admin_allowlisted
+                        if (is_admin_user or effective_auto_approval)
                         else None
                     ),
                     access_duration_days=(
-                        _AUTO_APPROVAL_DURATION_DAYS
-                        if effective_auto_approval and not admin_allowlisted
-                        else None
+                        None
+                        if is_admin_user
+                        else (_AUTO_APPROVAL_DURATION_DAYS if effective_auto_approval else None)
                     ),
                     access_expires_at=(
-                        datetime.now(timezone.utc)
-                        + timedelta(days=_AUTO_APPROVAL_DURATION_DAYS)
-                        if effective_auto_approval and not admin_allowlisted
-                        else None
+                        None
+                        if is_admin_user
+                        else (
+                            datetime.now(timezone.utc) + timedelta(days=_AUTO_APPROVAL_DURATION_DAYS)
+                            if effective_auto_approval
+                            else None
+                        )
                     ),
                 )
                 db.add(user)

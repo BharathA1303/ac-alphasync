@@ -39,9 +39,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-# Real names from docker-compose.demo.yml (project "brokerdemo").
-PG_CONTAINER="${PG_CONTAINER:-brokerdemo-pg}"
-DUMP_FILE="${DUMP_FILE:-${PROJECT_ROOT}/alphasync_demo.sql}"
+# Real names from docker-compose.yml (project "acalphasync").
+PG_CONTAINER="${PG_CONTAINER:-acalphasync-pg}"
+DUMP_FILE="${DUMP_FILE:-${PROJECT_ROOT}/alphasync_dump.sql}"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 LOG_DIR="${PROJECT_ROOT}/logs"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
@@ -65,7 +65,7 @@ command -v docker >/dev/null || fail "docker not found (this must run on the ser
 [[ -s "${DUMP_FILE}" ]] || fail "${DUMP_FILE} not found or empty — nothing to migrate."
 
 if ! docker ps --format '{{.Names}}' | grep -qx "${PG_CONTAINER}"; then
-    fail "Container ${PG_CONTAINER} is not running. Start the stack first: docker compose -p brokerdemo -f docker-compose.demo.yml up -d demo-pg"
+    fail "Container ${PG_CONTAINER} is not running. Start the stack first: docker compose -p acalphasync -f docker-compose.yml up -d acalphasync-pg"
 fi
 
 PG_USER="$(docker exec "${PG_CONTAINER}" printenv POSTGRES_USER)"

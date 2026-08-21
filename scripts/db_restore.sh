@@ -27,9 +27,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-COMPOSE_FILE="docker-compose.demo.yml"
-PG_CONTAINER="brokerdemo-pg"
-DUMP_FILE="${PROJECT_ROOT}/alphasync_demo.sql"
+COMPOSE_FILE="docker-compose.yml"
+PG_CONTAINER="acalphasync-pg"
+DUMP_FILE="${PROJECT_ROOT}/acalphasync_dump.sql"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 LOG_DIR="${PROJECT_ROOT}/logs"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
@@ -48,12 +48,12 @@ touch "${LOG_FILE}"
 info "AlphaSync DB restore started at $(date -Iseconds)"
 info "Log: ${LOG_FILE}"
 
-[[ -f "${COMPOSE_FILE}" ]] || fail "${COMPOSE_FILE} not found — run this from the project root."
-[[ -s "${DUMP_FILE}" ]]    || fail "${DUMP_FILE} not found or empty — nothing to restore."
+# ── Pre-flight checks ───────────────────────────────────────
 command -v docker >/dev/null || fail "docker not found."
+[[ -s "${DUMP_FILE}" ]] || fail "${DUMP_FILE} not found or empty — nothing to restore."
 
 if ! docker ps --format '{{.Names}}' | grep -qx "${PG_CONTAINER}"; then
-    fail "Container ${PG_CONTAINER} is not running. Start the stack first (docker compose -p brokerdemo -f ${COMPOSE_FILE} up -d demo-pg)."
+    fail "Container ${PG_CONTAINER} is not running. Start the stack first (docker compose -p acalphasync -f ${COMPOSE_FILE} up -d acalphasync-pg)."
 fi
 
 PG_USER="$(docker exec "${PG_CONTAINER}" printenv POSTGRES_USER)"

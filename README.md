@@ -1,8 +1,8 @@
-# AlphaSync — Virtual Stock Trading Platf
+# Academic AlphaSync — Virtual Stock Trading Platform
 
-**Practice stock trading with ₹10,00,000 virtual money. Zero risk. Real-time market data via Zebu/MYNT, Alice Blue, or Zerodha.*
+**Practice stock trading with ₹10,00,000 virtual money. Zero risk. Real-time market data via Zebu/MYNT, Alice Blue, or Zerodha.**
 
-[Live Demo](https://demo.alphasync.app) | [Production](https://www.alphasync.app)
+[Academic Platform](https://ac.alphasync.app)
 
 ---
 
