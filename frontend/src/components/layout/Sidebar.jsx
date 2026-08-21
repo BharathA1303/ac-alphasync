@@ -291,18 +291,45 @@ export default function Sidebar({ collapsed, onToggle }) {
               {NAV_SECTIONS.flatMap((section) => section.items).map((item) => (
                 <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
               ))}
+              {/* Admin Panel — collapsed icon only */}
+              {user?.role === 'admin' && (
+                <SidebarItem
+                  to="/admin/panel"
+                  icon={Shield}
+                  label="Admin Panel"
+                  collapsed={collapsed}
+                  onNavigate={closeMobileDrawer}
+                />
+              )}
             </div>
           ) : (
-            NAV_SECTIONS.map((section) => (
-              <div key={section.label}>
-                <SectionLabel label={section.label} collapsed={collapsed} />
-                <div className="space-y-0.5">
-                  {section.items.map((item) => (
-                    <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
-                  ))}
+            <>
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.label}>
+                  <SectionLabel label={section.label} collapsed={collapsed} />
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {/* Admin Panel — expanded label + item */}
+              {user?.role === 'admin' && (
+                <div>
+                  <SectionLabel label="Admin" collapsed={collapsed} />
+                  <div className="space-y-0.5">
+                    <SidebarItem
+                      to="/admin/panel"
+                      icon={Shield}
+                      label="Admin Panel"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </nav>
 

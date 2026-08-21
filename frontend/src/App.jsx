@@ -64,18 +64,6 @@ export default function App() {
                         <Route path="/register" element={<LoginPage />} />
                         <Route path="/verify-email" element={<VerifyEmailPage />} />
                         <Route path="/admin" element={<AdminAccessPage />} />
-                        <Route path="/admin/panel" element={
-                            <AdminRoute><AdminPanelPage /></AdminRoute>
-                        } />
-                        <Route path="/admin/bug-reports" element={
-                            <AdminRoute><AdminBugReportsPage /></AdminRoute>
-                        } />
-                        <Route path="/admin/root-control" element={
-                            <AdminRoute><RootControlPage /></AdminRoute>
-                        } />
-                        <Route path="/admin/audit-log" element={
-                            <AdminRoute><AdminAuditLogPage /></AdminRoute>
-                        } />
 
                         <Route path="/account-status" element={
                             <ProtectedRoute><AccountStatusPage /></ProtectedRoute>
@@ -114,6 +102,19 @@ export default function App() {
                             <Route path="/auto-alpha" element={<ZeroLossPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
                             <Route path="/bug-report" element={<BugReportPage />} />
+                            {/* ── Admin routes (inside AppShell — sidebar visible) ── */}
+                            <Route path="/admin/panel" element={
+                                <AdminRoute><AdminPanelPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/bug-reports" element={
+                                <AdminRoute><AdminBugReportsPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/root-control" element={
+                                <AdminRoute><RootControlPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/audit-log" element={
+                                <AdminRoute><AdminAuditLogPage /></AdminRoute>
+                            } />
                         </Route>
 
                         <Route path="*" element={<Navigate to="/" replace />} />
