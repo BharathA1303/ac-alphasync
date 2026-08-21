@@ -246,6 +246,14 @@ async def _try_recover_any_session() -> bool:
     return broker_session_manager.get_any_session() is not None
 
 
+@router.get("/feed-status")
+async def feed_status():
+    """Public, unauthenticated: is the master data feed live? Used for the Navbar badge."""
+    from services.master_session import master_session_service
+
+    return {"live": master_session_service.is_active()}
+
+
 @router.get("/session")
 async def get_market_session():
     """Market session info — public, no auth required."""

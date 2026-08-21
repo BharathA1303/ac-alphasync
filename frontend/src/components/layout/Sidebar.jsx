@@ -22,7 +22,6 @@ import {
   Gem,
   FlipHorizontal2,
   Lightbulb,
-  Link2,
 } from "lucide-react";
 
 /* ─── Avatar helpers ─────────────────────────────────────── */
@@ -94,7 +93,6 @@ const NAV_SECTIONS = [
     label: "Main",
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { to: "/brokers", icon: Link2, label: "Brokers" },
       { to: "/leaderboard", icon: Trophy, label: "Leaderboard" },
       { to: "/terminal", icon: ChartCandlestick, label: "Terminal" },
       { to: "/market", icon: Globe, label: "Market" },

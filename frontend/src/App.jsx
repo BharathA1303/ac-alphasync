@@ -29,7 +29,6 @@ import DashboardWorkspace from './workspaces/DashboardWorkspace';
 import TradingWorkspace from './workspaces/TradingWorkspace';
 import BrokerSelectPage from './pages/BrokerSelectPage';
 import BrokerCallbackPage from './pages/BrokerCallbackPage';
-import BrokersPage from './pages/BrokersPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import AccountStatusPage from './pages/AccountStatusPage';
 import AdminAccessPage from './pages/AdminAccessPage';
@@ -78,16 +77,15 @@ export default function App() {
                             <ProtectedRoute><BrokerCallbackPage /></ProtectedRoute>
                         } />
 
-                        {/* ── Protected (inside AppShell — requires onboarding) ── */}
+                        {/* ── Protected (inside AppShell) ── */}
                         <Route
                             element={
-                                <ProtectedRoute requireOnboarding>
+                                <ProtectedRoute>
                                     <AppShell />
                                 </ProtectedRoute>
                             }
                         >
                             <Route path="/dashboard" element={<DashboardWorkspace />} />
-                            <Route path="/brokers" element={<BrokersPage />} />
                             <Route path="/leaderboard" element={<LeaderboardPage />} />
                             <Route path="/mentor" element={<AIMentorPage />} />
                             <Route path="/terminal" element={<TradingWorkspace />} />

@@ -209,6 +209,15 @@ const adminApi = {
         return api.get('/admin/audit-log', withAdminSession({ params }));
     },
 
+    // ── Master Data Feed ──────────────────────────────────────────────
+    getMasterFeedStatus() {
+        return api.get('/admin/master-feed/status', withAdminSession());
+    },
+
+    refreshMasterFeed() {
+        return api.post('/admin/master-feed/refresh', {}, withAdminSession());
+    },
+
     // ── Bug Reports ─────────────────────────────────────────────────
     getBugReportStats() {
         return api.get('/bug-reports/admin/dashboard-stats', withAdminSession());

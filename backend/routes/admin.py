@@ -37,6 +37,8 @@ from dependencies.admin import (
     get_effective_admin_level,
 )
 from services import admin_service, admin_2fa_service
+from services.master_session import master_session_service
+from services.broker_session import broker_session_manager
 from services import admin_group_service
 from core.admin_runtime_flags import admin_runtime_flags
 
@@ -294,6 +296,31 @@ async def update_auto_approval_setting(
         ip,
     )
     return {"enabled": enabled}
+
+
+# ── Master Data Feed (single shared Zebu session) ────────────────────
+
+@router.get("/master-feed/status")
+async def master_feed_status(
+    admin: User = Depends(require_2fa_session),
+):
+    """Return master Zebu session status + overall broker session count."""
+    status = master_session_service.get_status()
+    status["broker_sessions"] = broker_session_manager.get_status()
+    return status
+
+
+@router.post("/master-feed/refresh")
+async def master_feed_refresh(
+    admin: User = Depends(require_manage_level),
+):
+    """Force a fresh master Zebu login (tears down + re-authenticates)."""
+    ok = await master_session_service.refresh()
+    status = master_session_service.get_status()
+    status["broker_sessions"] = broker_session_manager.get_status()
+    if not ok:
+        raise HTTPException(status_code=502, detail=status.get("last_error") or "Master feed refresh failed")
+    return status
 
 
 # ── User Management (require at least 'manage' for writes) ──────────

@@ -5,8 +5,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { useMarketStore } from '../../store/useMarketStore';
 import { usePortfolioStore } from '../../store/usePortfolioStore';
 import { useWatchlistStore } from '../../stores/useWatchlistStore';
-import { useBrokerStore } from '../../stores/useBrokerStore';
-import { getBrokerMeta } from '../broker/brokerMeta';
 import api from '../../services/api';
 import { cn } from '../../utils/cn';
 import { useMarketSession } from '../../hooks/useMarketSession';
@@ -133,20 +131,10 @@ export default function Navbar({ onMenuToggle }) {
     const addToWatchlist = useWatchlistStore((s) => s.addItem);
     const removeFromWatchlist = useWatchlistStore((s) => s.removeItem);
 
-    // Broker status state from useBrokerStore
-    const brokers = useBrokerStore((s) => s.brokers);
-    const fetchStatus = useBrokerStore((s) => s.fetchStatus);
-    const statusLoaded = useBrokerStore((s) => s.statusLoaded);
-
-    const connectedBrokerEntry = useMemo(() => {
-        return Object.entries(brokers).find(([, info]) => info.status === 'connected')
-            || Object.entries(brokers).find(([, info]) => info.status === 'expired');
-    }, [brokers]);
+    // Global master data feed status (single shared Zebu session)
+    const [feedLive, setFeedLive] = useState(null);
 
     const user = useAuthStore((s) => s.user);
-    const connectedBroker = connectedBrokerEntry?.[0] || null;
-    const connectedInfo = connectedBrokerEntry?.[1] || null;
-    const connectedMeta = useMemo(() => connectedBroker ? getBrokerMeta(connectedBroker) : null, [connectedBroker]);
 
     // Derive the active watchlist's items safely — only recomputes when watchlists
     // or activeId actually changes, not on every render.
@@ -173,12 +161,21 @@ export default function Navbar({ onMenuToggle }) {
     const searchRef = useRef(null);
     const bellRef = useRef(null);
 
-    // Fetch broker status on mount if not loaded
+    // Poll the global master data feed status
     useEffect(() => {
-        if (!statusLoaded) {
-            fetchStatus();
-        }
-    }, [statusLoaded, fetchStatus]);
+        let cancelled = false;
+        const check = async () => {
+            try {
+                const { data } = await api.get('/market/feed-status');
+                if (!cancelled) setFeedLive(!!data?.live);
+            } catch {
+                if (!cancelled) setFeedLive(false);
+            }
+        };
+        check();
+        const interval = setInterval(check, 60000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, []);
 
     // Ensure navbar has the same portfolio source data used by Portfolio page
     useEffect(() => {
@@ -542,27 +539,21 @@ export default function Navbar({ onMenuToggle }) {
                     </div>
                 </div>
 
-                {/* Broker Badge */}
+                {/* Data Feed Badge */}
                 <div
-                    onClick={() => navigate('/brokers')}
                     className={cn(
-                        "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 hover:bg-surface-800/80 cursor-pointer border border-edge/5 transition-all select-none mr-1",
-                        connectedInfo?.status === 'expired' && "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10"
+                        "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 border border-edge/5 transition-all select-none mr-1",
+                        feedLive === false && "border-red-500/20 bg-red-500/5"
                     )}
-                    title={connectedBroker ? `${connectedMeta?.name}: ${connectedInfo?.status === 'connected' ? 'Active' : 'Session Expired'}. Click to manage.` : "No broker connected. Click to connect."}
+                    title={feedLive === null ? "Checking data feed…" : feedLive ? "Master data feed (Zebu) is live" : "Master data feed is offline"}
                 >
                     <div className={cn(
                         "w-2 h-2 rounded-full",
-                        connectedInfo?.status === 'connected' ? "bg-emerald-400 animate-pulse" : connectedInfo?.status === 'expired' ? "bg-amber-400" : "bg-red-400"
+                        feedLive === true ? "bg-emerald-400 animate-pulse" : feedLive === false ? "bg-red-400" : "bg-gray-500"
                     )} />
                     <span className="text-xs font-medium text-heading">
-                        {connectedBroker ? connectedMeta?.name : "No Broker"}
+                        {feedLive === null ? "Data Feed" : feedLive ? "Data Feed: Live (Zebu)" : "Data Feed: Offline"}
                     </span>
-                    {connectedInfo?.status === 'expired' && (
-                        <span className="text-[9px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded font-semibold uppercase tracking-wider scale-90">
-                            Expired
-                        </span>
-                    )}
                 </div>
 
                 {/* Super Admin Badge (for admin users) */}

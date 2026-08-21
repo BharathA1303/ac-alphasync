@@ -137,13 +137,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Futures contracts load failed: {e}")
 
+    # ── Master Zebu session (single shared data feed for all users) ─
+    master_ok = await master_session_service.initialize()
+    logger.info(f"Master Zebu session: {'active' if master_ok else 'not started (see logs above)'}")
+
     # ── Restore broker sessions from DB ─────────────────────────────
-    # No global provider. Sessions are per-user, created after OAuth.
-    # At startup, restore any previously active sessions.
+    # Sessions are per-user, created after OAuth (legacy path, still
+    # supported but no longer required — master session covers market data).
     restored = await broker_session_manager.restore_sessions()
     logger.info(
         f"Broker sessions: {restored} restored | "
-        f"No global provider — market data flows after broker auth"
+        f"Master session: {'active' if master_ok else 'inactive'}"
     )
 
     # ── Startup diagnostics ────────────────────────────────────────────
@@ -292,6 +296,9 @@ async def lifespan(app: FastAPI):
     # Start broker session health check (monitors token expiry)
     await broker_session_manager.start_health_check(interval=300.0)
 
+    # Start daily master session refresh (8:30 AM IST re-login)
+    master_session_service.start_daily_refresh()
+
     # Emit system startup event
     await event_bus.emit(
         Event(
@@ -338,6 +345,7 @@ async def lifespan(app: FastAPI):
     await zeroloss_manager.stop_all()
     await auto_squareoff_worker.stop()
     await broker_session_manager.stop()
+    await master_session_service.stop()
     await event_bus.stop()
 
     # Close Redis

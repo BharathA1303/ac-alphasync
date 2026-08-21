@@ -55,7 +55,12 @@ class Settings(BaseSettings):
     ZEBU_OAUTH_CLIENT_ID: str = ""
     ZEBU_REDIRECT_URI: str = "http://localhost:5173/broker/callback"
 
-
+    # ── Master Zebu Account (single shared data feed for all users) ──
+    ZEBU_MASTER_USER_ID: str = ""
+    ZEBU_MASTER_PASSWORD: str = ""
+    ZEBU_MASTER_API_KEY: str = ""       # falls back to ZEBU_API_SECRET if unset
+    ZEBU_MASTER_VENDOR_CODE: str = ""   # falls back to ZEBU_VENDOR_CODE if unset
+    ZEBU_MASTER_TOTP_SECRET: str = ""
 
     # ── Alice Blue (ANT OpenAPI v2) ───────────────────────────────
     # Official docs: https://v2api.aliceblueonline.com/

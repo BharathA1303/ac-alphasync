@@ -1671,4 +1671,71 @@ class BrokerAuthService:
 
 
 # ── Module-level singleton ──────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────
+    # 8. Master Zebu Login (single shared account — TOTP-based)
+    # ────────────────────────────────────────────────────────────────
+
+    async def zebu_master_login(self) -> dict:
+        """
+        Authenticate the single master Zebu/MYNT account via QuickAuth,
+        generating the TOTP factor2 code with pyotp. Does not touch the
+        broker_accounts table — this session isn't tied to any AlphaSync
+        user, it's registered under MASTER_SESSION_ID by master_session.py.
+
+        Returns: { "session_token": str, "broker_user_id": str }
+        Raises: ValueError on missing config or authentication failure.
+        """
+        import hashlib
+        import pyotp
+
+        uid = (settings.ZEBU_MASTER_USER_ID or "").strip()
+        password = (settings.ZEBU_MASTER_PASSWORD or "").strip()
+        api_key = (settings.ZEBU_MASTER_API_KEY or settings.ZEBU_API_SECRET or "").strip()
+        vendor_code = (settings.ZEBU_MASTER_VENDOR_CODE or settings.ZEBU_VENDOR_CODE or "").strip()
+        totp_secret = (settings.ZEBU_MASTER_TOTP_SECRET or "").strip()
+
+        missing = [
+            name
+            for name, val in (
+                ("ZEBU_MASTER_USER_ID", uid),
+                ("ZEBU_MASTER_PASSWORD", password),
+                ("ZEBU_MASTER_API_KEY / ZEBU_API_SECRET", api_key),
+                ("ZEBU_MASTER_TOTP_SECRET", totp_secret),
+            )
+            if not val
+        ]
+        if missing:
+            raise ValueError(f"Master Zebu login not configured — missing: {', '.join(missing)}")
+
+        factor2 = pyotp.TOTP(totp_secret).now()
+        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+        vc = self._resolve_zebu_vendor_code(uid=uid, custom_vc=vendor_code, api_key=api_key)
+        appkey = hashlib.sha256(f"{uid}|{api_key}".encode()).hexdigest()
+
+        logger.info(f"Zebu MASTER QuickAuth: uid={uid} vc={vc}")
+        payload = {
+            "apkversion": "1.0.0",
+            "uid": uid,
+            "pwd": pwd_hash,
+            "factor2": factor2,
+            "vc": vc,
+            "appkey": appkey,
+            "imei": "alphasync",
+            "source": "API",
+        }
+
+        data = await self._zebu_quickauth_call(payload)
+
+        session_token = data["susertoken"]
+        broker_user_id = data.get("actid", data.get("uid", uid))
+
+        logger.info(f"Zebu MASTER login successful: broker_user={broker_user_id}")
+
+        return {
+            "session_token": session_token,
+            "broker_user_id": broker_user_id,
+            "api_key": api_key,
+        }
+
+
 broker_auth_service = BrokerAuthService()

@@ -903,6 +903,8 @@ export default function AdminPanelPage() {
 
     const [stats, setStats] = useState(null);
     const [feedbackSummary, setFeedbackSummary] = useState(null);
+    const [feedStatus, setFeedStatus] = useState(null);
+    const [feedRefreshing, setFeedRefreshing] = useState(false);
     const [usersData, setUsersData] = useState(DEFAULT_USERS_DATA);
     const [usersLoading, setUsersLoading] = useState(false);
     const [filters, setFilters] = useState({ status: '', search: '', groupId: 'normal', page: 1, perPage: 25 });
@@ -975,6 +977,28 @@ export default function AdminPanelPage() {
             setFeedbackSummary(data || null);
         } catch {
             setFeedbackSummary(null);
+        }
+    }, []);
+
+    const loadFeedStatus = useCallback(async () => {
+        try {
+            const { data } = await adminApi.getMasterFeedStatus();
+            setFeedStatus(data || null);
+        } catch {
+            setFeedStatus(null);
+        }
+    }, []);
+
+    const handleRefreshMasterFeed = useCallback(async () => {
+        setFeedRefreshing(true);
+        try {
+            const { data } = await adminApi.refreshMasterFeed();
+            setFeedStatus(data || null);
+            toast.success('Master feed refreshed');
+        } catch (err) {
+            toast.error(err?.response?.data?.detail || 'Failed to refresh master feed');
+        } finally {
+            setFeedRefreshing(false);
         }
     }, []);
 
@@ -1083,6 +1107,7 @@ export default function AdminPanelPage() {
                 loadUsers(),
                 loadAutoApprovalSetting(),
                 loadGroups({ force: true }),
+                loadFeedStatus(),
             ];
             const results = await Promise.allSettled(toLoad);
             const failedSections = [];
@@ -1103,7 +1128,7 @@ export default function AdminPanelPage() {
         } finally {
             refreshInFlightRef.current = null;
         }
-    }, [loadAutoApprovalSetting, loadGroups, loadStats, loadUsers, resetToVerifyStage]);
+    }, [loadAutoApprovalSetting, loadFeedStatus, loadGroups, loadStats, loadUsers, resetToVerifyStage]);
 
     const handleSaveRootFinancials = useCallback(async (payload) => {
         if (!rootControlUserId) {
@@ -1679,6 +1704,53 @@ export default function AdminPanelPage() {
                             color="#FBB724"
                             subtext={feedbackSummary ? `from ${Number(feedbackSummary.total_responses || 0)} reviews` : 'from — reviews'}
                         />
+                    </section>
+
+                    {/* Data Feed */}
+                    <section className="admin-card p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3 sm:mb-4">
+                            <div>
+                                <h2 className="text-lg font-bold admin-section-title">Data Feed</h2>
+                                <p className="text-xs mt-1 admin-section-subtitle">
+                                    Single master Zebu account supplying live market data for all users.
+                                </p>
+                            </div>
+                            {canManage && (
+                                <button
+                                    className="admin-action-btn admin-action-btn--secondary"
+                                    disabled={feedRefreshing}
+                                    onClick={handleRefreshMasterFeed}
+                                >
+                                    {feedRefreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                    Refresh Master Token
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="admin-mini-stat">
+                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Status</div>
+                                <div className="mt-1 text-sm font-semibold" style={{ color: feedStatus?.active ? '#10b981' : '#ef4444' }}>
+                                    {feedStatus?.active ? '🟢 Live (Zebu)' : '🔴 Not Connected'}
+                                </div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Configured</div>
+                                <div className="mt-1 text-sm font-semibold">{feedStatus?.configured ? 'Yes' : 'No'}</div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Last Login</div>
+                                <div className="mt-1 text-sm font-semibold">
+                                    {feedStatus?.last_login_at ? new Date(feedStatus.last_login_at).toLocaleString() : '—'}
+                                </div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Active Sessions</div>
+                                <div className="mt-1 text-sm font-semibold">{feedStatus?.broker_sessions?.active_sessions ?? '—'}</div>
+                            </div>
+                        </div>
+                        {feedStatus?.last_error && (
+                            <div className="mt-3 text-xs" style={{ color: '#ef4444' }}>{feedStatus.last_error}</div>
+                        )}
                     </section>
 
                     {isRoot && (
