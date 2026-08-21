@@ -1,59 +1,113 @@
-// LoginPage.jsx — Combined Login + Register
+// LoginPage.jsx — Combined Login + Register (3-Step Registration Flow)
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
+import api from "../services/api";
 import toast from "react-hot-toast";
 import usePageMeta from "../hooks/usePageMeta";
 import { hasUserSessionCookie } from "../utils/authSessionCookie";
 
-function PwdStrength({ password }) {
+/* ─── Password requirements checker ────────────────────────────────────────── */
+function PwdRequirements({ password }) {
   if (!password) return null;
-  const score = [
-    password.length >= 8,
-    /[A-Z]/.test(password),
-    /[0-9]/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ].filter(Boolean).length;
-  const cls = score <= 1 ? "weak" : score <= 2 ? "medium" : "strong";
+  const rules = [
+    { label: "At least 8 characters",              pass: password.length >= 8 },
+    { label: "One uppercase letter (A–Z)",          pass: /[A-Z]/.test(password) },
+    { label: "One number (0–9)",                    pass: /[0-9]/.test(password) },
+    { label: "One special character (!@#$%^&*)",   pass: /[^A-Za-z0-9]/.test(password) },
+  ];
   return (
-    <div className="pwd-strength">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className={"pwd-bar" + (i <= score ? " " + cls : "")} />
-      ))}
+    <div className="pwd-rules-box">
+      <strong>Password must contain:</strong>
+      <ul>
+        {rules.map((r) => (
+          <li key={r.label} className={r.pass ? "pass" : ""}>
+            <span className="pwd-rule-icon">{r.pass ? "✅" : "⬜"}</span>
+            {r.label}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
+/* ─── Step Progress Indicator ───────────────────────────────────────────────── */
+function StepIndicator({ currentStep }) {
+  const steps = [
+    { n: 1, label: "Account Details" },
+    { n: 2, label: "Verify Account" },
+    { n: 3, label: "Complete" },
+  ];
+  return (
+    <div className="step-indicator">
+      {steps.map((s, idx) => {
+        const done    = currentStep > s.n;
+        const active  = currentStep === s.n;
+        return (
+          <div key={s.n} className="step-item">
+            <div className={"step-circle" + (done ? " done" : active ? " active" : "")}>
+              {done ? (
+                <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                  <polyline points="3,8 6.5,11.5 13,5" stroke="#fff" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                s.n
+              )}
+            </div>
+            <span className={"step-label" + (active ? " active" : done ? " done" : "")}>{s.label}</span>
+            {idx < steps.length - 1 && (
+              <div className={"step-line" + (currentStep > s.n ? " done" : "")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Main Component ────────────────────────────────────────────────────────── */
 export default function LoginPage() {
   usePageMeta(
-    "α·SIM Demo Trading — Login | AlphaSync",
-    "Start paper trading for free. ₹10L virtual capital, live NSE/BSE data, zero risk."
+    "AlphaSync Campus — Login | Start Your Learning Journey",
+    "Join AlphaSync Campus. Learn, backtest and practice trading with ₹10L virtual capital. SEBI-aligned. Zero risk."
   );
 
   const [tab, setTab] = useState("login");
-  const [loginUsername, setLoginUsername] = useState("");
-  const [loginPass, setLoginPass]       = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [regUsername, setRegUsername]   = useState("");
-  const [regFname, setRegFname]         = useState("");
-  const [regLname, setRegLname]         = useState("");
-  const [regEmail, setRegEmail]         = useState("");
-  const [regPass, setRegPass]           = useState("");
-  const [regAgree, setRegAgree]         = useState(false);
-  const [regLoading, setRegLoading]     = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [showLoginPass, setShowLoginPass] = useState(false);
-  const [showRegPass,   setShowRegPass]   = useState(false);
 
-  const loginWithEmail     = useAuthStore((s) => s.loginWithEmail);
-  const loginWithGoogle    = useAuthStore((s) => s.loginWithGoogle);
-  const registerWithEmail  = useAuthStore((s) => s.registerWithEmail);
-  const resendVerification = useAuthStore((s) => s.resendVerification);
-  const existingUser       = useAuthStore((s) => s.user);
-  const navigate           = useNavigate();
-  const [searchParams]     = useSearchParams();
-  const adminIntent        = (searchParams.get("intent") || "").toLowerCase() === "admin";
+  /* --- Login state --- */
+  const [loginUsername,  setLoginUsername]  = useState("");
+  const [loginPass,      setLoginPass]      = useState("");
+  const [loginLoading,   setLoginLoading]   = useState(false);
+  const [showLoginPass,  setShowLoginPass]  = useState(false);
+  const [rememberMe,     setRememberMe]     = useState(false);
 
+  /* --- Register multi-step state --- */
+  const [regStep,        setRegStep]        = useState(1);   // 1 | 2 | 3
+  const [regFullName,    setRegFullName]     = useState("");
+  const [regEmail,       setRegEmail]       = useState("");
+  const [regUsername,    setRegUsername]    = useState("");
+  const [regMobile,      setRegMobile]      = useState("");
+  const [regPass,        setRegPass]        = useState("");
+  const [regConfirmPass, setRegConfirmPass] = useState("");
+  const [showRegPass,    setShowRegPass]    = useState(false);
+  const [showConfirmPass,setShowConfirmPass]= useState(false);
+  const [regAgree,       setRegAgree]       = useState(false);
+  const [regLoading,     setRegLoading]     = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+
+  /* --- Registered user info (to show in step 2) --- */
+  const [registeredUser, setRegisteredUser] = useState(null);
+
+  const loginWithEmail    = useAuthStore((s) => s.loginWithEmail);
+  const registerWithEmail = useAuthStore((s) => s.registerWithEmail);
+  const existingUser      = useAuthStore((s) => s.user);
+  const updateUser        = useAuthStore((s) => s.updateUser);
+  const navigate          = useNavigate();
+  const [searchParams]    = useSearchParams();
+  const adminIntent       = (searchParams.get("intent") || "").toLowerCase() === "admin";
+
+  /* ─── Route by account status ─────────────────────────────────────────────── */
   const routeByAccountStatus = (profile) => {
     const status   = (profile?.account_status || "active").toLowerCase();
     const isActive = status === "active" && profile?.is_active !== false;
@@ -71,32 +125,34 @@ export default function LoginPage() {
       localStorage.setItem("alphasync_onboarded", "1");
       navigate("/dashboard");
     } else {
+      // For existing/returning users with non-active accounts
       navigate("/account-status");
     }
   };
 
-  const handleAuthSuccess = (profile) => {
-    routeByAccountStatus(profile);
-  };
-
+  /* ─── Redirect if already logged in ──────────────────────────────────────── */
   useEffect(() => {
     if (!existingUser || adminIntent) return;
     if (!hasUserSessionCookie()) return;
-    handleAuthSuccess(existingUser);
+    // Don't auto-redirect if we're in step 2/3 of registration flow
+    if (tab === "register" && regStep > 1) return;
+    routeByAccountStatus(existingUser);
   }, [existingUser, adminIntent]);
 
+  /* ─── Login handler ───────────────────────────────────────────────────────── */
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!loginUsername.trim()) return toast.error("Username is required");
     setLoginLoading(true);
     try {
       const result = await loginWithEmail(loginUsername.trim(), loginPass);
-      if ((result?.user?.account_status || "active") !== "active") {
-        toast("Login successful. Your account is pending review.");
+      const status = (result?.user?.account_status || "active").toLowerCase();
+      if (status === "active" && result?.user?.is_active !== false) {
+        toast.success("Welcome back! 🎉");
       } else {
-        toast.success("Welcome back!");
+        toast("Login successful. Your account is under review.");
       }
-      handleAuthSuccess(result?.user);
+      routeByAccountStatus(result?.user);
     } catch (err) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail || err?.message || "Login failed";
@@ -112,23 +168,42 @@ export default function LoginPage() {
     } finally { setLoginLoading(false); }
   };
 
+  /* ─── Register handler (Step 1 → Step 2) ─────────────────────────────────── */
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!regUsername.trim()) return toast.error("Username is required");
-    if (regPass.length < 6) return toast.error("Password must be at least 6 characters");
+    if (!regFullName.trim())      return toast.error("Full name is required");
+    if (!regEmail.trim())         return toast.error("Email address is required");
+    if (!regUsername.trim())      return toast.error("Username is required");
+    if (regPass.length < 8)       return toast.error("Password must be at least 8 characters");
+    if (!/[A-Z]/.test(regPass))   return toast.error("Password must contain an uppercase letter");
+    if (!/[0-9]/.test(regPass))   return toast.error("Password must contain a number");
+    if (!/[^A-Za-z0-9]/.test(regPass)) return toast.error("Password must contain a special character");
+    if (regPass !== regConfirmPass)    return toast.error("Passwords do not match");
+    if (!regAgree)                return toast.error("Please agree to the Terms of Service and Privacy Policy");
+
     setRegLoading(true);
     try {
-      const fullName = (regFname + " " + regLname).trim();
-      const result   = await registerWithEmail(regEmail.trim(), regPass, fullName, regUsername.trim());
-      localStorage.setItem("alphasync_trading_mode", "demo");
-      localStorage.setItem("alphasync_onboarded", "1");
-      toast.success("Account created successfully!");
-      handleAuthSuccess(result?.user);
+      const result = await registerWithEmail(
+        regEmail.trim(),
+        regPass,
+        regFullName.trim(),
+        regUsername.trim()
+      );
+      toast.success("Account created! Awaiting admin verification.");
+      setRegisteredUser(result?.user);
+      // Always go to step 2 — only first-ever user gets immediate active status
+      const status = (result?.user?.account_status || "pending_approval").toLowerCase();
+      if (status === "active" && result?.user?.is_active !== false) {
+        // First user on the system — admin themselves, go straight to complete
+        setRegStep(3);
+      } else {
+        setRegStep(2);
+      }
     } catch (err) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail || err?.message || "Registration failed";
       if (status === 409) {
-        toast.error("Username already taken. Choose a different one.");
+        toast.error("Username or email already taken. Please choose another.");
       } else if (status === 400) {
         toast.error(detail);
       } else {
@@ -137,46 +212,49 @@ export default function LoginPage() {
     } finally { setRegLoading(false); }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
+  /* ─── Refresh / Poll verification status (Step 2) ────────────────────────── */
+  const handleCheckVerification = async () => {
+    setRefreshLoading(true);
     try {
-      const result = await loginWithGoogle("login");
-      const email  = result?.user?.email || "selected Google account";
-      if ((result?.user?.account_status || "active") !== "active") {
-        toast(`Signed in as ${email}. Your account is under review.`);
+      const res = await api.get("/auth/me");
+      const user = res.data;
+      const status = (user?.account_status || "pending_approval").toLowerCase();
+      const isActive = status === "active" && user?.is_active !== false;
+
+      if (isActive) {
+        // Update store with fresh user data
+        updateUser(user);
+        setRegisteredUser(user);
+        toast.success("Account verified! Welcome aboard 🎉");
+        setRegStep(3);
       } else {
-        toast.success(`Welcome back, ${email}!`);
+        toast("Still pending. Please wait for admin to verify your account.", { icon: "⏳" });
       }
-      handleAuthSuccess(result?.user);
     } catch (err) {
-      if (err.response?.status === 404) { toast.error("Account not found. Please create an account first."); setTab("register"); return; }
-      if (err.code !== "auth/popup-closed-by-user") toast.error(err.message || "Google sign-in failed");
-    } finally { setGoogleLoading(false); }
+      toast.error("Could not check status. Please try again.");
+    } finally { setRefreshLoading(false); }
   };
 
-  const handleGoogleRegister = async () => {
-    setGoogleLoading(true);
-    try {
-      const result = await loginWithGoogle("register");
-      const email  = result?.user?.email || "selected Google account";
-      if ((result?.user?.account_status || "active") !== "active") {
-        toast.success(`Registered as ${email}. Account pending approval.`);
-      } else {
-        toast.success(result.isNew ? `Welcome to AlphaSync, ${email}!` : `Welcome back, ${email}!`);
-      }
-      handleAuthSuccess(result?.user);
-    } catch (err) {
-      if (err.code !== "auth/popup-closed-by-user") toast.error(err.message || "Google sign-up failed");
-    } finally { setGoogleLoading(false); }
+  /* ─── Enter Campus from Step 3 ───────────────────────────────────────────── */
+  const handleEnterCampus = () => {
+    localStorage.setItem("alphasync_trading_mode", "demo");
+    localStorage.setItem("alphasync_onboarded", "1");
+    navigate("/dashboard");
   };
 
-  const handleForgotPassword = async () => {
-    if (!loginEmail) return toast.error("Enter your email first");
-    try {
-      const { resetPassword } = useAuthStore.getState();
-      await resetPassword(loginEmail);
-      toast.success("Password reset email sent!");
-    } catch { toast.error("Could not send reset email."); }
+  /* ─── Handle forgot password ─────────────────────────────────────────────── */
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    toast("Password reset is not yet available. Please contact your admin.", { icon: "🔑" });
+  };
+
+  /* ─── Switch tabs (reset register stepper) ───────────────────────────────── */
+  const switchTab = (t) => {
+    setTab(t);
+    if (t === "register") {
+      setRegStep(1);
+      setRegisteredUser(null);
+    }
   };
 
   return (
@@ -255,7 +333,6 @@ export default function LoginPage() {
 
             {/* Green bullish candles — rising diagonally */}
             <g filter="url(#glow)">
-              {/* candle: [x, wickTop, wickBot, bodyTop, bodyH] */}
               {[[30,498,522,504,16],[70,448,474,454,16],[110,404,432,410,18],
                 [190,324,352,330,18],[230,282,312,288,20],[270,234,266,240,20],
                 [310,190,222,196,22],[350,144,178,150,22],[390,100,136,106,24]
@@ -365,7 +442,7 @@ export default function LoginPage() {
               </div>
               <div className="lp-feat-txt">
                 <strong>Educational Purpose Only</strong>
-                <span>Solely for learning & simulation. Not for real trading.</span>
+                <span>Solely for learning &amp; simulation. Not for real trading.</span>
               </div>
             </div>
 
@@ -466,73 +543,130 @@ export default function LoginPage() {
         <div className="lp-form-area">
           <div className="lp-card">
 
-            <div className="lp-card-head">
-              <h2>{tab === "login" ? "Welcome back 👋" : "Start trading free 🚀"}</h2>
-              <p>
-                {tab === "login"
-                  ? <>Login to your {"α·SIM"} demo account</>
-                  : <>Create your {"α·SIM"} account — takes 30 seconds</>}
-              </p>
-            </div>
+            {/* ══════════════════════════════════════════════
+                TAB SWITCHER (only when not mid-registration)
+                ══════════════════════════════════════════════ */}
+            {!(tab === "register" && regStep > 1) && (
+              <>
+                {/* ── Card header changes by tab ── */}
+                <div className="lp-card-head">
+                  {tab === "login" ? (
+                    <>
+                      <div className="lp-secure-badge">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
+                          <path d="M10 2L17 5v5c0 4.5-3.5 7.5-7 8.5C3.5 17.5 3 14.5 3 10V5l7-3z"
+                            fill="none" stroke="#00B67A" strokeWidth="1.5" strokeLinejoin="round"/>
+                          <polyline points="7,10 9,12 13,8" stroke="#00B67A" strokeWidth="1.5"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Secure. Private. Trusted by Learners.
+                      </div>
+                      <h2>Welcome back 👋</h2>
+                      <p>Login to your AlphaSync Campus account</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="lp-secure-badge">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14">
+                          <path d="M10 2L17 5v5c0 4.5-3.5 7.5-7 8.5C3.5 17.5 3 14.5 3 10V5l7-3z"
+                            fill="none" stroke="#00B67A" strokeWidth="1.5" strokeLinejoin="round"/>
+                          <polyline points="7,10 9,12 13,8" stroke="#00B67A" strokeWidth="1.5"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Secure. Private. Trusted by Learners.
+                      </div>
+                      <h2>Create your Campus account</h2>
+                      <p>Join AlphaSync Campus and begin your learning journey</p>
+                    </>
+                  )}
+                </div>
 
-            <div className="lp-tabs" role="tablist">
-              <button
-                className={"lp-tab" + (tab === "login"    ? " active" : "")}
-                onClick={() => setTab("login")} type="button" role="tab"
-              >Login</button>
-              <button
-                className={"lp-tab" + (tab === "register" ? " active" : "")}
-                onClick={() => setTab("register")} type="button" role="tab"
-              >Create Account</button>
-            </div>
+                {/* ── Tabs ── */}
+                <div className="lp-tabs" role="tablist">
+                  <button
+                    className={"lp-tab" + (tab === "login" ? " active" : "")}
+                    onClick={() => switchTab("login")} type="button" role="tab"
+                    id="tab-login"
+                  >Login</button>
+                  <button
+                    className={"lp-tab" + (tab === "register" ? " active" : "")}
+                    onClick={() => switchTab("register")} type="button" role="tab"
+                    id="tab-create-account"
+                  >Create Account</button>
+                </div>
+              </>
+            )}
 
-            {/* LOGIN */}
-            <div className={"lp-panel" + (tab === "login" ? " active" : "")}>
+            {/* ══════════════════════════════════════════════
+                LOGIN PANEL
+                ══════════════════════════════════════════════ */}
+            <div className={"lp-panel" + (tab === "login" ? " active" : "")} id="login-panel">
               <form onSubmit={handleLogin}>
 
                 <div className="lp-field">
-                  <label>Username</label>
+                  <label htmlFor="login-username">Username</label>
                   <div className="lp-inp">
                     <i className="lp-ico fa fa-user"></i>
-                    <input type="text" placeholder="Enter your username" required
-                      autoComplete="username" value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)} />
+                    <input
+                      id="login-username"
+                      type="text"
+                      placeholder="Enter your username"
+                      required
+                      autoComplete="username"
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
+                    />
                   </div>
                 </div>
 
                 <div className="lp-field">
-                  <label>Password</label>
+                  <label htmlFor="login-password">Password</label>
                   <div className="lp-inp">
                     <i className="lp-ico fa fa-lock"></i>
                     <input
+                      id="login-password"
                       type={showLoginPass ? "text" : "password"}
-                      placeholder="••••••••" required autoComplete="current-password"
-                      value={loginPass} onChange={(e) => setLoginPass(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      autoComplete="current-password"
+                      value={loginPass}
+                      onChange={(e) => setLoginPass(e.target.value)}
                     />
-                    <i className={"lp-eye fa " + (showLoginPass ? "fa-eye-slash" : "fa-eye")}
-                       onClick={() => setShowLoginPass(!showLoginPass)} />
+                    <i
+                      className={"lp-eye fa " + (showLoginPass ? "fa-eye-slash" : "fa-eye")}
+                      onClick={() => setShowLoginPass(!showLoginPass)}
+                      aria-label="Toggle password visibility"
+                    />
                   </div>
                 </div>
 
                 <div className="lp-row">
-                  <label className="lp-check">
-                    <input type="checkbox" /> Remember me
+                  <label className="lp-check" htmlFor="remember-me">
+                    <input
+                      id="remember-me"
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                    />
+                    Remember me
                   </label>
-                  <a href="#forgot" className="lp-forgot"
-                     onClick={(e) => { e.preventDefault(); handleForgotPassword(); }}>
+                  <a href="#forgot" className="lp-forgot" onClick={handleForgotPassword}>
                     Forgot password?
                   </a>
                 </div>
 
-                <button type="submit" className="lp-btn-primary" disabled={loginLoading}>
+                <button
+                  id="login-submit-btn"
+                  type="submit"
+                  className="lp-btn-primary"
+                  disabled={loginLoading}
+                >
                   {loginLoading
                     ? <><i className="fa fa-spinner fa-spin"></i>&nbsp; Signing in…</>
-                    : <><i className="fa fa-lock"></i>&nbsp; Enter {"α·SIM"} Dashboard</>}
+                    : <><i className="fa fa-lock"></i>&nbsp; Enter AlphaSync Campus</>}
                 </button>
 
               </form>
-
-
 
               <p className="lp-terms">
                 By logging in, you agree to our{" "}
@@ -540,82 +674,273 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* REGISTER */}
-            <div className={"lp-panel" + (tab === "register" ? " active" : "")}>
-              <form onSubmit={handleRegister}>
+            {/* ══════════════════════════════════════════════
+                REGISTER PANEL — STEP 1: Account Details
+                ══════════════════════════════════════════════ */}
+            <div className={"lp-panel" + (tab === "register" ? " active" : "")} id="register-panel">
 
-                <div className="lp-field">
-                  <label>Username</label>
-                  <div className="lp-inp">
-                    <i className="lp-ico fa fa-user"></i>
-                    <input type="text" placeholder="Choose a unique username" required autoComplete="username"
-                      value={regUsername} onChange={(e) => setRegUsername(e.target.value)} />
-                  </div>
-                </div>
+              {/* Step progress indicator */}
+              <StepIndicator currentStep={regStep} />
 
-                <div className="lp-field-row">
+              {/* ── STEP 1: Account Details ── */}
+              {regStep === 1 && (
+                <form onSubmit={handleRegister} id="register-step1-form">
+
                   <div className="lp-field">
-                    <label>First Name</label>
+                    <label htmlFor="reg-fullname">Full Name</label>
                     <div className="lp-inp">
                       <i className="lp-ico fa fa-user"></i>
-                      <input type="text" placeholder="First name" required autoComplete="given-name"
-                        value={regFname} onChange={(e) => setRegFname(e.target.value)} />
+                      <input
+                        id="reg-fullname"
+                        type="text"
+                        placeholder="Enter your full name"
+                        required
+                        autoComplete="name"
+                        value={regFullName}
+                        onChange={(e) => setRegFullName(e.target.value)}
+                      />
                     </div>
                   </div>
+
                   <div className="lp-field">
-                    <label>Last Name</label>
+                    <label htmlFor="reg-email">Email Address</label>
                     <div className="lp-inp">
-                      <i className="lp-ico fa fa-user"></i>
-                      <input type="text" placeholder="Last name" required autoComplete="family-name"
-                        value={regLname} onChange={(e) => setRegLname(e.target.value)} />
+                      <i className="lp-ico fa fa-envelope"></i>
+                      <input
+                        id="reg-email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        required
+                        autoComplete="email"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                      />
                     </div>
                   </div>
-                </div>
 
-                <div className="lp-field">
-                  <label>Email Address</label>
-                  <div className="lp-inp">
-                    <i className="lp-ico fa fa-envelope"></i>
-                    <input type="email" placeholder="you@email.com" required autoComplete="email"
-                      value={regEmail} onChange={(e) => setRegEmail(e.target.value)} />
+                  <div className="lp-field">
+                    <label htmlFor="reg-username">Username</label>
+                    <div className="lp-inp">
+                      <i className="lp-ico fa fa-at"></i>
+                      <input
+                        id="reg-username"
+                        type="text"
+                        placeholder="Choose a unique username"
+                        required
+                        autoComplete="username"
+                        value={regUsername}
+                        onChange={(e) => setRegUsername(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="lp-field">
-                  <label>Create Password</label>
-                  <div className="lp-inp">
-                    <i className="lp-ico fa fa-lock"></i>
-                    <input
-                      type={showRegPass ? "text" : "password"}
-                      placeholder="Min 8 characters" required autoComplete="new-password"
-                      value={regPass} onChange={(e) => setRegPass(e.target.value)}
-                    />
-                    <i className={"lp-eye fa " + (showRegPass ? "fa-eye-slash" : "fa-eye")}
-                       onClick={() => setShowRegPass(!showRegPass)} />
+                  <div className="lp-field">
+                    <label htmlFor="reg-mobile">Mobile Number</label>
+                    <div className="lp-mobile-wrap">
+                      <div className="lp-mobile-code">
+                        <span className="lp-flag">🇮🇳</span>
+                        <span>+91</span>
+                        <i className="fa fa-chevron-down lp-chevron"></i>
+                      </div>
+                      <input
+                        id="reg-mobile"
+                        type="tel"
+                        placeholder="Enter mobile number"
+                        autoComplete="tel"
+                        value={regMobile}
+                        onChange={(e) => setRegMobile(e.target.value)}
+                        className="lp-mobile-input"
+                      />
+                    </div>
                   </div>
-                  <PwdStrength password={regPass} />
+
+                  <div className="lp-field">
+                    <label htmlFor="reg-password">Password</label>
+                    <div className="lp-inp">
+                      <i className="lp-ico fa fa-lock"></i>
+                      <input
+                        id="reg-password"
+                        type={showRegPass ? "text" : "password"}
+                        placeholder="Create a strong password"
+                        required
+                        autoComplete="new-password"
+                        value={regPass}
+                        onChange={(e) => setRegPass(e.target.value)}
+                      />
+                      <i
+                        className={"lp-eye fa " + (showRegPass ? "fa-eye-slash" : "fa-eye")}
+                        onClick={() => setShowRegPass(!showRegPass)}
+                        aria-label="Toggle password visibility"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="lp-field">
+                    <label htmlFor="reg-confirm-password">Confirm Password</label>
+                    <div className="lp-inp">
+                      <i className="lp-ico fa fa-lock"></i>
+                      <input
+                        id="reg-confirm-password"
+                        type={showConfirmPass ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        required
+                        autoComplete="new-password"
+                        value={regConfirmPass}
+                        onChange={(e) => setRegConfirmPass(e.target.value)}
+                      />
+                      <i
+                        className={"lp-eye fa " + (showConfirmPass ? "fa-eye-slash" : "fa-eye")}
+                        onClick={() => setShowConfirmPass(!showConfirmPass)}
+                        aria-label="Toggle confirm password visibility"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password requirements checklist */}
+                  <PwdRequirements password={regPass} />
+
+                  {/* Terms checkbox */}
+                  <div className="lp-field lp-terms-row">
+                    <label className="lp-check" htmlFor="reg-agree">
+                      <input
+                        id="reg-agree"
+                        type="checkbox"
+                        required
+                        checked={regAgree}
+                        onChange={(e) => setRegAgree(e.target.checked)}
+                      />
+                      <span>
+                        I agree to the{" "}
+                        <a href="/terms" className="lp-link">Terms of Service</a>
+                        {" "}and{" "}
+                        <a href="/privacy" className="lp-link">Privacy Policy</a>
+                      </span>
+                    </label>
+                  </div>
+
+                  <button
+                    id="create-account-btn"
+                    type="submit"
+                    className="lp-btn-primary"
+                    disabled={regLoading}
+                  >
+                    {regLoading
+                      ? <><i className="fa fa-spinner fa-spin"></i>&nbsp; Creating Account…</>
+                      : <><i className="fa fa-user-plus"></i>&nbsp; Create Account</>}
+                  </button>
+
+                </form>
+              )}
+
+              {/* ── STEP 2: Verify Account (Admin Approval) ── */}
+              {regStep === 2 && (
+                <div className="step2-container" id="verify-account-section">
+                  <div className="step2-icon-wrap">
+                    <div className="step2-clock-anim">
+                      <svg viewBox="0 0 80 80" fill="none" width="80" height="80">
+                        <circle cx="40" cy="40" r="36" stroke="#00B67A" strokeWidth="3" strokeOpacity="0.25"/>
+                        <circle cx="40" cy="40" r="36" stroke="#00B67A" strokeWidth="3"
+                          strokeDasharray="226" strokeDashoffset="60"
+                          strokeLinecap="round" className="step2-ring"/>
+                        <circle cx="40" cy="40" r="28" fill="rgba(0,182,122,0.08)"/>
+                        <path d="M40 22v18l10 8" stroke="#00B67A" strokeWidth="3"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  <h3 className="step2-title">Awaiting Admin Verification</h3>
+                  <p className="step2-subtitle">
+                    Your account has been created successfully. Our team will review
+                    and approve your access shortly.
+                  </p>
+
+                  <div className="step2-info-card">
+                    <div className="step2-info-row">
+                      <span className="step2-info-label">Name</span>
+                      <span className="step2-info-val">{registeredUser?.full_name || regFullName}</span>
+                    </div>
+                    <div className="step2-info-row">
+                      <span className="step2-info-label">Email</span>
+                      <span className="step2-info-val">{registeredUser?.email || regEmail}</span>
+                    </div>
+                    <div className="step2-info-row">
+                      <span className="step2-info-label">Username</span>
+                      <span className="step2-info-val">@{registeredUser?.username || regUsername}</span>
+                    </div>
+                    <div className="step2-info-row">
+                      <span className="step2-info-label">Status</span>
+                      <span className="step2-status-badge">⏳ Pending Approval</span>
+                    </div>
+                  </div>
+
+                  <button
+                    id="refresh-verification-btn"
+                    type="button"
+                    className="lp-btn-primary step2-refresh-btn"
+                    onClick={handleCheckVerification}
+                    disabled={refreshLoading}
+                  >
+                    {refreshLoading
+                      ? <><i className="fa fa-spinner fa-spin"></i>&nbsp; Checking…</>
+                      : <><i className="fa fa-rotate-right"></i>&nbsp; Refresh Verification Status</>}
+                  </button>
+
+                  <p className="step2-note">
+                    Once the admin approves your account, click Refresh to continue.
+                  </p>
                 </div>
+              )}
 
-                <div className="lp-field" style={{ marginBottom:"1.125rem" }}>
-                  <label style={{ display:"flex", alignItems:"flex-start", gap:".5rem",
-                                  cursor:"pointer", fontSize:".9375rem", color:"#64748B", fontWeight:400 }}>
-                    <input type="checkbox" required checked={regAgree}
-                           onChange={(e) => setRegAgree(e.target.checked)}
-                           style={{ marginTop:"3px", flexShrink:0, accentColor:"#00B67A" }} />
-                    <span>
-                      I agree to the{" "}<a href="/terms" className="lp-link">Terms of Service</a>
-                      {" "}and{" "}<a href="/privacy" className="lp-link">Privacy Policy</a>
-                    </span>
-                  </label>
+              {/* ── STEP 3: Complete ── */}
+              {regStep === 3 && (
+                <div className="step3-container" id="account-complete-section">
+                  <div className="step3-blast">
+                    <div className="step3-success-ring">
+                      <svg viewBox="0 0 100 100" fill="none" width="100" height="100">
+                        {/* Outer pulsing ring */}
+                        <circle cx="50" cy="50" r="46" stroke="#00B67A" strokeWidth="2"
+                          strokeOpacity="0.3" className="step3-pulse-ring"/>
+                        {/* Main circle */}
+                        <circle cx="50" cy="50" r="38" fill="rgba(0,182,122,0.1)"
+                          stroke="#00B67A" strokeWidth="2.5"/>
+                        {/* Checkmark */}
+                        <polyline points="30,50 43,63 70,38" stroke="#00B67A" strokeWidth="5"
+                          strokeLinecap="round" strokeLinejoin="round" className="step3-check"/>
+                      </svg>
+                    </div>
+                    {/* Confetti dots */}
+                    <div className="confetti-wrap" aria-hidden>
+                      {["#00B67A","#6EE7B7","#F59E0B","#3B82F6","#EF4444","#00B67A"].map((c,i)=>(
+                        <div key={i} className={`confetti-dot c${i}`} style={{background:c}} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <h3 className="step3-title">You're Verified! 🎉</h3>
+                  <p className="step3-headline">
+                    🚀 IGNITION GRANTED — Welcome to the Trading Arena!
+                  </p>
+                  <p className="step3-subtitle">
+                    Your AlphaSync Campus account is live and loaded with{" "}
+                    <strong>₹10,00,000 virtual capital</strong>. The charts are calling.
+                    The strategies are waiting. Your learning journey starts right now!
+                  </p>
+
+                  <button
+                    id="launch-campus-btn"
+                    type="button"
+                    className="lp-btn-primary step3-cta"
+                    onClick={handleEnterCampus}
+                  >
+                    <i className="fa fa-rocket"></i>&nbsp; BLAST INTO CAMPUS 🚀
+                  </button>
+
+                  <p className="step3-tagline">
+                    "The market opens every day. Be ready." — AlphaSync Campus
+                  </p>
                 </div>
-
-                <button type="submit" className="lp-btn-primary" disabled={regLoading}>
-                  {regLoading
-                    ? <><i className="fa fa-spinner fa-spin"></i>&nbsp; Creating account…</>
-                    : <><i className="fa fa-rocket"></i>&nbsp; Create Free Account &amp; Start Trading</>}
-                </button>
-
-              </form>
+              )}
 
             </div>
 
@@ -710,7 +1035,6 @@ const LP_STYLES = `
     opacity: 0.14;
     pointer-events: none;
     z-index: 1;
-    /* Fade out toward the left so it never competes with text */
     -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0.3) 65%, transparent 100%);
     mask-image: linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0.3) 65%, transparent 100%);
   }
@@ -863,7 +1187,7 @@ const LP_STYLES = `
     position: relative;
   }
 
-  /* Nav is a static top row — NOT absolute, so it never overlaps the card */
+  /* Nav is a static top row */
   .lp-nav {
     display: flex; align-items: center; justify-content: flex-end;
     gap: 1.5rem;
@@ -900,13 +1224,24 @@ const LP_STYLES = `
       0 4px 12px rgba(15,23,42,0.02);
   }
 
+  /* ── Secure badge ── */
+  .lp-secure-badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-size: .8rem; font-weight: 600; color: #00B67A;
+    background: rgba(0,182,122,0.07);
+    border: 1px solid rgba(0,182,122,0.25);
+    border-radius: var(--r-pill);
+    padding: .3rem .85rem;
+    margin-bottom: .85rem;
+  }
+
   .lp-card-head { text-align: center; margin-bottom: 1rem; }
   .lp-card-head h2 {
-    font-size: 2rem; font-weight: 700;
+    font-size: 1.75rem; font-weight: 700;
     font-family: var(--f-display); color: #0F172A;
-    letter-spacing: -.5px; margin: 0 0 .5rem; line-height: 1.15;
+    letter-spacing: -.5px; margin: 0 0 .45rem; line-height: 1.18;
   }
-  .lp-card-head p { font-size: 1.05rem; color: #64748B; line-height: 1.5; }
+  .lp-card-head p { font-size: .975rem; color: #64748B; line-height: 1.5; }
 
   /* Tabs */
   .lp-tabs {
@@ -914,7 +1249,7 @@ const LP_STYLES = `
     border: 1px solid #E2E8F0; border-radius: 14px;
     background: #F1F5F9;
     padding: 5px;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     gap: 5px;
   }
   .lp-tab {
@@ -940,7 +1275,7 @@ const LP_STYLES = `
   .lp-field { margin-bottom: 0.875rem; }
   .lp-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
-  .lp-field > label {
+  .lp-field > label, .lp-field label {
     display: block; font-size: .95rem; font-weight: 600;
     color: #1E293B; margin-bottom: .5rem; letter-spacing: .01em;
   }
@@ -971,6 +1306,65 @@ const LP_STYLES = `
   }
   .lp-eye:hover { color: #00B67A; }
 
+  /* Mobile number field */
+  .lp-mobile-wrap {
+    display: flex; align-items: stretch;
+    border: 1.5px solid #E2E8F0; border-radius: 12px;
+    overflow: hidden; background: #FFFFFF;
+    transition: var(--ease);
+  }
+  .lp-mobile-wrap:focus-within {
+    border-color: #00B67A;
+    box-shadow: 0 0 0 4px rgba(0,182,122,0.08);
+  }
+  .lp-mobile-code {
+    display: flex; align-items: center; gap: .35rem;
+    padding: 0 .75rem;
+    border-right: 1.5px solid #E2E8F0;
+    color: #0F172A; font-size: .92rem; font-weight: 600;
+    white-space: nowrap; cursor: pointer; flex-shrink: 0;
+    background: #F8FAFC;
+  }
+  .lp-flag { font-size: 1.1rem; }
+  .lp-chevron { font-size: .65rem; color: #94A3B8; }
+  .lp-mobile-input {
+    flex: 1; height: 50px;
+    background: transparent; border: none;
+    padding: 0 1rem;
+    color: #0F172A; font-size: .95rem;
+    font-family: var(--f-sans); outline: none;
+  }
+  .lp-mobile-input::placeholder { color: #94A3B8; }
+
+  /* Password requirements box */
+  .pwd-rules-box {
+    background: rgba(0,182,122,0.04);
+    border: 1.5px solid rgba(0,182,122,0.18);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    margin-bottom: .875rem;
+  }
+  .pwd-rules-box strong {
+    display: block; font-size: .85rem; color: #1E293B;
+    font-weight: 700; margin-bottom: .4rem;
+  }
+  .pwd-rules-box ul {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: .25rem;
+  }
+  .pwd-rules-box li {
+    display: flex; align-items: center; gap: .5rem;
+    font-size: .84rem; color: #64748B; transition: color .2s;
+  }
+  .pwd-rules-box li.pass { color: #00B67A; }
+  .pwd-rule-icon { font-size: .9rem; line-height: 1; }
+
+  /* Terms row */
+  .lp-terms-row { margin-bottom: 1rem; }
+  .lp-terms-row .lp-check {
+    align-items: flex-start;
+  }
+
   .lp-row {
     display: flex; align-items: center;
     justify-content: space-between; margin-bottom: 1.25rem;
@@ -978,12 +1372,12 @@ const LP_STYLES = `
   .lp-check {
     display: flex; align-items: center; gap: .5rem;
     font-size: .95rem; color: #64748B; cursor: pointer;
-    user-select: none;
+    user-select: none; font-weight: 400;
   }
   .lp-check input[type="checkbox"] {
     accent-color: #00B67A;
     width: 16px; height: 16px;
-    cursor: pointer;
+    cursor: pointer; flex-shrink: 0; margin-top: 2px;
   }
   .lp-forgot {
     font-size: .95rem; color: #00B67A;
@@ -1006,25 +1400,6 @@ const LP_STYLES = `
   .lp-btn-primary:hover  { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(0,182,122,0.35); }
   .lp-btn-primary:active { transform: translateY(0);    box-shadow: 0 6px 16px rgba(0,182,122,0.2); }
   .lp-btn-primary:disabled { opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
-
-  .lp-or {
-    display: flex; align-items: center; gap: 1rem;
-    margin: 1rem 0;
-    color: #94A3B8; font-size: .9rem; font-weight: 500;
-  }
-  .lp-or::before,.lp-or::after { content:''; flex:1; height:1px; background:#E2E8F0; }
-
-  .lp-btn-google {
-    width: 100%; height: 50px;
-    border-radius: 12px; background: #FFFFFF;
-    border: 1.5px solid #E2E8F0; color: #0F172A;
-    font-size: .95rem; font-weight: 600;
-    font-family: var(--f-sans); cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: .7rem;
-    margin-bottom: 1rem; transition: var(--ease);
-  }
-  .lp-btn-google:hover { background: #F8FAFC; border-color: #CBD5E1; transform: translateY(-1px); }
-  .lp-btn-google:disabled { opacity:.6; cursor:not-allowed; }
 
   .lp-terms {
     font-size: .9rem; color: #64748B;
@@ -1052,11 +1427,210 @@ const LP_STYLES = `
   .lp-panel { display: none; }
   .lp-panel.active { display: block; }
 
-  .pwd-strength { margin-top:.375rem; display:flex; gap:4px; }
-  .pwd-bar { flex:1; height:3px; border-radius:2px; background:#E8EDF5; transition:background .3s; }
-  .pwd-bar.weak   { background:#EF4444; }
-  .pwd-bar.medium { background:#F59E0B; }
-  .pwd-bar.strong { background:#00B67A; }
+  /* ══════════════════════════════════════════════════════
+     STEP INDICATOR
+     ══════════════════════════════════════════════════════ */
+  .step-indicator {
+    display: flex; align-items: flex-start; justify-content: center;
+    gap: 0; margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .step-item {
+    display: flex; flex-direction: column; align-items: center;
+    position: relative; flex: 1;
+  }
+  .step-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; font-weight: 700;
+    background: #F1F5F9; color: #94A3B8;
+    border: 2px solid #E2E8F0;
+    transition: all .3s ease;
+    position: relative; z-index: 2;
+    flex-shrink: 0;
+  }
+  .step-circle.active {
+    background: #00B67A; color: #FFFFFF;
+    border-color: #00B67A;
+    box-shadow: 0 0 0 4px rgba(0,182,122,0.15);
+  }
+  .step-circle.done {
+    background: #00B67A; color: #FFFFFF;
+    border-color: #00B67A;
+  }
+  .step-label {
+    font-size: .75rem; font-weight: 500; color: #94A3B8;
+    text-align: center; margin-top: .4rem;
+    white-space: nowrap;
+    transition: color .3s;
+  }
+  .step-label.active { color: #00B67A; font-weight: 700; }
+  .step-label.done   { color: #64748B; }
+  .step-line {
+    position: absolute;
+    top: 18px; left: calc(50% + 18px);
+    width: calc(100% - 36px);
+    height: 2px;
+    background: #E2E8F0;
+    z-index: 1;
+    transition: background .3s;
+  }
+  .step-line.done { background: #00B67A; }
+
+  /* ══════════════════════════════════════════════════════
+     STEP 2 — VERIFICATION
+     ══════════════════════════════════════════════════════ */
+  .step2-container {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: .5rem 0;
+  }
+  .step2-icon-wrap {
+    margin-bottom: 1.25rem;
+  }
+  .step2-clock-anim {
+    position: relative;
+    animation: step2Spin 3s linear infinite;
+  }
+  @keyframes step2Spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .step2-ring {
+    transform-origin: center;
+    animation: step2RingDash 2s ease-in-out infinite;
+  }
+  @keyframes step2RingDash {
+    0%   { stroke-dashoffset: 226; }
+    50%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -226; }
+  }
+  .step2-title {
+    font-size: 1.3rem; font-weight: 700; color: #0F172A;
+    margin: 0 0 .6rem; font-family: var(--f-display);
+  }
+  .step2-subtitle {
+    font-size: .9rem; color: #64748B; line-height: 1.6;
+    margin: 0 0 1.25rem; max-width: 340px;
+  }
+  .step2-info-card {
+    width: 100%;
+    background: #F8FAFC;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    text-align: left;
+    display: flex; flex-direction: column; gap: .6rem;
+  }
+  .step2-info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .5rem;
+  }
+  .step2-info-label {
+    font-size: .82rem; font-weight: 600; color: #94A3B8;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  }
+  .step2-info-val {
+    font-size: .9rem; font-weight: 600; color: #0F172A;
+    text-align: right; word-break: break-all;
+  }
+  .step2-status-badge {
+    font-size: .82rem; font-weight: 700;
+    background: rgba(245,158,11,0.12);
+    color: #D97706;
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: var(--r-pill);
+    padding: .2rem .7rem;
+  }
+  .step2-refresh-btn { margin-bottom: .75rem; }
+  .step2-note {
+    font-size: .83rem; color: #94A3B8; margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     STEP 3 — COMPLETE
+     ══════════════════════════════════════════════════════ */
+  .step3-container {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: .5rem 0;
+  }
+  .step3-blast {
+    position: relative; margin-bottom: 1.5rem;
+  }
+  .step3-success-ring {
+    position: relative; display: inline-block;
+  }
+  .step3-pulse-ring {
+    animation: step3Pulse 2s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes step3Pulse {
+    0%, 100% { r: 46; opacity: .3; }
+    50%       { r: 48; opacity: .6; }
+  }
+  .step3-check {
+    stroke-dasharray: 80;
+    stroke-dashoffset: 80;
+    animation: step3CheckDraw .6s .2s ease-out forwards;
+  }
+  @keyframes step3CheckDraw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* Confetti */
+  .confetti-wrap {
+    position: absolute; top: 50%; left: 50%;
+    pointer-events: none;
+  }
+  .confetti-dot {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    opacity: 0;
+    animation: confettiPop .8s ease-out forwards;
+  }
+  .confetti-dot.c0 { animation-delay:.1s; transform-origin:-30px -40px; animation-name: confettiPop0; }
+  .confetti-dot.c1 { animation-delay:.15s; animation-name: confettiPop1; }
+  .confetti-dot.c2 { animation-delay:.2s;  animation-name: confettiPop2; }
+  .confetti-dot.c3 { animation-delay:.1s;  animation-name: confettiPop3; }
+  .confetti-dot.c4 { animation-delay:.25s; animation-name: confettiPop4; }
+  .confetti-dot.c5 { animation-delay:.18s; animation-name: confettiPop5; }
+  @keyframes confettiPop0 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(-48px,-52px) scale(.4)} }
+  @keyframes confettiPop1 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(52px,-48px) scale(.4)} }
+  @keyframes confettiPop2 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(-44px,50px) scale(.4)} }
+  @keyframes confettiPop3 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(46px,46px) scale(.4)} }
+  @keyframes confettiPop4 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(60px,-20px) scale(.4)} }
+  @keyframes confettiPop5 { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(-60px,20px) scale(.4)} }
+
+  .step3-title {
+    font-size: 1.5rem; font-weight: 800; color: #0F172A;
+    margin: 0 0 .4rem; font-family: var(--f-display);
+  }
+  .step3-headline {
+    font-size: 1rem; font-weight: 700; color: #00B67A;
+    margin: 0 0 .75rem; letter-spacing: .02em;
+  }
+  .step3-subtitle {
+    font-size: .9rem; color: #64748B; line-height: 1.65;
+    margin: 0 0 1.5rem; max-width: 360px;
+  }
+  .step3-subtitle strong { color: #0F172A; }
+  .step3-cta {
+    height: 56px; font-size: 1.05rem; font-weight: 800;
+    letter-spacing: .03em;
+    background: linear-gradient(90deg, #00B67A 0%, #00D68F 50%, #009E6A 100%);
+    box-shadow: 0 12px 32px rgba(0,182,122,0.35);
+    margin-bottom: .85rem;
+    animation: step3BtnPulse 2s ease-in-out infinite;
+  }
+  @keyframes step3BtnPulse {
+    0%, 100% { box-shadow: 0 12px 32px rgba(0,182,122,0.35); }
+    50%       { box-shadow: 0 16px 40px rgba(0,182,122,0.55); }
+  }
+  .step3-tagline {
+    font-size: .82rem; color: #94A3B8; font-style: italic; margin: 0;
+  }
 
   /* ══════════════════════════════════════════════════════
      RESPONSIVE
@@ -1066,7 +1640,7 @@ const LP_STYLES = `
     .lp-nav       { padding: 2rem 3rem 1rem; }
     .lp-form-area { padding: 1rem 2.5rem 2.5rem; }
     .lp-card      { max-width: 480px; padding: 2rem 2.5rem 2rem; }
-    .lp-card-head h2 { font-size: 2.125rem; }
+    .lp-card-head h2 { font-size: 1.875rem; }
     .lp-left h1   { font-size: 2.25rem; }
     .lp-feat-txt strong { font-size: .9rem; }
     .lp-feat-txt span { font-size: .8rem; }
@@ -1078,7 +1652,7 @@ const LP_STYLES = `
     .lp-form-area { padding: .75rem 1.5rem 1.75rem; }
     .lp-card      { max-width: 460px; padding: 1.75rem 2.25rem 1.5rem; }
     .lp-left h1   { font-size: clamp(1.375rem, 2.8vw, 2rem); }
-    .lp-card-head h2 { font-size: 1.75rem; }
+    .lp-card-head h2 { font-size: 1.625rem; }
     .lp-feats     { gap: .35rem; }
     .lp-sub       { margin-bottom: .5rem; }
     .lp-sebi-label { margin-bottom: .45rem; }
@@ -1099,11 +1673,10 @@ const LP_STYLES = `
     .lp-nav a     { font-size: .85rem; }
     .lp-nav       { gap: 1rem; padding: 0 1.25rem; }
     .lp-form-area { padding: 0 1.25rem 2rem; }
-    .lp-card      { padding: 2.25rem 2.5rem 2rem; border-radius: 16px; }
-    .lp-card-head h2 { font-size: 1.75rem; }
+    .lp-card      { padding: 2.25rem 1.75rem 2rem; border-radius: 16px; }
+    .lp-card-head h2 { font-size: 1.5rem; }
     .lp-inp input { height: 54px; }
     .lp-btn-primary { height: 54px; }
-    .lp-btn-google  { height: 54px; }
   }
 
   @media (max-width: 480px) {
@@ -1111,20 +1684,22 @@ const LP_STYLES = `
     .lp-nav a     { font-size: .8rem; }
     .lp-form-area { padding: 0 1rem 2rem; overflow-y: auto; }
     .lp-card      { max-width: 100%; padding: 1.75rem 1.25rem; box-shadow: none; border: none; background: transparent; }
-    .lp-card-head h2 { font-size: 1.5rem; }
-    .lp-card-head p  { font-size: .95rem; }
+    .lp-card-head h2 { font-size: 1.375rem; }
+    .lp-card-head p  { font-size: .9rem; }
     .lp-tabs      { margin-bottom: 1.5rem; }
     .lp-tab       { padding: .8rem .5rem; font-size: .9rem; }
     .lp-field-row { grid-template-columns: 1fr; gap: 0; }
-    .lp-field     { margin-bottom: 1.125rem; }
-    .lp-field > label { font-size: .9rem; }
+    .lp-field     { margin-bottom: 1rem; }
+    .lp-field > label, .lp-field label { font-size: .9rem; }
     .lp-inp input { height: 52px; font-size: .9rem; }
     .lp-btn-primary { height: 52px; font-size: .95rem; }
-    .lp-btn-google  { height: 52px; font-size: .95rem; }
     .lp-row       { margin-bottom: 1.25rem; }
     .lp-check, .lp-forgot { font-size: .9rem; }
     .lp-terms     { font-size: .85rem; }
-    .lp-switch    { font-size: .9rem; }
+    .step-label   { font-size: .68rem; }
+    .step-circle  { width: 30px; height: 30px; font-size: .8rem; }
+    .step-line    { top: 15px; left: calc(50% + 15px); width: calc(100% - 30px); }
+    .lp-card-head { margin-bottom: .75rem; }
   }
 
   @media (max-height: 600px) and (orientation: landscape) {
