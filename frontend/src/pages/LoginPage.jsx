@@ -628,7 +628,7 @@ const LP_STYLES = `
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
     position: relative; z-index: 2;
     padding: 1.25rem 0 .75rem;
     min-height: 0;
