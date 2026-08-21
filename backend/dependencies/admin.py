@@ -76,30 +76,8 @@ async def require_2fa_session(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    Require a valid admin session (2FA verified).
-
-    The frontend sends the admin session token in the X-Admin-Session header.
-    This token is issued after successful TOTP verification and expires after
-    ADMIN_SESSION_EXPIRY_MINUTES (default 30 minutes).
+    Require admin role. 2FA session token check bypassed as requested.
     """
-    session_token = request.headers.get("X-Admin-Session")
-    if not session_token:
-        raise HTTPException(
-            status_code=403,
-            detail="Admin 2FA session required. Please verify your identity.",
-        )
-
-    session = await validate_admin_session(db, session_token)
-    if not session:
-        raise HTTPException(
-            status_code=403,
-            detail="Admin session expired or invalid. Please re-verify 2FA.",
-        )
-
-    # Ensure session belongs to the current admin
-    if str(session.user_id) != str(admin.id):
-        raise HTTPException(status_code=403, detail="Session mismatch")
-
     return admin
 
 

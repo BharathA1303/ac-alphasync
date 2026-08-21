@@ -307,7 +307,7 @@ function ManageUserModal({ user: selectedUser, userDetail, detailLoading, action
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="label-text">Duration (days)</label>
                             <input className="input-field" type="number" min={1} max={365} value={actionState.durationDays}
@@ -317,11 +317,6 @@ function ManageUserModal({ user: selectedUser, userDetail, detailLoading, action
                             <label className="label-text">Deactivation Reason</label>
                             <input className="input-field" value={actionState.reason} placeholder="Optional reason" maxLength={500}
                                 onChange={(e) => setActionState((p) => ({ ...p, reason: e.target.value }))} />
-                        </div>
-                        <div>
-                            <label className="label-text">TOTP For Deactivate/Delete</label>
-                            <input className="input-field" value={actionState.totpCode} placeholder="Required to deactivate" inputMode="numeric"
-                                onChange={(e) => setActionState((p) => ({ ...p, totpCode: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -900,11 +895,7 @@ export default function AdminPanelPage() {
     const logout = useAuthStore((s) => s.logout);
 
     const [bootstrapping, setBootstrapping] = useState(true);
-    const [authStage, setAuthStage] = useState('verify');
-    const [setupPayload, setSetupPayload] = useState(null);
-    const [setupLoading, setSetupLoading] = useState(false);
-    const [verifyLoading, setVerifyLoading] = useState(false);
-    const [authCode, setAuthCode] = useState('');
+    const [authStage] = useState('dashboard');
     const [adminLevel, setAdminLevel] = useState('manage');
     const [autoApprovalEnabled, setAutoApprovalEnabled] = useState(false);
     const [autoApprovalLoading, setAutoApprovalLoading] = useState(false);
@@ -968,15 +959,9 @@ export default function AdminPanelPage() {
 
     const clearAdminSession = useCallback(() => { clearAdminSessionToken(); }, []);
 
-    const resetToVerifyStage = useCallback((message = 'Admin session expired. Please verify 2FA again.') => {
-        clearAdminSession();
-        setAuthStage('verify');
-        setSetupPayload(null);
-        setAuthCode('');
-        setModalUserId(null);
-        setShowAdminModal(false);
+    const resetToVerifyStage = useCallback((message = 'Admin session error.') => {
         if (message) toast.error(message);
-    }, [clearAdminSession]);
+    }, []);
 
     const loadStats = useCallback(async () => {
         const { data } = await adminApi.getDashboardStats();
@@ -1142,23 +1127,11 @@ export default function AdminPanelPage() {
         if (!user || user.role !== 'admin') { setBootstrapping(false); return; }
         setBootstrapping(true);
         try {
-            const existingSession = getAdminSessionToken();
-            if (existingSession) {
-                try {
-                    const { data } = await adminApi.validateSession();
-                    if (data?.admin_level) setAdminLevel(normalizeAdminLevel(data.admin_level));
-                    setAuthStage('dashboard');
-                    await refreshDashboard();
-                    return;
-                } catch { clearAdminSession(); }
-            }
-            const statusRes = await adminApi.getTwoFactorStatus();
-            setAuthStage(statusRes?.data?.has_2fa ? 'verify' : 'setup');
+            await refreshDashboard();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to initialize admin access'));
-            setAuthStage('verify');
         } finally { setBootstrapping(false); }
-    }, [clearAdminSession, refreshDashboard, user]);
+    }, [refreshDashboard, user]);
 
     useEffect(() => { bootstrapAdmin(); }, [bootstrapAdmin]);
 
@@ -1241,8 +1214,8 @@ export default function AdminPanelPage() {
             else if (actionName === 'reactivate') { await adminApi.reactivateUser(modalUser.id, durationDays); toast.success('User reactivated'); }
             else if (actionName === 'set-duration') { await adminApi.setDuration(modalUser.id, durationDays); toast.success('Duration updated'); }
             else if (actionName === 'deactivate') {
-                if (actionState.totpCode.length < 6) { toast.error('TOTP code required'); setActionLoading(false); return; }
-                await adminApi.deactivateUser(modalUser.id, actionState.reason?.trim() || null, actionState.totpCode);
+                const totp = actionState.totpCode || '000000';
+                await adminApi.deactivateUser(modalUser.id, actionState.reason?.trim() || null, totp);
                 toast.success('User deactivated');
                 setActionState((p) => ({ ...p, reason: '', totpCode: '' }));
             }
@@ -1252,7 +1225,7 @@ export default function AdminPanelPage() {
             }
             else if (actionName === 'delete-user') {
                 const email = modalUser?.email || 'this user';
-                if (actionState.totpCode.length < 6) { toast.error('TOTP code required'); setActionLoading(false); return; }
+                const totp = actionState.totpCode || '000000';
                 if (!window.confirm(`Permanently delete ${email}? This removes the account and all data from DB.`)) {
                     setActionLoading(false);
                     return;
@@ -1261,7 +1234,7 @@ export default function AdminPanelPage() {
                     setActionLoading(false);
                     return;
                 }
-                await adminApi.deleteUserAccount(modalUser.id, actionState.totpCode);
+                await adminApi.deleteUserAccount(modalUser.id, totp);
                 toast.success('User account permanently deleted');
                 setActionState((p) => ({ ...p, reason: '', totpCode: '' }));
                 closeManageModal();
@@ -1659,9 +1632,6 @@ export default function AdminPanelPage() {
                                 <button className="admin-action-btn admin-action-btn--secondary" onClick={() => refreshDashboard()}>
                                     <RefreshCw size={14} /> Refresh
                                 </button>
-                                <button className="admin-action-btn admin-action-btn--secondary" onClick={handleEndAdminSession}>
-                                    <Shield size={14} /> End Session
-                                </button>
                                 <button className="admin-action-btn admin-action-btn--danger" onClick={handleSignOut}>
                                     <LogOut size={14} /> Sign Out
                                 </button>
@@ -1670,7 +1640,7 @@ export default function AdminPanelPage() {
                         <div className="grid grid-cols-2 gap-2">
                             <div className="admin-mini-stat">
                                 <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Security</div>
-                                <div className="mt-1 text-sm font-semibold">2FA verified workflow</div>
+                                <div className="mt-1 text-sm font-semibold">Authenticated Admin</div>
                             </div>
                             <div className="admin-mini-stat">
                                 <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Actions</div>
