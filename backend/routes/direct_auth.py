@@ -1,12 +1,20 @@
 """
-Direct authentication routes — no Firebase required.
+Direct authentication routes — no Firebase, no external JWT library required.
 
-Provides username+password register and login that stores users in the
-same `users` table and issues a signed JWT that the existing
-`get_current_user` dependency can also verify.
+Uses only Python standard library for password hashing (PBKDF2-HMAC-SHA256)
+and JWT signing (HMAC-SHA256) so no new pip packages are needed.
+
+Endpoints:
+    POST /api/auth/register-direct  — username + password registration
+    POST /api/auth/login-direct     — username + password login
 """
 
 import logging
+import hmac
+import hashlib
+import base64
+import json
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -14,9 +22,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-
-from jose import jwt, JWTError
-from passlib.context import CryptContext
 
 from database.connection import get_db
 from models.user import User
@@ -27,35 +32,87 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["DirectAuth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 _AUTO_APPROVAL_DURATION_DAYS = 30
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────
+# ── Password helpers (PBKDF2-HMAC-SHA256 via stdlib) ─────────────────────────
 
 
 def _hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash password with PBKDF2-HMAC-SHA256 + random salt. Returns 'salt$hash'."""
+    salt = base64.b64encode(os.urandom(16)).decode()
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260000)
+    return f"{salt}${base64.b64encode(dk).decode()}"
 
 
-def _verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+def _verify_password(plain: str, stored: str) -> bool:
+    """Verify plain-text password against stored 'salt$hash'."""
+    try:
+        salt, hashed = stored.split("$", 1)
+        dk = hashlib.pbkdf2_hmac("sha256", plain.encode(), salt.encode(), 260000)
+        return hmac.compare_digest(base64.b64encode(dk).decode(), hashed)
+    except Exception:
+        return False
+
+
+# ── JWT helpers (HMAC-SHA256 via stdlib) ─────────────────────────────────────
+
+
+def _b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def _b64url_decode(s: str) -> bytes:
+    padding = "=" * (4 - len(s) % 4)
+    return base64.urlsafe_b64decode(s + padding)
 
 
 def _create_jwt(user_id: str) -> str:
+    """Create a signed JWT (HS256) using Python stdlib only."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    payload = {"sub": user_id, "exp": expire}
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+    payload = _b64url_encode(
+        json.dumps({"sub": user_id, "exp": int(expire.timestamp())}).encode()
+    )
+    signing_input = f"{header}.{payload}"
+    sig = hmac.new(
+        settings.JWT_SECRET_KEY.encode(),
+        signing_input.encode(),
+        hashlib.sha256,
+    ).digest()
+    return f"{signing_input}.{_b64url_encode(sig)}"
 
 
-def _decode_jwt(token: str) -> Optional[str]:
-    """Return user_id (sub) from a valid JWT, else None."""
+def decode_direct_jwt(token: str) -> Optional[str]:
+    """
+    Decode and verify a direct JWT. Returns user_id (sub) or None if invalid.
+    Called by get_current_user in auth.py.
+    """
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        header_b64, payload_b64, sig_b64 = parts
+        # Verify signature
+        signing_input = f"{header_b64}.{payload_b64}"
+        expected_sig = hmac.new(
+            settings.JWT_SECRET_KEY.encode(),
+            signing_input.encode(),
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(_b64url_decode(sig_b64), expected_sig):
+            return None
+        # Decode payload
+        payload = json.loads(_b64url_decode(payload_b64))
+        # Check expiry
+        exp = payload.get("exp", 0)
+        if datetime.now(timezone.utc).timestamp() > exp:
+            return None
         return payload.get("sub")
-    except JWTError:
+    except Exception:
         return None
+
+
+# ── User serializer ───────────────────────────────────────────────────────────
 
 
 def _serialize_user(user: User) -> dict:
@@ -79,7 +136,7 @@ def _serialize_user(user: User) -> dict:
     }
 
 
-# ── Schemas ───────────────────────────────────────────────────────────────
+# ── Schemas ───────────────────────────────────────────────────────────────────
 
 
 class DirectRegisterRequest(BaseModel):
@@ -95,7 +152,7 @@ class DirectLoginRequest(BaseModel):
     password: str
 
 
-# ── Routes ────────────────────────────────────────────────────────────────
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 
 @router.post("/register-direct")
@@ -111,7 +168,9 @@ async def register_direct(
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
     # Check username uniqueness
-    existing = await db.execute(select(User).where(func.lower(User.username) == username))
+    existing = await db.execute(
+        select(User).where(func.lower(User.username) == username)
+    )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Username already taken")
 
@@ -179,7 +238,9 @@ async def login_direct(
     if not username:
         raise HTTPException(status_code=400, detail="Username is required")
 
-    result = await db.execute(select(User).where(func.lower(User.username) == username))
+    result = await db.execute(
+        select(User).where(func.lower(User.username) == username)
+    )
     user = result.scalar_one_or_none()
 
     if not user or not user.password_hash:

@@ -201,13 +201,10 @@ async def get_current_user(
 
     token = credentials.credentials
 
-    # ── Try direct JWT first ──────────────────────────────────────────
+    # ── Try direct JWT first (stdlib HMAC-SHA256, no external deps) ──────
     try:
-        from jose import jwt as _jose_jwt, JWTError
-        payload = _jose_jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
-        user_id = payload.get("sub")
+        from routes.direct_auth import decode_direct_jwt
+        user_id = decode_direct_jwt(token)
         if user_id:
             result = await db.execute(select(User).where(User.id == user_id))
             user = result.scalar_one_or_none()
@@ -220,7 +217,9 @@ async def get_current_user(
                     if expires_at and datetime.now(timezone.utc) > expires_at:
                         raise HTTPException(status_code=403, detail="Access expired")
                 return user
-    except (JWTError, Exception):
+    except HTTPException:
+        raise  # Re-raise 403 etc.
+    except Exception:
         pass  # Not a direct JWT — try Firebase below
 
     # ── Fall back to Firebase token ───────────────────────────────────
