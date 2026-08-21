@@ -6,7 +6,7 @@ import {
     Search, ChevronLeft, ChevronRight, AlertTriangle, Loader2,
     KeyRound, CheckCircle2, XCircle, Activity, Eye, X,
     Crown, UserPlus, Settings2, Trash2, ShieldCheck, EyeOff,
-    FileText, History, Link2, Copy, Plus, Pencil, Download, Bookmark, Star
+    FileText, History, Link2, Copy, Plus, Pencil, Download, Bookmark, Star, Wifi
 } from 'lucide-react';
 
 import { useAuthStore } from '../stores/useAuthStore';
@@ -903,9 +903,6 @@ export default function AdminPanelPage() {
 
     const [stats, setStats] = useState(null);
     const [feedbackSummary, setFeedbackSummary] = useState(null);
-    const [feedStatus, setFeedStatus] = useState(null);
-    const [feedRefreshing, setFeedRefreshing] = useState(false);
-    const [legacyDisconnecting, setLegacyDisconnecting] = useState(false);
     const [usersData, setUsersData] = useState(DEFAULT_USERS_DATA);
     const [usersLoading, setUsersLoading] = useState(false);
     const [filters, setFilters] = useState({ status: '', search: '', groupId: 'normal', page: 1, perPage: 25 });
@@ -978,42 +975,6 @@ export default function AdminPanelPage() {
             setFeedbackSummary(data || null);
         } catch {
             setFeedbackSummary(null);
-        }
-    }, []);
-
-    const loadFeedStatus = useCallback(async () => {
-        try {
-            const { data } = await adminApi.getMasterFeedStatus();
-            setFeedStatus(data || null);
-        } catch {
-            setFeedStatus(null);
-        }
-    }, []);
-
-    const handleRefreshMasterFeed = useCallback(async () => {
-        setFeedRefreshing(true);
-        try {
-            const { data } = await adminApi.refreshMasterFeed();
-            setFeedStatus(data || null);
-            toast.success('Master feed refreshed');
-        } catch (err) {
-            toast.error(err?.response?.data?.detail || 'Failed to refresh master feed');
-        } finally {
-            setFeedRefreshing(false);
-        }
-    }, []);
-
-    const handleDisconnectLegacySessions = useCallback(async () => {
-        setLegacyDisconnecting(true);
-        try {
-            const { data } = await adminApi.disconnectLegacyBrokerSessions();
-            setFeedStatus(data || null);
-            const count = data?.disconnected ?? 0;
-            toast.success(count > 0 ? `Disconnected ${count} legacy broker session${count === 1 ? '' : 's'}` : 'No legacy sessions to disconnect');
-        } catch (err) {
-            toast.error(err?.response?.data?.detail || 'Failed to disconnect legacy sessions');
-        } finally {
-            setLegacyDisconnecting(false);
         }
     }, []);
 
@@ -1122,7 +1083,6 @@ export default function AdminPanelPage() {
                 loadUsers(),
                 loadAutoApprovalSetting(),
                 loadGroups({ force: true }),
-                loadFeedStatus(),
             ];
             const results = await Promise.allSettled(toLoad);
             const failedSections = [];
@@ -1143,7 +1103,7 @@ export default function AdminPanelPage() {
         } finally {
             refreshInFlightRef.current = null;
         }
-    }, [loadAutoApprovalSetting, loadFeedStatus, loadGroups, loadStats, loadUsers, resetToVerifyStage]);
+    }, [loadAutoApprovalSetting, loadGroups, loadStats, loadUsers, resetToVerifyStage]);
 
     const handleSaveRootFinancials = useCallback(async (payload) => {
         if (!rootControlUserId) {
@@ -1333,6 +1293,10 @@ export default function AdminPanelPage() {
 
     function openBugReportsPage() {
         navigate('/admin/bug-reports');
+    }
+
+    function openDataFeedPage() {
+        navigate('/admin/data-feed');
     }
 
     async function handleEndAdminSession() {
@@ -1666,6 +1630,9 @@ export default function AdminPanelPage() {
                                 <button className="admin-action-btn admin-action-btn--secondary" onClick={openAuditLogPage}>
                                     <Activity size={14} /> Audit Log
                                 </button>
+                                <button className="admin-action-btn admin-action-btn--secondary" onClick={openDataFeedPage}>
+                                    <Wifi size={14} /> Data Feed
+                                </button>
                                 <button className="admin-action-btn admin-action-btn--secondary" onClick={openBugReportsPage}>
                                     <FileText size={14} /> Bug Reports
                                 </button>
@@ -1719,71 +1686,6 @@ export default function AdminPanelPage() {
                             color="#FBB724"
                             subtext={feedbackSummary ? `from ${Number(feedbackSummary.total_responses || 0)} reviews` : 'from — reviews'}
                         />
-                    </section>
-
-                    {/* Data Feed */}
-                    <section className="admin-card p-4 sm:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3 sm:mb-4">
-                            <div>
-                                <h2 className="text-lg font-bold admin-section-title">Data Feed</h2>
-                                <p className="text-xs mt-1 admin-section-subtitle">
-                                    Single master Zebu account supplying live market data for all users.
-                                </p>
-                            </div>
-                            {canManage && (
-                                <div className="flex flex-wrap gap-2">
-                                    {(feedStatus?.broker_sessions?.active_sessions ?? 0) > 1 && (
-                                        <button
-                                            className="admin-action-btn admin-action-btn--secondary"
-                                            disabled={legacyDisconnecting}
-                                            onClick={handleDisconnectLegacySessions}
-                                            title="Close leftover personal broker connections from before the master feed — the master feed itself is unaffected"
-                                        >
-                                            {legacyDisconnecting ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
-                                            Disconnect Legacy Sessions
-                                        </button>
-                                    )}
-                                    <button
-                                        className="admin-action-btn admin-action-btn--secondary"
-                                        disabled={feedRefreshing}
-                                        onClick={handleRefreshMasterFeed}
-                                    >
-                                        {feedRefreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                        Refresh Master Token
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            <div className="admin-mini-stat">
-                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Status</div>
-                                <div className="mt-1 text-sm font-semibold" style={{ color: feedStatus?.active ? '#10b981' : '#ef4444' }}>
-                                    {feedStatus?.active ? '🟢 Live (Zebu)' : '🔴 Not Connected'}
-                                </div>
-                            </div>
-                            <div className="admin-mini-stat">
-                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Configured</div>
-                                <div className="mt-1 text-sm font-semibold">{feedStatus?.configured ? 'Yes' : 'No'}</div>
-                            </div>
-                            <div className="admin-mini-stat">
-                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Last Login</div>
-                                <div className="mt-1 text-sm font-semibold">
-                                    {feedStatus?.last_login_at ? new Date(feedStatus.last_login_at).toLocaleString() : '—'}
-                                </div>
-                            </div>
-                            <div className="admin-mini-stat">
-                                <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Broker Connections</div>
-                                <div className="mt-1 text-sm font-semibold">
-                                    {feedStatus?.broker_sessions?.active_sessions ?? '—'}
-                                    <span className="text-xs font-normal ml-1" style={{ color: 'var(--text-muted)' }}>
-                                        (1 = master only)
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        {feedStatus?.last_error && (
-                            <div className="mt-3 text-xs" style={{ color: '#ef4444' }}>{feedStatus.last_error}</div>
-                        )}
                     </section>
 
                     {isRoot && (

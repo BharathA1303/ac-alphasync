@@ -35,6 +35,7 @@ import AdminAccessPage from './pages/AdminAccessPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import RootControlPage from './pages/RootControlPage';
 import AdminAuditLogPage from './pages/AdminAuditLogPage';
+import AdminDataFeedPage from './pages/AdminDataFeedPage';
 import BugReportPage from './pages/BugReportPage';
 import AdminBugReportsPage from './pages/AdminBugReportsPage';
 import ChartEmbed from './pages/ChartEmbed';
@@ -112,6 +113,9 @@ export default function App() {
                             } />
                             <Route path="/admin/audit-log" element={
                                 <AdminRoute><AdminAuditLogPage /></AdminRoute>
+                            } />
+                            <Route path="/admin/data-feed" element={
+                                <AdminRoute><AdminDataFeedPage /></AdminRoute>
                             } />
                         </Route>
 
