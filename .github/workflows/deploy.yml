@@ -74,14 +74,14 @@ jobs:
       - name: Build frontend assets
         working-directory: frontend
         env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_ENABLE_PROGRESSIVE_OPTIONS: ${{ secrets.VITE_ENABLE_PROGRESSIVE_OPTIONS }}
-          VITE_PROGRESSIVE_DEBUG: ${{ secrets.VITE_PROGRESSIVE_DEBUG }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY || 'AIzaSyAGvDpkigm9SurwQNhuJ9SKsSdnROCXhpE' }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN || vars.VITE_FIREBASE_AUTH_DOMAIN || 'ac-alphasync.firebaseapp.com' }}
+          VITE_ENABLE_PROGRESSIVE_OPTIONS: ${{ secrets.VITE_ENABLE_PROGRESSIVE_OPTIONS || vars.VITE_ENABLE_PROGRESSIVE_OPTIONS || 'true' }}
+          VITE_PROGRESSIVE_DEBUG: ${{ secrets.VITE_PROGRESSIVE_DEBUG || vars.VITE_PROGRESSIVE_DEBUG || 'false' }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID || vars.VITE_FIREBASE_PROJECT_ID || 'ac-alphasync' }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET || vars.VITE_FIREBASE_STORAGE_BUCKET || 'ac-alphasync.firebasestorage.app' }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID || vars.VITE_FIREBASE_MESSAGING_SENDER_ID || '141171621576' }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID || vars.VITE_FIREBASE_APP_ID || '1:141171621576:web:4dc943a36713dc24cbaffd' }}
         run: |
           npm ci --prefer-offline --no-audit --no-fund --silent
           npm run build
