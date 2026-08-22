@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     CORS_ORIGIN_REGEX: str = r"https?://(localhost|127\.0\.0\.1):\d+"
 
+    # Public frontend origin — used to build links embedded in outgoing emails
+    # (e.g. password reset). Override via env var for local/staging deploys.
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://ac.alphasync.app")
+
     # Virtual Capital
     DEFAULT_VIRTUAL_CAPITAL: float = 1000000.0  # 10 Lakh INR
 

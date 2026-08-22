@@ -15,6 +15,7 @@ import hashlib
 import base64
 import json
 import os
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -28,6 +29,11 @@ from models.user import User
 from models.portfolio import Portfolio
 from config.settings import settings
 from services import invite_service
+from services import password_reset_service
+from services.email_service import (
+    send_password_reset_email,
+    send_password_reset_confirmation_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +157,15 @@ class DirectRegisterRequest(BaseModel):
 
 class DirectLoginRequest(BaseModel):
     username: str
+    password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    identifier: str  # email or username
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     password: str
 
 
@@ -292,3 +307,80 @@ async def login_direct(
         "is_new_user": False,
         "user": _serialize_user(user),
     }
+
+
+_GENERIC_FORGOT_RESPONSE = {
+    "message": "If an account matches that email or username, a reset link has been sent.",
+}
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    req: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Request a password reset link. Always returns a generic success message
+    (never reveals whether the account exists) to prevent account enumeration."""
+    identifier = (req.identifier or "").strip()
+    if not identifier:
+        return _GENERIC_FORGOT_RESPONSE
+
+    result = await db.execute(
+        select(User).where(
+            (func.lower(User.email) == identifier.lower())
+            | (func.lower(User.username) == identifier.lower())
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    # Only direct-auth users with a password can reset one this way.
+    # Firebase/Google accounts silently no-op here (same generic response)
+    # so the response never leaks account existence or auth method.
+    if user and user.password_hash and user.is_active:
+        token = await password_reset_service.create_reset_token(db, user)
+        await db.commit()
+
+        reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+        try:
+            await send_password_reset_email(user.email, user.full_name or user.username, reset_link)
+        except Exception:
+            logger.exception("Failed to send password reset email to %s", user.email)
+
+        logger.info("Password reset requested for user %s", user.id)
+
+    return _GENERIC_FORGOT_RESPONSE
+
+
+@router.post("/reset-password")
+async def reset_password(
+    req: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Complete a password reset using a valid one-time token."""
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    validation = await password_reset_service.validate_reset_token(db, req.token)
+    if not validation["valid"]:
+        raise HTTPException(status_code=400, detail=validation.get("reason") or "Reset link is invalid")
+
+    try:
+        user_uuid = uuid.UUID(validation["user_id"])
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Reset link is invalid")
+
+    user = await db.get(User, user_uuid)
+    if not user or not user.password_hash:
+        raise HTTPException(status_code=400, detail="Reset link is invalid")
+
+    consumed = await password_reset_service.consume_reset_token(db, req.token)
+    if not consumed["valid"]:
+        raise HTTPException(status_code=400, detail=consumed.get("reason") or "Reset link is invalid")
+
+    user.password_hash = _hash_password(req.password)
+    await db.commit()
+
+    logger.info("Password reset completed for user %s", user.id)
+    send_password_reset_confirmation_email(user)
+
+    return {"message": "Password has been reset. You can now sign in with your new password."}

@@ -205,13 +205,25 @@ export const useAuthStore = create((set, get) => ({
     },
 
     /**
-     * Reset password — for direct auth, admin must reset manually for now.
+     * Request a password reset link, sent by email — identifier can be
+     * either the account's email or its username.
      */
-    resetPassword: async () => {
-        throw Object.assign(
-            new Error('Password reset is not yet available. Contact admin.'),
-            { code: 'auth/not-supported' }
-        );
+    resetPassword: async (identifier) => {
+        await axios.post(`${API_BASE}/api/auth/forgot-password`, {
+            identifier: (identifier || '').trim(),
+        });
+        return { success: true };
+    },
+
+    /**
+     * Complete a password reset using the token from the emailed link.
+     */
+    confirmPasswordReset: async (token, newPassword) => {
+        await axios.post(`${API_BASE}/api/auth/reset-password`, {
+            token,
+            password: newPassword,
+        });
+        return { success: true };
     },
 
     /**

@@ -286,6 +286,95 @@ async def send_phone_otp_email(to_email: str, otp: str, phone_last4: str) -> boo
     return await _send_smtp(to_email, "AlphaSync — Your Mobile Verification OTP", html)
 
 
+async def send_password_reset_email(to_email: str, user_name: str, reset_link: str) -> bool:
+    """Send a password-reset link to a direct-auth user."""
+    html = f"""
+    <html>
+    <body style="font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;padding:40px 20px;margin:0">
+    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:16px;
+                border:1px solid rgba(6,182,212,0.2);overflow:hidden">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);padding:28px 32px">
+            <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.02em">
+                AlphaSync
+            </div>
+            <div style="font-size:.85rem;color:rgba(255,255,255,.75);margin-top:4px">
+                Password Reset Request
+            </div>
+        </div>
+        <!-- Body -->
+        <div style="padding:32px">
+            <p style="margin:0 0 20px;font-size:.95rem;color:#cbd5e1;line-height:1.65">
+                Hi {user_name}, we received a request to reset the password for your
+                AlphaSync account. Click the button below to choose a new password.
+            </p>
+            <div style="text-align:center;margin:28px 0">
+                <a href="{reset_link}"
+                   style="display:inline-block;background:#06b6d4;color:#0f172a;
+                          font-weight:700;font-size:.95rem;padding:14px 32px;
+                          border-radius:10px;text-decoration:none">
+                    Reset Password
+                </a>
+            </div>
+            <p style="margin:0 0 8px;font-size:.82rem;color:#64748b;text-align:center">
+                ⏱ This link is valid for <strong>30 minutes</strong> &nbsp;·&nbsp;
+                🔒 One-time use only
+            </p>
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,.07);margin:24px 0">
+            <p style="margin:0;font-size:.78rem;color:#475569;line-height:1.6">
+                If you did not request a password reset, you can safely ignore this
+                email — your account remains secure and your password will not change.
+            </p>
+        </div>
+        <!-- Footer -->
+        <div style="background:#0f172a;padding:16px 32px;
+                    font-size:.73rem;color:#334155;text-align:center">
+            © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
+        </div>
+    </div>
+    </body>
+    </html>
+    """
+    return await _send_smtp(to_email, "AlphaSync — Reset Your Password", html)
+
+
+def send_password_reset_confirmation_email(user):
+    """Notify the user that their password was successfully changed."""
+    user_name = user.full_name or user.username
+    html = f"""
+    <html>
+    <body style="font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;padding:40px 20px;margin:0">
+    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:16px;
+                border:1px solid rgba(6,182,212,0.2);overflow:hidden">
+        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);padding:28px 32px">
+            <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.02em">AlphaSync</div>
+            <div style="font-size:.85rem;color:rgba(255,255,255,.75);margin-top:4px">Password Changed</div>
+        </div>
+        <div style="padding:32px">
+            <p style="margin:0 0 16px;font-size:.95rem;color:#cbd5e1;line-height:1.65">
+                Hi {user_name}, your AlphaSync account password was just changed successfully.
+            </p>
+            <p style="margin:0;font-size:.82rem;color:#64748b;line-height:1.6">
+                If you did not make this change, please contact support immediately —
+                your account may be at risk.
+            </p>
+        </div>
+        <div style="background:#0f172a;padding:16px 32px;font-size:.73rem;color:#334155;text-align:center">
+            © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
+        </div>
+    </div>
+    </body>
+    </html>
+    """
+    send_email_background(
+        to=user.email,
+        subject="AlphaSync — Password Changed",
+        html_body=html,
+        user_id=user.id,
+        email_type="password_reset_confirmation",
+    )
+
+
 def send_access_duration_updated_email(
     user,
     duration_days: int,

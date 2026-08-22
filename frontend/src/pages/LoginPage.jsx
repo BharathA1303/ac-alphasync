@@ -299,7 +299,7 @@ export default function LoginPage() {
   /* ─── Forgot password ────────────────────────────────────────────────────── */
   const handleForgotPassword = (e) => {
     e.preventDefault();
-    toast("Password reset is not yet available. Please contact your admin.");
+    navigate("/forgot-password");
   };
 
   /* ─── Back to login from Step 2 ─────────────────────────────────────────── */

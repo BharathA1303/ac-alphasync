@@ -23,6 +23,10 @@ RATE_LIMITS = {
     "/api/auth/sync": {"max_requests": 10, "window_seconds": 60},
     "/api/auth/me": {"max_requests": 30, "window_seconds": 60},
     "/api/auth/logout": {"max_requests": 10, "window_seconds": 60},
+    "/api/auth/forgot-password": {"max_requests": 5, "window_seconds": 60},
+    "/api/auth/reset-password": {"max_requests": 10, "window_seconds": 60},
+    "/api/auth/login-direct": {"max_requests": 15, "window_seconds": 60},
+    "/api/auth/register-direct": {"max_requests": 10, "window_seconds": 60},
     # Admin endpoints — strict rate limiting
     "/api/admin/auth": {"max_requests": 5, "window_seconds": 60},
     "/api/admin/": {"max_requests": 180, "window_seconds": 60},
