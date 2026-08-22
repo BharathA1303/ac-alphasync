@@ -158,14 +158,15 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""  # e.g. +12025551234 — your Twilio number
 
-    # SMTP for email notifications (Gmail)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = "ashok.j2346@gmail.com"
-    SMTP_PASSWORD: str = "qcneuqilbxhnppau"
-    SMTP_FROM_EMAIL: str = "ashok.j2346@gmail.com"
-    SMTP_FROM_NAME: str = "AlphaSync"
-    SMTP_USE_TLS: bool = False
+    # SMTP for email notifications (Gmail). Credentials come only from
+    # env vars / GitHub Actions secrets — no secret defaults in source control.
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "AlphaSync")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "false").strip().lower() == "true"
 
     # ── AI Mentor (Grok API) ─────────────────────────────────────
     # GROK_API_KEY is read from environment variables (GitHub Actions secrets).
