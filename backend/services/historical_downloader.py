@@ -468,11 +468,15 @@ class ZebuHistoricalDownloader:
         trading_day: Optional[date] = None,
         instruments: Optional[list[UniverseInstrument]] = None,
         interval: str = "1",
+        commit: bool = True,
     ) -> DownloadRunResult:
         """
         Download the full scoped universe for one trading day.
 
         Each instrument is isolated — one failure never aborts the run.
+
+        `commit=False` leaves the transaction open so callers (notably tests)
+        control the transaction boundary.
         """
         trading_day = trading_day or latest_complete_trading_day()
 
@@ -503,7 +507,10 @@ class ZebuHistoricalDownloader:
                 )
             results.append(result)
 
-        await db.commit()
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
 
         run = DownloadRunResult(trading_day, results)
         logger.info(

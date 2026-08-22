@@ -303,6 +303,30 @@ def _normalize_zebu_quote_payload(raw: Optional[dict]) -> dict:
     }
 
 
+def _replay_option_quote(tsym: str, token: str) -> Optional[dict]:
+    """
+    Replayed option-leg quote when MarketDataMode is SIMULATION.
+
+    Returns a Zebu /GetQuotes-shaped dict (so _normalize_zebu_quote_payload
+    works unchanged), or None to fall through to the live REST path.
+
+    In LIVE mode this always returns None immediately, leaving today's
+    behavior untouched.
+    """
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if not market_data_mode.is_simulation():
+            return None
+
+        from services.historical_replay import historical_replay_engine
+
+        return historical_replay_engine.get_option_quote(tsym, token)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(f"Replay option quote lookup failed for {tsym or token}: {exc}")
+        return None
+
+
 _HISTORY_PERIOD_DAYS = {
     "1d": 1,
     "5d": 5,
@@ -676,6 +700,15 @@ async def _zebu_contract_master_chain(
                 {"tsym": tsym, "token": token}, optt, strike, selected_expiry
             ), tsym
 
+        # SIMULATION mode: read replayed historical state instead of calling
+        # Zebu's live /GetQuotes. Contract-master identity data above is
+        # shared unchanged between modes.
+        replayed = _replay_option_quote(tsym, token)
+        if replayed is not None:
+            return strike, optt, _to_option_side(
+                replayed, optt, strike, selected_expiry
+            ), tsym
+
         async with quote_semaphore:
             try:
                 quote = await asyncio.wait_for(
@@ -970,6 +1003,14 @@ async def _zebu_option_chain(
             return None
         token = str(leg.get("token") or "").strip()
         normalized = _normalize_zebu_quote_payload(leg)
+
+        # SIMULATION mode: prefer replayed historical state over live REST.
+        replayed = _replay_option_quote(
+            str(leg.get("tsym") or "").upper().strip(), token
+        )
+        if replayed is not None:
+            return _normalize_zebu_quote_payload(replayed)
+
         if normalized.get("ltp", 0) > 0:
             return normalized
         if not token:

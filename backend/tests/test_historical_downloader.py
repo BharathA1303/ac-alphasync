@@ -292,7 +292,7 @@ class TestDownloaderFailureIsolation:
         dl = ZebuHistoricalDownloader(provider=provider)
 
         run = await dl.download_day(
-            db, TRADING_DAY, instruments=[good_a, bad, good_b]
+            db, TRADING_DAY, instruments=[good_a, bad, good_b], commit=False
         )
 
         by_key = {r.key: r for r in run.results}
@@ -324,7 +324,7 @@ class TestDownloaderFailureIsolation:
         )
         dl = ZebuHistoricalDownloader(provider=provider)
 
-        await dl.download_day(db, TRADING_DAY, instruments=[good, bad])
+        await dl.download_day(db, TRADING_DAY, instruments=[good, bad], commit=False)
 
         rows = (
             await db.execute(
@@ -350,7 +350,7 @@ class TestDownloaderFailureIsolation:
 
     async def test_non_trading_day_is_skipped(self, db):
         dl = ZebuHistoricalDownloader(provider=_FakeProvider())
-        run = await dl.download_day(db, date(2026, 8, 22), instruments=[_equity()])
+        run = await dl.download_day(db, date(2026, 8, 22), instruments=[_equity()], commit=False)
         assert run.results == []
 
     async def test_missing_provider_records_failure_not_crash(self, db):

@@ -25,6 +25,8 @@ from core.rate_limiter import RateLimitMiddleware
 from websocket.futures_stream import futures_stream_manager
 from strategies.zeroloss.manager import zeroloss_manager
 from workers.access_expiry_worker import access_expiry_worker
+from workers.historical_download_worker import historical_download_worker
+from workers.historical_retention_worker import historical_retention_worker
 
 # ── Broker Session Manager (per-user providers) ────────────────────
 from services.broker_session import broker_session_manager
@@ -276,6 +278,9 @@ async def lifespan(app: FastAPI):
             asyncio.create_task(algo_strategy_worker.run()),
             asyncio.create_task(auto_squareoff_worker.run()),
             asyncio.create_task(access_expiry_worker.run()),
+            # Historical market data: daily download + 100-day retention purge.
+            asyncio.create_task(historical_download_worker.run()),
+            asyncio.create_task(historical_retention_worker.run()),
         ]
     )
 
@@ -344,6 +349,8 @@ async def lifespan(app: FastAPI):
     await algo_strategy_worker.stop()
     await zeroloss_manager.stop_all()
     await auto_squareoff_worker.stop()
+    await historical_download_worker.stop()
+    await historical_retention_worker.stop()
     await broker_session_manager.stop()
     await master_session_service.stop()
     await event_bus.stop()
