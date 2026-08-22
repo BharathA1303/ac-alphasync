@@ -358,7 +358,13 @@ class HistoricalReplayEngine:
             "oi": int(candle["open_interest"]) if candle["open_interest"] is not None else prev.get("oi", 0),
             "market_cap": 0,
             "exchange": track.exchange,
-            "timestamp": datetime.fromtimestamp(
+            # `timestamp` is PUBLISH (wall-clock) time, not simulated time.
+            # Downstream freshness checks (market_data._is_quote_stale, a
+            # 120s window) treat this as tick recency — stamping the
+            # historical date here would make every replay quote look stale
+            # and silently break order fills.
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "simulated_timestamp": datetime.fromtimestamp(
                 self._sim_epoch or candle["epoch"], tz=timezone.utc
             ).isoformat(),
             "last_trade_time": str(candle["epoch"]),
@@ -401,7 +407,9 @@ class HistoricalReplayEngine:
             "avg_price": prev.get("avg_price", 0),
             "bid_qty": prev.get("bid_qty", 0),
             "ask_qty": prev.get("ask_qty", 0),
-            "timestamp": datetime.fromtimestamp(
+            # Publish (wall-clock) time — see _build_equity_quote for why.
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "simulated_timestamp": datetime.fromtimestamp(
                 self._sim_epoch or candle["epoch"], tz=timezone.utc
             ).isoformat(),
             "last_trade_time": str(candle["epoch"]),
