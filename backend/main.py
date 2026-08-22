@@ -26,6 +26,7 @@ from websocket.futures_stream import futures_stream_manager
 from strategies.zeroloss.manager import zeroloss_manager
 from workers.access_expiry_worker import access_expiry_worker
 from workers.historical_download_worker import historical_download_worker
+from workers.auto_simulation_worker import auto_simulation_worker
 from workers.historical_retention_worker import historical_retention_worker
 
 # ── Broker Session Manager (per-user providers) ────────────────────
@@ -272,8 +273,16 @@ async def lifespan(app: FastAPI):
     # ── Simulation restart recovery ────────────────────────────────
     # The replay engine is in-memory only. If the process restarted while a
     # simulation was RUNNING, the DB still says RUNNING but no engine exists.
-    # Reconcile to PAUSED (explicit resume required) so the UI can never
-    # report an active simulation while live data drives the pipeline.
+    # Reconcile to PAUSED so the UI can never report an active simulation
+    # that nothing is actually driving.
+    #
+    # This reconciliation stays as-is (it is still the honest description of
+    # a fresh process), but it is no longer the end of the story: the
+    # auto_simulation_worker registered below re-evaluates the market
+    # session within seconds of boot and, if the market is OPEN, starts a
+    # fresh replay of the latest complete trading day. A restart during
+    # market hours therefore self-heals instead of sitting PAUSED waiting
+    # for an operator.
     try:
         from services.simulation_control import simulation_controller
 
@@ -300,6 +309,10 @@ async def lifespan(app: FastAPI):
             # Historical market data: daily download + 100-day retention purge.
             asyncio.create_task(historical_download_worker.run()),
             asyncio.create_task(historical_retention_worker.run()),
+            # Automatic replay: historical data is the ONLY market data
+            # source now. This worker keeps replay aligned with the NSE
+            # session with no admin action and no LIVE/SIMULATION switch.
+            asyncio.create_task(auto_simulation_worker.run()),
         ]
     )
 
@@ -370,6 +383,7 @@ async def lifespan(app: FastAPI):
     await auto_squareoff_worker.stop()
     await historical_download_worker.stop()
     await historical_retention_worker.stop()
+    await auto_simulation_worker.stop()
     await broker_session_manager.stop()
     await master_session_service.stop()
     await event_bus.stop()
