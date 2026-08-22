@@ -134,9 +134,6 @@ export default function Navbar({ onMenuToggle }) {
     const addToWatchlist = useWatchlistStore((s) => s.addItem);
     const removeFromWatchlist = useWatchlistStore((s) => s.removeItem);
 
-    // Global master data feed status (single shared Zebu session)
-    const [feedLive, setFeedLive] = useState(null);
-
     const user = useAuthStore((s) => s.user);
 
     // Derive the active watchlist's items safely — only recomputes when watchlists
@@ -163,22 +160,6 @@ export default function Navbar({ onMenuToggle }) {
     const [starredNow, setStarredNow] = useState(new Set());
     const searchRef = useRef(null);
     const bellRef = useRef(null);
-
-    // Poll the global master data feed status
-    useEffect(() => {
-        let cancelled = false;
-        const check = async () => {
-            try {
-                const { data } = await api.get('/market/feed-status');
-                if (!cancelled) setFeedLive(!!data?.live);
-            } catch {
-                if (!cancelled) setFeedLive(false);
-            }
-        };
-        check();
-        const interval = setInterval(check, 60000);
-        return () => { cancelled = true; clearInterval(interval); };
-    }, []);
 
     // Ensure navbar has the same portfolio source data used by Portfolio page
     useEffect(() => {
@@ -540,23 +521,6 @@ export default function Navbar({ onMenuToggle }) {
                             </span>
                         )}
                     </div>
-                </div>
-
-                {/* Data Feed Badge */}
-                <div
-                    className={cn(
-                        "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 border border-edge/5 transition-all select-none mr-1",
-                        feedLive === false && "border-red-500/20 bg-red-500/5"
-                    )}
-                    title={feedLive === null ? "Checking data feed…" : feedLive ? "Master data feed (Zebu) is live" : "Master data feed is offline"}
-                >
-                    <div className={cn(
-                        "w-2 h-2 rounded-full",
-                        feedLive === true ? "bg-emerald-400 animate-pulse" : feedLive === false ? "bg-red-400" : "bg-gray-500"
-                    )} />
-                    <span className="text-xs font-medium text-heading">
-                        {feedLive === null ? "Data Feed" : feedLive ? "Data Feed: Live (Zebu)" : "Data Feed: Offline"}
-                    </span>
                 </div>
 
                 {/* Role Badge — every user gets one */}
