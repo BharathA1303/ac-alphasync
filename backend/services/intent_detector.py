@@ -37,12 +37,18 @@ class IntentDetector:
 
     # OUT_OF_SCOPE: Topics completely unrelated to Indian stock market or AlphaSync features
     OUT_OF_SCOPE_KEYWORDS: Set[str] = {
-        "weather", "movie", "cinema", "cricket", "football", "politics", "election",
-        "medical", "doctor", "diagnosis", "legal advice", "court", "religion",
-        "horoscope", "astrology", "recipe", "coding", "python", "javascript", "java",
-        "c++", "programming", "script", "database", "sql", "html", "css", "crypto",
+        "weather", "movie", "cinema", "netflix", "cricket", "football", "ipl score",
+        "politics", "election", "medical", "doctor", "diagnosis", "symptom", "medicine",
+        "legal advice", "court", "lawsuit", "religion", "god", "horoscope", "astrology",
+        "zodiac", "recipe", "cooking", "coding", "python", "javascript", "java",
+        "c++", "programming", "script", "sql query", "html", "css", "write me a",
         "us stock", "nasdaq", "nyse", "s&p 500", "dow jones", "bitcoin", "ethereum",
-        "forex", "claude", "anthropic", "international market"
+        "dogecoin", "forex", "claude", "anthropic", "chatgpt", "openai", "gemini ai",
+        "international market", "song", "lyrics", "poem", "joke", "riddle",
+        "travel", "vacation", "flight ticket", "hotel booking", "video game",
+        "relationship advice", "dating", "homework", "essay", "translate this",
+        "who is the prime minister", "capital of", "gym workout", "diet plan",
+        "tell me a story", "write a story"
     }
 
     # IDENTITY: Who is Sarah and what does she do?

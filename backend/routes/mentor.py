@@ -48,35 +48,34 @@ WELCOME_MESSAGE = (
     "or paste your position details."
 )
 OUT_OF_SCOPE_REFUSAL = (
-    "That's outside what I'm designed to help with. I'm here to help you with "
-    "AlphaSync features, NSE/BSE trading, portfolio analysis, and risk management. "
-    "If you'd like, ask me anything about those topics!"
+    "That's a bit outside my lane, honestly — I'm your trading mentor here, not a general assistant, "
+    "so I can't help with that one. Happy to dig into your portfolio, an F&O concept, or anything "
+    "AlphaSync-related instead — just say the word."
 )
 SENSITIVE_REFUSAL = (
-    "I can't share AlphaSync's code, internal systems, secrets, or private user details. "
-    "However, I'd be happy to guide you with the exact in-app routes for any features you want to use!"
+    "I can't get into AlphaSync's internal code, credentials, or anyone's private account details — "
+    "that's not something I'll share, no matter how it's asked. But I can absolutely walk you through "
+    "how to use any feature in the app, if that helps."
 )
 
 FRIENDLY_OUT_OF_SCOPE_REFUSAL = (
-    "Hey! I'm here to help you learn about the Indian stock market (NSE/BSE), "
-    "AlphaSync features, and trading risk management. Since this question is "
-    "unrelated to trading, let's get back to talking about your portfolio or stock market basics! 😊"
+    "That's not really something I can help with — I'm focused on the Indian stock market and "
+    "AlphaSync, not general topics like that. Want to talk through your portfolio, an options concept, "
+    "or something else on the trading side instead?"
 )
 
 STRICT_OUT_OF_SCOPE_REFUSAL = (
-    "Access Blocked: The query is unrelated to the Indian stock market or AlphaSync features. "
-    "Please restrict your queries strictly to trading-related topics."
+    "I can't answer that — it's outside the stock market and AlphaSync topics I'm here to help with. "
+    "Let's keep it to trading."
 )
 
 FRIENDLY_ADULT_REFUSAL = (
-    "Hey! Let's keep our conversation professional and focused on trading. "
-    "I'm here to help you learn about the stock market, navigate the app, and manage risk. "
-    "If you have any questions about Nifty, Options, or your portfolio, let me know! 😊"
+    "I'm going to steer us away from that — let's keep this space focused on trading and the markets. "
+    "If you've got questions about Nifty, options, or your own positions, I'm right here for that."
 )
 
 STRICT_ADULT_REFUSAL = (
-    "Access Denied: Inappropriate or 18+ content detected. "
-    "Please keep your queries focused strictly on trading and AlphaSync features."
+    "That's not something I'll respond to. Please keep questions focused on trading and AlphaSync."
 )
 
 FINAL_INSTRUCTION_PREFIX = "=== INSTRUCTION ==="
