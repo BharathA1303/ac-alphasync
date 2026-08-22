@@ -28,7 +28,8 @@ class GrokConfig:
     XAI_API_URL: str = "https://api.x.ai/v1/chat/completions"
     GROQ_API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
     XAI_DEFAULT_MODEL: str = "grok-3-mini"
-    GROQ_DEFAULT_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_DEFAULT_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FALLBACK_MODEL: str = "openai/gpt-oss-20b"
     DEFAULT_PROVIDER: str = (
         os.getenv("MENTOR_AI_PROVIDER", "auto").strip().lower() or "auto"
     )

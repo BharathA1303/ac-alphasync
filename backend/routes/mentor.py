@@ -716,23 +716,28 @@ async def chat_with_mentor(
                 json=payload,
             )
 
-            fallback_model = (
-                grok_config.GROQ_DEFAULT_MODEL
+            fallback_models = (
+                [grok_config.GROQ_DEFAULT_MODEL, grok_config.GROQ_FALLBACK_MODEL]
                 if provider == "groq"
-                else grok_config.XAI_DEFAULT_MODEL
+                else [grok_config.XAI_DEFAULT_MODEL]
             )
-            if response.status_code == 400 and model != fallback_model:
+
+            for fallback_model in fallback_models:
+                if response.status_code not in (400, 404) or model == fallback_model:
+                    continue
                 body_text = (response.text or "").lower()
-                if "model" in body_text:
-                    payload["model"] = fallback_model
-                    response = await client.post(
-                        api_url,
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json=payload,
-                    )
+                if "model" not in body_text:
+                    continue
+                model = fallback_model
+                payload["model"] = fallback_model
+                response = await client.post(
+                    api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
 
         if response.status_code != 200:
             logger.error("Mentor API error: %s - %s", response.status_code, response.text)
@@ -774,7 +779,7 @@ async def chat_with_mentor(
         )
 
     except Exception as exc:
-        logger.error("Unexpected mentor error: %s", exc)
+        logger.error("Unexpected mentor error: %s", exc, exc_info=True)
         return MentorMessageResponse(
             reply=_ensure_disclaimer(_build_fallback_reply(user_message, user_first_name=user_first_name)),
             success=True,
