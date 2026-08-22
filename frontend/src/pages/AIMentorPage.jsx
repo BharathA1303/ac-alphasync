@@ -546,10 +546,7 @@ export default function AIMentorPage() {
                 </>
             )}
 
-            <section className={cn(
-                'relative z-10 flex-1 min-h-0 flex flex-col w-full',
-                isMobileLayout ? 'p-0' : 'p-2 md:p-3 lg:p-4',
-            )}>
+            <section className="relative z-10 flex-1 min-h-0 flex flex-col w-full p-0">
                 {isMobileLayout && mobileHistoryOpen && (
                     <button
                         type="button"
@@ -561,7 +558,7 @@ export default function AIMentorPage() {
 
                 <div className={cn(
                     'flex-1 min-h-0 w-full min-w-0 overflow-hidden flex flex-col',
-                    isDesktopLayout && 'flex-row rounded-[22px]',
+                    isDesktopLayout && 'flex-row',
                     ui.shell,
                 )}>
                     <aside className={cn(
@@ -966,31 +963,32 @@ export default function AIMentorPage() {
                             {error && <div className={cn('shrink-0 px-4 py-2 text-xs border-t', ui.errorBar)}>{error}</div>}
 
                             <form onSubmit={handleSubmit} className={cn('shrink-0 px-3 py-2 md:px-4 md:py-2.5 border-t', ui.composerBar)}>
-                                <div className={cn('flex items-end gap-2 rounded-xl border px-2.5 py-2', ui.composerWrap)}>
+                                <div className={cn('mx-auto flex w-full max-w-3xl items-end gap-1.5 rounded-full border px-2 py-1', ui.composerWrap)}>
                                     <textarea
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyDown={handleComposerKeyDown}
                                         placeholder={isMobileLayout
-                                            ? 'Ask Sarah about AlphaSync, risk, or strategy...'
+                                            ? 'Ask Sarah anything...'
                                             : 'Ask Sarah anything about AlphaSync, risk, strategy, or market basics...'}
                                         disabled={sending}
                                         rows={1}
                                         maxLength={2000}
                                         className={cn(
-                                            'flex-1 min-h-[36px] max-h-24 resize-none bg-transparent border-0 px-1 py-1.5 text-sm leading-snug focus:outline-none focus:ring-0',
+                                            'flex-1 min-h-[32px] max-h-24 resize-none bg-transparent border-0 px-2 py-1.5 text-sm leading-snug focus:outline-none focus:ring-0',
                                             ui.composerText,
                                         )}
                                     />
                                     <button
                                         type="submit"
                                         disabled={sending || !input.trim()}
+                                        aria-label="Send message"
                                         className={cn(
-                                            'h-9 shrink-0 px-3 rounded-lg border hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1.5 text-sm',
+                                            'h-8 w-8 shrink-0 rounded-full border hover:brightness-110 disabled:opacity-40 inline-flex items-center justify-center',
                                             ui.sendButton,
                                         )}
                                     >
-                                        <Send className="w-4 h-4" /> Send
+                                        <Send className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </form>

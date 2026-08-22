@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, ChevronDown, Clipboard, Loader2, Send, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
+import { Bot, ChevronDown, Clipboard, Loader2, Send, Star, Trash2, UserRound } from 'lucide-react';
 import api from '../services/api';
 import { cn } from '../utils/cn';
 import toast from 'react-hot-toast';
@@ -342,38 +342,33 @@ const AIMentor = () => {
                 </div>
               )}
 
-              <form onSubmit={handleSendMessage} className="rounded-2xl border border-white/20 bg-white/10 p-2">
+              <form onSubmit={handleSendMessage} className="flex items-end gap-1.5 rounded-full border border-white/20 bg-white/10 px-2 py-1">
                 <textarea
                   ref={inputRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleInputKeyDown}
-                  placeholder="Ask Sarah anything about trading..."
+                  placeholder="Ask Sarah anything..."
                   disabled={isLoading}
-                  rows={2}
+                  rows={1}
                   className={cn(
-                    'w-full resize-none bg-transparent border border-transparent',
-                    'px-2 py-1.5 rounded-lg text-sm text-white placeholder:text-cyan-100/65 outline-none transition-colors',
+                    'flex-1 min-h-[32px] max-h-24 resize-none bg-transparent border-0',
+                    'px-2 py-1.5 text-sm text-white placeholder:text-cyan-100/65 outline-none transition-colors',
                     'disabled:opacity-50 disabled:cursor-not-allowed'
                   )}
                 />
-
-                <div className="mt-1 flex items-center justify-between">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100/20 bg-cyan-100/10 px-2 py-1 text-[10px] text-cyan-100/80">
-                    <Sparkles className="w-3 h-3" /> Enter to send
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isLoading || !inputValue.trim()}
-                    className={cn(
-                      'h-9 px-3 rounded-xl border border-cyan-200/40 bg-gradient-to-r from-cyan-400 to-blue-500 text-white inline-flex items-center gap-1.5',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
-                    )}
-                    title="Send message"
-                  >
-                    <Send size={15} /> Send
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading || !inputValue.trim()}
+                  aria-label="Send message"
+                  className={cn(
+                    'h-8 w-8 shrink-0 rounded-full border border-cyan-200/40 bg-gradient-to-r from-cyan-400 to-blue-500 text-white inline-flex items-center justify-center',
+                    'disabled:opacity-40 disabled:cursor-not-allowed'
+                  )}
+                  title="Send message"
+                >
+                  <Send size={14} />
+                </button>
               </form>
 
               <p className="text-xs text-cyan-100/75 text-center">
