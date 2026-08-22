@@ -325,15 +325,31 @@ async def _option_instruments(
             logger.warning(f"Universe: no option contracts for {underlying}")
             continue
 
+        # Parse first, THEN sort by the parsed date — sorting the raw
+        # strings alphabetically (as before) does not sort chronologically
+        # (e.g. "2026-09-29" vs "2027-03-30" vs "2029-06-26" are already
+        # fine as ISO strings, but far-dated placeholder/LEAPS-style
+        # expiries some underlyings carry can still land ahead of the real
+        # near-term expiry once EXPIRY_DEPTH truncates the list). Sorting
+        # by the parsed date is the only way to guarantee "current + next"
+        # actually means the two nearest real expiries.
         today = date.today()
-        expiries = []
-        for exp_str in sorted(by_expiry.keys()):
-            parsed = _parse_expiry(exp_str)
-            if parsed and parsed >= today:
-                expiries.append((exp_str, parsed))
+        all_expiries = [(e, _parse_expiry(e)) for e in by_expiry.keys()]
+        all_expiries = [(e, d) for e, d in all_expiries if d is not None]
+
+        expiries = sorted(
+            (item for item in all_expiries if item[1] >= today),
+            key=lambda item: item[1],
+        )
         if not expiries:
-            expiries = [(e, _parse_expiry(e)) for e in sorted(by_expiry.keys())]
-        expiries = expiries[:EXPIRY_DEPTH]
+            # Nothing on-or-after today (a stale contract master). Fall
+            # back to the expiries CLOSEST to today (i.e. the most recent
+            # past ones), not the oldest — a wrong "nearest" pick here is
+            # exactly the class of bug this function used to have.
+            expiries = sorted(
+                all_expiries, key=lambda item: abs((item[1] - today).days)
+            )
+        expiries = sorted(expiries[:EXPIRY_DEPTH], key=lambda item: item[1])
 
         spot = float(spot_by_underlying.get(underlying.upper()) or 0.0)
 

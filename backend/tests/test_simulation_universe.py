@@ -22,8 +22,13 @@ from services.simulation_universe import (
     _equity_instruments,
     _futures_underlyings,
     _index_instruments,
+    _option_instruments,
     _option_underlyings,
 )
+
+
+def _contract(token: str, tsym: str, exchange: str = "NFO") -> dict:
+    return {"token": token, "symbol": tsym, "exchange": exchange}
 
 
 def _fake_mapper_entries(n_equities=5):
@@ -175,6 +180,87 @@ class TestUniverseCaps:
 
         assert len(out) <= su.MAX_UNIVERSE_SIZE, (
             "the whole NSE must never resolve into a download run"
+        )
+
+
+class TestOptionExpirySelection:
+    """
+    Regression coverage for a real production bug: _option_instruments used
+    to sort expiry STRINGS alphabetically before truncating to
+    EXPIRY_DEPTH, instead of sorting by the parsed date. Zebu's contract
+    master carries far-dated placeholder/LEAPS-style expiries (e.g.
+    "2029-06-26", "2031-06-24") alongside the real near-term ones — on
+    production this meant the two nearest REAL expiries were dropped in
+    favor of two thin, multi-year-out placeholder expiries, collapsing the
+    live options chain down to a single unusable strike.
+    """
+
+    @pytest.mark.asyncio
+    async def test_nearest_two_real_expiries_are_selected_not_alphabetical_ones(self):
+        by_expiry = {
+            # Far-dated placeholder expiries, deliberately given dense
+            # strike maps so a wrong pick would be immediately visible.
+            "2029-06-26": {
+                24000.0: {"CE": _contract("1", "NIFTY26JUN2924000CE")},
+            },
+            "2031-06-24": {
+                24000.0: {"CE": _contract("2", "NIFTY24JUN3124000CE")},
+            },
+            # The two real near-term expiries.
+            "2026-08-25": {
+                24000.0: {"CE": _contract("3", "NIFTY25AUG2624000CE")},
+                24050.0: {"CE": _contract("4", "NIFTY25AUG2624050CE")},
+            },
+            "2026-09-29": {
+                24000.0: {"CE": _contract("5", "NIFTY29SEP2624000CE")},
+            },
+        }
+
+        with patch.object(su, "_option_underlyings", return_value=["NIFTY"]), patch(
+            "routes.options._load_zebu_option_contracts",
+            new=AsyncMock(return_value=by_expiry),
+        ):
+            out = await _option_instruments()
+
+        expiries_selected = {inst.expiry_date.isoformat() for inst in out}
+        assert expiries_selected == {"2026-08-25", "2026-09-29"}, (
+            f"expected the two nearest real expiries, got {expiries_selected}"
+        )
+        # Both strikes from the richer near-term expiry must survive.
+        strikes_2508 = {
+            inst.strike_price for inst in out if inst.expiry_date.isoformat() == "2026-08-25"
+        }
+        assert strikes_2508 == {24000.0, 24050.0}
+
+    @pytest.mark.asyncio
+    async def test_all_expiries_in_the_past_still_returns_the_nearest_ones(self):
+        """
+        If every stored expiry is already in the past (contract master
+        stale / not yet refreshed), fall back to the nearest ones by date
+        rather than returning nothing.
+        """
+        by_expiry = {
+            "2020-01-02": {
+                100.0: {"CE": _contract("1", "NIFTY02JAN20100CE")},
+            },
+            "2020-01-09": {
+                100.0: {"CE": _contract("2", "NIFTY09JAN20100CE")},
+            },
+            "2019-01-03": {
+                100.0: {"CE": _contract("3", "NIFTY03JAN19100CE")},
+            },
+        }
+
+        with patch.object(su, "_option_underlyings", return_value=["NIFTY"]), patch(
+            "routes.options._load_zebu_option_contracts",
+            new=AsyncMock(return_value=by_expiry),
+        ):
+            out = await _option_instruments()
+
+        expiries_selected = {inst.expiry_date.isoformat() for inst in out}
+        assert expiries_selected == {"2020-01-02", "2020-01-09"}, (
+            "fallback must pick the nearest (least-stale) expiries, not an "
+            f"arbitrary alphabetical pair; got {expiries_selected}"
         )
 
 
