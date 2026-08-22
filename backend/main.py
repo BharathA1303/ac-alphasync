@@ -25,6 +25,8 @@ from core.rate_limiter import RateLimitMiddleware
 from websocket.futures_stream import futures_stream_manager
 from strategies.zeroloss.manager import zeroloss_manager
 from workers.access_expiry_worker import access_expiry_worker
+from workers.historical_download_worker import historical_download_worker
+from workers.historical_retention_worker import historical_retention_worker
 
 # ── Broker Session Manager (per-user providers) ────────────────────
 from services.broker_session import broker_session_manager
@@ -267,6 +269,25 @@ async def lifespan(app: FastAPI):
             "ZeroLoss restore skipped — market session is %s",
             market_session.get_current_state().value,
         )
+    # ── Simulation restart recovery ────────────────────────────────
+    # The replay engine is in-memory only. If the process restarted while a
+    # simulation was RUNNING, the DB still says RUNNING but no engine exists.
+    # Reconcile to PAUSED (explicit resume required) so the UI can never
+    # report an active simulation while live data drives the pipeline.
+    try:
+        from services.simulation_control import simulation_controller
+
+        async with async_session_factory() as db:
+            recovery = await simulation_controller.recover_orphaned_sessions(db)
+            await db.commit()
+        if recovery["count"]:
+            logger.warning(
+                "Simulation restart recovery: %d session(s) marked PAUSED",
+                recovery["count"],
+            )
+    except Exception as exc:
+        logger.error(f"Simulation restart recovery failed: {exc}", exc_info=True)
+
     background_tasks.extend(
         [
             asyncio.create_task(market_data_worker.run()),
@@ -276,6 +297,9 @@ async def lifespan(app: FastAPI):
             asyncio.create_task(algo_strategy_worker.run()),
             asyncio.create_task(auto_squareoff_worker.run()),
             asyncio.create_task(access_expiry_worker.run()),
+            # Historical market data: daily download + 100-day retention purge.
+            asyncio.create_task(historical_download_worker.run()),
+            asyncio.create_task(historical_retention_worker.run()),
         ]
     )
 
@@ -344,6 +368,8 @@ async def lifespan(app: FastAPI):
     await algo_strategy_worker.stop()
     await zeroloss_manager.stop_all()
     await auto_squareoff_worker.stop()
+    await historical_download_worker.stop()
+    await historical_retention_worker.stop()
     await broker_session_manager.stop()
     await master_session_service.stop()
     await event_bus.stop()
@@ -398,6 +424,7 @@ from routes.broker import router as broker_router
 from routes.admin import router as admin_router
 from routes.futures import router as futures_router
 from routes.options import router as options_router
+from routes.simulation import router as simulation_router
 from routes.mentor import router as mentor_router
 from routes.bug_reports import router as bug_reports_router
 from routes.feedback import router as feedback_router
@@ -418,6 +445,7 @@ app.include_router(broker_router)
 app.include_router(admin_router)
 app.include_router(futures_router)
 app.include_router(options_router)
+app.include_router(simulation_router)
 app.include_router(mentor_router)
 app.include_router(bug_reports_router)
 app.include_router(feedback_router)

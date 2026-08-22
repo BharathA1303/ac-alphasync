@@ -37,6 +37,10 @@ ALLOWED_ENDPOINTS: list[str] = [
     r"/GetTimePriceSeries$",
     r"/GetOptionChain$",
     r"/TPSeries$",
+    # Daily/EOD historical candles. Read-only: used by the chart history
+    # endpoints and by the historical downloader that backs simulation
+    # replay. Returns OHLCV only — it cannot mutate account state.
+    r"/EODChartData$",
     r"/GetSecurityInfo$",
     r"/ExchMsg$",
     r"/GetTopList.*$",

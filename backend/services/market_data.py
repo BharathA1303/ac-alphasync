@@ -1383,6 +1383,56 @@ def _is_quote_stale(
     return (time.time() - ts) > max_age_seconds
 
 
+def _simulation_data_mode_active() -> bool:
+    """
+    True when the quote pipeline is being driven by historical replay.
+
+    Used to hard-block live-provider REST fallbacks: in SIMULATION mode the
+    absence of replayed data must surface as "no data", never as a silent
+    fetch of real market prices.
+
+    Import is local + defensive so this module keeps working in contexts
+    where the market-data-mode singleton is unavailable; the safe default
+    (False = LIVE) preserves today's behavior exactly.
+    """
+    try:
+        from core.market_data_mode import market_data_mode
+
+        return market_data_mode.is_simulation()
+    except Exception:  # pragma: no cover - defensive
+        return False
+
+
+async def _replayed_quote(symbol: str) -> Optional[dict]:
+    """
+    Current replayed state for a symbol in SIMULATION mode.
+
+    Reads Redis first (where HistoricalReplayEngine publishes via
+    quote_coordinator), then falls back to the engine's in-memory state.
+    Returns None when replay has no data — the caller must surface that as
+    "no data", never as a live-provider fetch.
+    """
+    try:
+        from cache.redis_client import get_price as redis_get_price
+
+        cached = await redis_get_price(symbol)
+        if cached:
+            return await _align_quote_to_history(symbol, cached)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(f"Replayed Redis read failed for {symbol}: {exc}")
+
+    try:
+        from services.historical_replay import historical_replay_engine
+
+        state = historical_replay_engine.get_current_quote(symbol)
+        if state:
+            return await _align_quote_to_history(symbol, dict(state))
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(f"Replay engine state read failed for {symbol}: {exc}")
+
+    return None
+
+
 def _safe_float(value: Any) -> Optional[float]:
     try:
         parsed = float(value)
@@ -1844,6 +1894,17 @@ async def get_quote(symbol: str, user_id: str) -> dict:
         ProviderDataUnavailable  – provider returned None for the symbol.
     """
     symbol = _format_symbol(symbol)
+
+    # SIMULATION mode: serve replayed state only. Calling the live provider
+    # here would return REAL market prices inside a simulated session.
+    if _simulation_data_mode_active():
+        replayed = await _replayed_quote(symbol)
+        if replayed is None:
+            raise ProviderDataUnavailable(
+                f"No replayed historical data for {symbol} in SIMULATION mode"
+            )
+        return _adjust_for_market_state(replayed)
+
     provider = _get_provider_for_user(user_id)
     quote = await provider.get_quote(symbol)
     quote = await _align_quote_to_history(symbol, quote)
@@ -1881,6 +1942,20 @@ async def get_quote_safe(symbol: str, user_id: str) -> Optional[dict]:
 
     if market_frozen:
         return await _get_closed_session_quote(fmt)
+
+    # ── SIMULATION mode guard ──────────────────────────────────────
+    # In SIMULATION mode the only legitimate quote source is replayed
+    # historical state (published into Redis by HistoricalReplayEngine and
+    # already read above). If nothing was found there, the honest answer is
+    # "no data for this instrument" — falling through to the live provider
+    # REST call would silently serve REAL market prices inside a simulated
+    # session. Never fall back to live.
+    if _simulation_data_mode_active():
+        logger.debug(
+            f"SIMULATION mode: no replayed quote for {fmt}; "
+            f"refusing live provider fallback"
+        )
+        return None
 
     # Deduplication: if identical request is in-flight, wait for it
     dedup_key = f"{fmt}:{user_id}"
@@ -1934,6 +2009,16 @@ async def get_system_quote(symbol: str) -> dict:
     Raises RuntimeError if no sessions exist.
     """
     symbol = _format_symbol(symbol)
+
+    # SIMULATION mode: replayed state only — never the live provider.
+    if _simulation_data_mode_active():
+        replayed = await _replayed_quote(symbol)
+        if replayed is None:
+            raise ProviderDataUnavailable(
+                f"No replayed historical data for {symbol} in SIMULATION mode"
+            )
+        return _adjust_for_market_state(replayed)
+
     provider = _get_any_provider()
     quote = await provider.get_quote(symbol)
     quote = await _align_quote_to_history(symbol, quote)
@@ -1963,6 +2048,15 @@ async def get_system_quote_safe(symbol: str) -> Optional[dict]:
             return _adjust_for_market_state(normalized_redis)
     except Exception as e:
         logger.debug(f"Redis system quote read failed for {fmt}: {e}")
+
+    # SIMULATION mode: never fall back to the live provider — see
+    # _simulation_data_mode_active(). No replayed data means no data.
+    if _simulation_data_mode_active():
+        logger.debug(
+            f"SIMULATION mode: no replayed quote for {fmt}; "
+            f"refusing live provider fallback"
+        )
+        return None
 
     # Deduplication: if identical request is in-flight, wait for it
     dedup_key = f"sys:{fmt}"
@@ -2027,6 +2121,15 @@ async def get_system_quote_live_only(
 
     if market_frozen:
         return await _get_closed_session_quote(fmt)
+
+    # SIMULATION mode: never fall back to the live provider — see
+    # _simulation_data_mode_active(). No replayed data means no data.
+    if _simulation_data_mode_active():
+        logger.debug(
+            f"SIMULATION mode: no replayed quote for {fmt}; "
+            f"refusing live provider fallback (live_only path)"
+        )
+        return None
 
     dedup_key = f"sys_live:{fmt}"
     if dedup_key in _symbol_requests:

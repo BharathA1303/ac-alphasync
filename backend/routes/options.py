@@ -303,6 +303,67 @@ def _normalize_zebu_quote_payload(raw: Optional[dict]) -> dict:
     }
 
 
+def _replay_option_quote(tsym: str, token: str) -> Optional[dict]:
+    """
+    Replayed option-leg quote when MarketDataMode is SIMULATION.
+
+    Returns a Zebu /GetQuotes-shaped dict (so _normalize_zebu_quote_payload
+    works unchanged).
+
+    In LIVE mode this always returns None immediately, leaving today's
+    behavior untouched — None means "not handled here, run the REST path".
+
+    In SIMULATION mode it NEVER returns None. If replay holds no state for
+    this leg, it returns an explicit empty quote instead, because returning
+    None here would let the caller fall through to Zebu's live /GetQuotes
+    and quietly price a simulated chain off REAL market data. An option
+    with no replayed history must render as "no data", not as a live quote.
+    """
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if not market_data_mode.is_simulation():
+            return None
+
+        from services.historical_replay import historical_replay_engine
+
+        replayed = historical_replay_engine.get_option_quote(tsym, token)
+        if replayed is not None:
+            return replayed
+
+        return _empty_replay_option_quote(tsym, token)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug(f"Replay option quote lookup failed for {tsym or token}: {exc}")
+        # Even on error, SIMULATION must not fall through to live data.
+        try:
+            from core.market_data_mode import market_data_mode
+
+            if market_data_mode.is_simulation():
+                return _empty_replay_option_quote(tsym, token)
+        except Exception:
+            pass
+        return None
+
+
+def _empty_replay_option_quote(tsym: str, token: str) -> dict:
+    """
+    A structurally valid but empty option quote: the SIMULATION-mode answer
+    for a leg with no replayed history. Zeroed prices, never live values.
+    """
+    return {
+        "tsym": str(tsym or "").upper(),
+        "token": str(token or ""),
+        "lp": 0,
+        "c": 0,
+        "v": 0,
+        "oi": 0,
+        "bid": 0,
+        "ask": 0,
+        "stat": "Ok",
+        "source": "historical_replay_no_data",
+    }
+
+
 _HISTORY_PERIOD_DAYS = {
     "1d": 1,
     "5d": 5,
@@ -676,6 +737,15 @@ async def _zebu_contract_master_chain(
                 {"tsym": tsym, "token": token}, optt, strike, selected_expiry
             ), tsym
 
+        # SIMULATION mode: read replayed historical state instead of calling
+        # Zebu's live /GetQuotes. Contract-master identity data above is
+        # shared unchanged between modes.
+        replayed = _replay_option_quote(tsym, token)
+        if replayed is not None:
+            return strike, optt, _to_option_side(
+                replayed, optt, strike, selected_expiry
+            ), tsym
+
         async with quote_semaphore:
             try:
                 quote = await asyncio.wait_for(
@@ -777,7 +847,24 @@ async def _zebu_contract_master_chain(
 
 
 async def _zebu_underlying_future_price(provider, sym: str, exch: str) -> float:
-    """Fast spot proxy for indices whose direct Zebu index token is unavailable."""
+    """
+    Fast spot proxy for indices whose direct Zebu index token is unavailable.
+
+    This is a live Zebu REST fallback (/SearchScrip + /GetQuotes) reached
+    from _zebu_option_chain when the primary quote pipeline (Redis /
+    replay engine, via get_system_quote_live_only) has no spot price. In
+    SIMULATION mode that "no spot price" outcome is expected whenever
+    replay holds no data yet for this underlying — the correct answer is
+    still 0.0 (no data), never a live-fetched price.
+    """
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if market_data_mode.is_simulation():
+            return 0.0
+    except Exception:  # pragma: no cover - defensive
+        pass
+
     try:
         search = await asyncio.wait_for(
             provider._rest_post("/SearchScrip", {"exch": exch, "stext": sym}),
@@ -866,6 +953,26 @@ async def _zebu_option_chain(
     )
     if contract_master_result:
         return contract_master_result
+
+    # In SIMULATION mode the contract-master path above is the only
+    # supported source (it consults replayed state via _replay_option_quote
+    # for every leg). Everything below this point is a live-only discovery
+    # + quoting sequence (/SearchScrip, /GetOptionChain, /GetQuotes) with no
+    # replay awareness — falling through to it would silently price a
+    # simulated chain off real market data. "No chain" is the correct
+    # SIMULATION-mode answer when the primary path found nothing (e.g. an
+    # underlying/expiry outside the replay universe), not a live fetch.
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if market_data_mode.is_simulation():
+            logger.debug(
+                f"SIMULATION mode: contract-master chain empty for {sym}; "
+                f"refusing live /GetOptionChain fallback"
+            )
+            return None
+    except Exception:  # pragma: no cover - defensive
+        pass
 
     async def _post(route: str, payload: dict, timeout_sec: float = 8.0):
         try:
@@ -970,6 +1077,14 @@ async def _zebu_option_chain(
             return None
         token = str(leg.get("token") or "").strip()
         normalized = _normalize_zebu_quote_payload(leg)
+
+        # SIMULATION mode: prefer replayed historical state over live REST.
+        replayed = _replay_option_quote(
+            str(leg.get("tsym") or "").upper().strip(), token
+        )
+        if replayed is not None:
+            return _normalize_zebu_quote_payload(replayed)
+
         if normalized.get("ltp", 0) > 0:
             return normalized
         if not token:

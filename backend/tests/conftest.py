@@ -14,6 +14,16 @@ from models.futures_watchlist import FuturesWatchlist, FuturesWatchlistItem
 from models.futures_order import FuturesOrder, FuturesPosition
 from models.bug_report import BugReport
 from models.feedback import UserFeedback
+# Institution/InviteLink must be imported so users.institution_id's foreign key
+# can resolve the "institutions" table when Base.metadata is created.
+from models.institution import Institution
+from models.invite_link import InviteLink
+from models.market_data import (
+    Instrument,
+    HistoricalCandle,
+    DownloadStatus,
+    SimulationSession,
+)
 from engines.market_session import market_session
 from config.settings import settings
 

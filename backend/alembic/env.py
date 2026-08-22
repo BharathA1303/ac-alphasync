@@ -44,7 +44,39 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# Revision "002_order_type_bracket_take_profit" is 34 characters, which
+# overflows the alembic_version.version_num VARCHAR(32) that Alembic 1.13
+# hardcodes when it creates the version table. SQLite ignores VARCHAR limits,
+# so this only ever surfaced against a real PostgreSQL database, where it made
+# `alembic upgrade head` fail partway through the chain.
+#
+# Widening the existing column is preferred over renaming the revision: a
+# rename would orphan any database already stamped with the current id.
+VERSION_TABLE_COLUMN_LENGTH = 128
+
+
+def _widen_version_column(connection) -> None:
+    """Ensure alembic_version.version_num is wide enough for our revision ids."""
+    if connection.dialect.name != "postgresql":
+        # SQLite does not enforce VARCHAR length, and the ALTER below is
+        # PostgreSQL-specific, so there is nothing to do elsewhere.
+        return
+    connection.exec_driver_sql(
+        "CREATE TABLE IF NOT EXISTS alembic_version ("
+        f"version_num VARCHAR({VERSION_TABLE_COLUMN_LENGTH}) NOT NULL, "
+        "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+    )
+    connection.exec_driver_sql(
+        "ALTER TABLE alembic_version ALTER COLUMN version_num "
+        f"TYPE VARCHAR({VERSION_TABLE_COLUMN_LENGTH})"
+    )
+    # Commit immediately: this DDL must be durable before Alembic opens its own
+    # migration transaction, otherwise it is rolled back along with it.
+    connection.commit()
+
+
 def do_run_migrations(connection):
+    _widen_version_column(connection)
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
@@ -52,10 +84,12 @@ def do_run_migrations(connection):
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
+    # NullPool opens/closes a connection per migration step, so the pool-sizing
+    # options (pool_size / max_overflow) must NOT be passed — create_engine
+    # rejects them outright for a non-queue pool, which previously made
+    # `alembic upgrade head` fail against any real PostgreSQL URL.
     configuration = {
         "sqlalchemy.url": settings.DATABASE_URL,
-        "sqlalchemy.pool_size": 5,
-        "sqlalchemy.max_overflow": 0,
     }
     connectable = async_engine_from_config(
         configuration,
