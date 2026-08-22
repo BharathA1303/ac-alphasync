@@ -158,14 +158,22 @@ class SimulationController:
             await db.flush()
             logger.warning(
                 "Recovered %d orphaned RUNNING simulation session(s) after "
-                "restart; marked PAUSED. Explicit resume required — market "
-                "data mode stays LIVE until then.",
+                "restart; marked PAUSED. The replay clock stays stopped — "
+                "auto_simulation_worker resumes it on its next poll if the "
+                "market is OPEN.",
                 len(recovered),
             )
 
-        # The in-memory engine holds nothing after a restart, so the mode
-        # must be LIVE regardless of what the DB said.
-        market_data_mode.set_mode(MarketDataMode.LIVE)
+        # The in-memory engine holds nothing after a restart, so the replay
+        # clock is correctly stopped either way. But under the "no live data,
+        # ever" architecture the mode itself must NOT go to LIVE here: doing
+        # so would leave a real gap between this call (synchronous, during
+        # app startup) and auto_simulation_worker's first poll (~15s later)
+        # during which a still-connected Zebu socket could write live ticks
+        # into the pipeline again (zebu_provider._handle_tick only drops
+        # ticks while the mode is SIMULATION). Holding SIMULATION here closes
+        # that window — same reasoning as halt(), see its docstring.
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
 
         return {"recovered": recovered, "count": len(recovered)}
 

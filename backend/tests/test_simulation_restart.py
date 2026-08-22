@@ -13,8 +13,10 @@ What must hold after a restart:
     - SimulationSession rows survive with their simulation_time intact.
     - A session left RUNNING is reconciled to PAUSED, never silently
       auto-resumed and never left claiming to be RUNNING.
-    - MarketDataMode comes back LIVE (the engine holds nothing after a
-      restart, so any other mode would be a lie).
+    - MarketDataMode is held at SIMULATION, never LIVE (under the "no live
+      data, ever" architecture, LIVE would let a still-connected Zebu
+      socket write real ticks into the pipeline before the auto-simulation
+      worker's next poll resumes replay).
     - User / Portfolio / Order rows are completely untouched.
 """
 
@@ -241,9 +243,14 @@ class TestRestartDuringSimulation:
                 .total_seconds()
             ) < 2, "simulation_time must resume from where it stopped"
 
-        # Mode must be LIVE — never SIMULATION with no engine behind it.
-        assert market_data_mode.is_live(), (
-            "after a restart the pipeline must be LIVE until an explicit resume"
+        # Mode must be SIMULATION (never LIVE): under the "no live data,
+        # ever" architecture, LIVE would let a still-connected Zebu socket
+        # write real ticks into the pipeline before auto_simulation_worker's
+        # first poll resumes replay. No running engine + SIMULATION mode is
+        # exactly the frozen state halt() produces during off-hours.
+        assert market_data_mode.is_simulation(), (
+            "after a restart the pipeline must stay out of LIVE, even with "
+            "no engine running yet"
         )
         assert not ctrl_2.is_active
 
@@ -272,8 +279,10 @@ class TestRestartDuringSimulation:
             await ctrl.recover_orphaned_sessions(db)
             await db.commit()
 
-        # No replay task, no mode flip, and the clock did not move.
-        assert market_data_mode.is_live()
+        # No replay task and the clock did not move. Mode is held at
+        # SIMULATION (not flipped to LIVE) so a stray websocket tick still
+        # cannot reach the pipeline before the auto worker's next poll.
+        assert market_data_mode.is_simulation()
         assert not ctrl.is_active
 
         async with persistent_db() as db:

@@ -346,8 +346,10 @@ class TestRestartDuringMarketHours:
     ):
         """
         After a restart, recover_orphaned_sessions leaves the DB session
-        PAUSED and the mode LIVE. If the market is OPEN, this worker's very
-        next poll must get the site replaying again with no operator action.
+        PAUSED and holds the mode at SIMULATION (never LIVE — see
+        SimulationController.recover_orphaned_sessions' docstring) with no
+        engine running. If the market is OPEN, this worker's very next poll
+        must get the site replaying again with no operator action.
         """
         from services.simulation_control import SimulationController
 
@@ -358,7 +360,7 @@ class TestRestartDuringMarketHours:
         async with session_factory() as db:
             await ctrl.recover_orphaned_sessions(db)
             await db.commit()
-        assert market_data_mode.is_live()
+        assert market_data_mode.is_simulation()
         assert not historical_replay_engine.is_running
 
         worker, patches = _worker(session_factory, MarketState.OPEN)
