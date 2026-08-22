@@ -67,6 +67,50 @@ class SimulationController:
         logger.info(f"Simulation started for {target} at {speed}x")
         return self.status()
 
+    async def halt(self, db=None) -> dict:
+        """
+        End the replay clock WITHOUT returning the pipeline to LIVE.
+
+        This is the terminal state used by the automatic session-driven
+        worker (workers/auto_simulation_worker.py) at market close. It
+        differs from stop() in exactly one way: MarketDataMode stays
+        SIMULATION.
+
+        Why that matters under the "no live data, ever" architecture:
+        zebu_provider._handle_tick hard-drops incoming websocket ticks only
+        while the mode is SIMULATION. If we flipped back to LIVE at 15:30,
+        a still-connected Zebu socket would immediately begin writing real
+        market prices into the cache after hours — precisely what must
+        never happen now.
+
+        Freezing is a side effect of doing nothing, not of extra work:
+            - HistoricalReplayEngine.stop() only stops the clock; it never
+              clears _state or the published quotes.
+            - Replay writes into the same Redis keys live ticks do, and
+              cache/redis_client._get_price_ttl() switches to
+              PRICE_TTL_CLOSED (24h) the moment market_session leaves OPEN,
+              so the last replayed quote persists and is served through the
+              existing _enrich_frozen_day_change_payload() path.
+
+        stop() is retained unchanged for the admin routes, where returning
+        to LIVE is an explicit operator decision.
+        """
+        await historical_replay_engine.stop(db)
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except (asyncio.CancelledError, Exception):
+                pass
+        self._task = None
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        logger.info(
+            "Simulation halted; replay clock stopped and last state frozen "
+            "(market data mode intentionally held at SIMULATION)"
+        )
+        return self.status()
+
     async def recover_orphaned_sessions(self, db) -> dict:
         """
         Reconcile DB simulation state with reality after a process restart.

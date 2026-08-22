@@ -113,6 +113,52 @@ class TestSimulationController:
 
         await ctrl.stop(db)
 
+    async def test_halt_stops_replay_but_holds_simulation_mode(self, db):
+        """
+        halt() is the automatic (session-driven) terminal state, and differs
+        from stop() in exactly one way: the mode stays SIMULATION so the
+        live Zebu tick path remains hard-blocked after hours.
+        """
+        ctrl = SimulationController()
+        await _seed(db, "HALTCO", "4005")
+
+        await ctrl.start(db, SIM_DATE)
+        assert market_data_mode.is_simulation()
+
+        status = await ctrl.halt(db)
+
+        assert not historical_replay_engine.is_running, "the clock must stop"
+        assert market_data_mode.is_simulation(), (
+            "halt must NOT return to LIVE — there is no live data source now"
+        )
+        assert status["market_data_mode"] == "simulation"
+        assert not ctrl.is_active
+
+    async def test_halt_leaves_replayed_state_intact(self, db):
+        """Freezing relies on halt() not erasing what was already replayed."""
+        ctrl = SimulationController()
+        await _seed(db, "FREEZECO", "4006")
+
+        await ctrl.start(db, SIM_DATE)
+        await historical_replay_engine.advance_to(_epoch(9, 16))
+        before = historical_replay_engine.get_current_quote("NSE:FREEZECO")
+        assert before is not None
+
+        await ctrl.halt(db)
+
+        after = historical_replay_engine.get_current_quote("NSE:FREEZECO")
+        assert after is not None
+        assert after["price"] == before["price"]
+
+    async def test_stop_still_returns_to_live_for_admin_use(self, db):
+        """The manual admin path is deliberately unchanged."""
+        ctrl = SimulationController()
+        await _seed(db, "ADMINCO", "4007")
+
+        await ctrl.start(db, SIM_DATE)
+        await ctrl.stop(db)
+        assert market_data_mode.is_live()
+
     async def test_status_is_readable_before_any_simulation(self):
         ctrl = SimulationController()
         status = ctrl.status()
