@@ -308,10 +308,16 @@ def _replay_option_quote(tsym: str, token: str) -> Optional[dict]:
     Replayed option-leg quote when MarketDataMode is SIMULATION.
 
     Returns a Zebu /GetQuotes-shaped dict (so _normalize_zebu_quote_payload
-    works unchanged), or None to fall through to the live REST path.
+    works unchanged).
 
     In LIVE mode this always returns None immediately, leaving today's
-    behavior untouched.
+    behavior untouched — None means "not handled here, run the REST path".
+
+    In SIMULATION mode it NEVER returns None. If replay holds no state for
+    this leg, it returns an explicit empty quote instead, because returning
+    None here would let the caller fall through to Zebu's live /GetQuotes
+    and quietly price a simulated chain off REAL market data. An option
+    with no replayed history must render as "no data", not as a live quote.
     """
     try:
         from core.market_data_mode import market_data_mode
@@ -321,10 +327,41 @@ def _replay_option_quote(tsym: str, token: str) -> Optional[dict]:
 
         from services.historical_replay import historical_replay_engine
 
-        return historical_replay_engine.get_option_quote(tsym, token)
+        replayed = historical_replay_engine.get_option_quote(tsym, token)
+        if replayed is not None:
+            return replayed
+
+        return _empty_replay_option_quote(tsym, token)
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug(f"Replay option quote lookup failed for {tsym or token}: {exc}")
+        # Even on error, SIMULATION must not fall through to live data.
+        try:
+            from core.market_data_mode import market_data_mode
+
+            if market_data_mode.is_simulation():
+                return _empty_replay_option_quote(tsym, token)
+        except Exception:
+            pass
         return None
+
+
+def _empty_replay_option_quote(tsym: str, token: str) -> dict:
+    """
+    A structurally valid but empty option quote: the SIMULATION-mode answer
+    for a leg with no replayed history. Zeroed prices, never live values.
+    """
+    return {
+        "tsym": str(tsym or "").upper(),
+        "token": str(token or ""),
+        "lp": 0,
+        "c": 0,
+        "v": 0,
+        "oi": 0,
+        "bid": 0,
+        "ask": 0,
+        "stat": "Ok",
+        "source": "historical_replay_no_data",
+    }
 
 
 _HISTORY_PERIOD_DAYS = {

@@ -165,8 +165,14 @@ class TestOptionsChainModeSwitching:
         assert got is not None
         assert got["lp"] == 120.5
 
-    def test_simulation_mode_without_replay_data_falls_through_to_live(self):
-        """No replayed state -> None -> existing REST path still handles it."""
+    def test_simulation_mode_without_replay_data_never_falls_through_to_live(self):
+        """
+        No replayed state must NOT return None in SIMULATION mode.
+
+        Returning None would let the caller drop through to Zebu's live
+        /GetQuotes and price a simulated chain off real market data. The
+        correct answer is an explicit empty quote: "no data", zeroed.
+        """
         from routes.options import _replay_option_quote
 
         market_data_mode.set_mode(MarketDataMode.SIMULATION)
@@ -174,7 +180,14 @@ class TestOptionsChainModeSwitching:
             "services.historical_replay.historical_replay_engine.get_option_quote",
             return_value=None,
         ):
-            assert _replay_option_quote("UNKNOWNCE", "999") is None
+            got = _replay_option_quote("UNKNOWNCE", "999")
+
+        assert got is not None, (
+            "SIMULATION mode must never fall through to the live REST path"
+        )
+        assert got["lp"] == 0, "an unknown leg must price as zero, not live"
+        assert got["oi"] == 0
+        assert got["source"] == "historical_replay_no_data"
 
     def test_replayed_quote_normalizes_into_option_side(self):
         """A replay-shaped quote must flow through the existing normalizer."""

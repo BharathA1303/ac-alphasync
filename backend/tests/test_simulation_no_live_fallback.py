@@ -215,6 +215,59 @@ class TestQuoteReadsNeverFallBackToLive:
         assert result["price"] == 2500.0
 
 
+class TestOptionsChainNeverReachesLiveRest:
+    """
+    The options chain is the one surface with a live REST fallback baked
+    into its normal flow, so it gets its own guard.
+    """
+
+    def test_unknown_leg_yields_empty_quote_not_none(self):
+        """
+        None is the signal that means "fall through to live /GetQuotes".
+        In SIMULATION mode that signal must never be produced.
+        """
+        from routes.options import _replay_option_quote
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        with patch(
+            "services.historical_replay.historical_replay_engine.get_option_quote",
+            return_value=None,
+        ):
+            got = _replay_option_quote("NOSUCH24000CE", "0")
+
+        assert got is not None
+        assert got["lp"] == 0
+        assert got["source"] == "historical_replay_no_data"
+
+    def test_lookup_failure_still_does_not_fall_through(self):
+        """Even an exception must not open the door to live data."""
+        from routes.options import _replay_option_quote
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        with patch(
+            "services.historical_replay.historical_replay_engine.get_option_quote",
+            side_effect=RuntimeError("engine exploded"),
+        ):
+            got = _replay_option_quote("BOOM24000CE", "1")
+
+        assert got is not None, (
+            "a replay lookup error must not degrade into a live quote"
+        )
+        assert got["lp"] == 0
+
+    def test_live_mode_still_returns_none_to_use_the_rest_path(self):
+        """LIVE behavior must be completely unchanged."""
+        from routes.options import _replay_option_quote
+
+        assert market_data_mode.is_live()
+        with patch(
+            "services.historical_replay.historical_replay_engine.get_option_quote",
+            return_value={"lp": 42.0},
+        ) as lookup:
+            assert _replay_option_quote("NIFTY24000CE", "1234") is None
+            lookup.assert_not_called()
+
+
 class TestNoOrderPlacementInSimulationCode:
     """
     Static proof that nothing in the replay/download/simulation surface can
