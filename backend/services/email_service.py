@@ -289,49 +289,49 @@ async def send_phone_otp_email(to_email: str, otp: str, phone_last4: str) -> boo
 async def send_password_reset_email(to_email: str, user_name: str, reset_link: str) -> bool:
     """Send a password-reset link to a direct-auth user."""
     html = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;padding:40px 20px;margin:0">
-    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:16px;
-                border:1px solid rgba(6,182,212,0.2);overflow:hidden">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);padding:28px 32px">
-            <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.02em">
-                AlphaSync
-            </div>
-            <div style="font-size:.85rem;color:rgba(255,255,255,.75);margin-top:4px">
-                Password Reset Request
-            </div>
-        </div>
-        <!-- Body -->
-        <div style="padding:32px">
-            <p style="margin:0 0 20px;font-size:.95rem;color:#cbd5e1;line-height:1.65">
-                Hi {user_name}, we received a request to reset the password for your
-                AlphaSync account. Click the button below to choose a new password.
-            </p>
-            <div style="text-align:center;margin:28px 0">
-                <a href="{reset_link}"
-                   style="display:inline-block;background:#06b6d4;color:#0f172a;
-                          font-weight:700;font-size:.95rem;padding:14px 32px;
-                          border-radius:10px;text-decoration:none">
-                    Reset Password
-                </a>
-            </div>
-            <p style="margin:0 0 8px;font-size:.82rem;color:#64748b;text-align:center">
-                ⏱ This link is valid for <strong>30 minutes</strong> &nbsp;·&nbsp;
-                🔒 One-time use only
-            </p>
-            <hr style="border:none;border-top:1px solid rgba(255,255,255,.07);margin:24px 0">
-            <p style="margin:0;font-size:.78rem;color:#475569;line-height:1.6">
-                If you did not request a password reset, you can safely ignore this
-                email — your account remains secure and your password will not change.
-            </p>
-        </div>
-        <!-- Footer -->
-        <div style="background:#0f172a;padding:16px 32px;
-                    font-size:.73rem;color:#334155;text-align:center">
-            © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
-        </div>
-    </div>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;background:#060D1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#060D1A;padding:40px 20px;">
+    <tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#0B1524;border-radius:16px;border:1px solid rgba(0,182,122,0.2);overflow:hidden;">
+      <tr><td style="padding:32px 36px 8px;">
+        <div style="font-size:1.4rem;font-weight:800;color:#F8FAFC;letter-spacing:-.02em;">AlphaSync</div>
+        <div style="width:44px;height:3px;background:linear-gradient(90deg,#00B67A,#009B68);border-radius:2px;margin:10px 0 4px;"></div>
+        <div style="font-size:.85rem;color:#8FA3BF;margin-top:8px;">Password Reset Request</div>
+      </td></tr>
+      <tr><td style="padding:20px 36px 8px;">
+        <p style="margin:0 0 22px;font-size:.95rem;color:#CBD5E1;line-height:1.65;">
+          Hi <strong style="color:#F8FAFC;">{user_name}</strong>, we received a request to reset the
+          password for your AlphaSync account. Click the button below to choose a new one.
+        </p>
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+          <tr><td style="border-radius:10px;background:linear-gradient(135deg,#00B67A,#009B68);">
+            <a href="{reset_link}" style="display:inline-block;padding:14px 36px;font-weight:700;
+               font-size:.95rem;color:#04140D;text-decoration:none;border-radius:10px;">
+              Reset Password
+            </a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 8px;font-size:.8rem;color:#64748B;text-align:center;">
+          Valid for <strong style="color:#00B67A;">30 minutes</strong> &nbsp;·&nbsp; One-time use only
+        </p>
+      </td></tr>
+      <tr><td style="padding:20px 36px 28px;border-top:1px solid rgba(148,163,184,0.08);">
+        <p style="margin:0;font-size:.78rem;color:#475569;line-height:1.6;">
+          If you did not request a password reset, you can safely ignore this email —
+          your account remains secure and your password will not change.
+        </p>
+      </td></tr>
+      <tr><td style="padding:16px 36px;background:#060D1A;">
+        <p style="color:#334155;font-size:.72rem;margin:0;text-align:center;">
+          © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
+        </p>
+      </td></tr>
+    </table>
+    </td></tr>
+    </table>
     </body>
     </html>
     """
@@ -342,27 +342,44 @@ def send_password_reset_confirmation_email(user):
     """Notify the user that their password was successfully changed."""
     user_name = user.full_name or user.username
     html = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family:'Inter',sans-serif;background:#0f172a;color:#e2e8f0;padding:40px 20px;margin:0">
-    <div style="max-width:520px;margin:0 auto;background:#1e293b;border-radius:16px;
-                border:1px solid rgba(6,182,212,0.2);overflow:hidden">
-        <div style="background:linear-gradient(135deg,#06b6d4,#0284c7);padding:28px 32px">
-            <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.02em">AlphaSync</div>
-            <div style="font-size:.85rem;color:rgba(255,255,255,.75);margin-top:4px">Password Changed</div>
-        </div>
-        <div style="padding:32px">
-            <p style="margin:0 0 16px;font-size:.95rem;color:#cbd5e1;line-height:1.65">
-                Hi {user_name}, your AlphaSync account password was just changed successfully.
-            </p>
-            <p style="margin:0;font-size:.82rem;color:#64748b;line-height:1.6">
-                If you did not make this change, please contact support immediately —
-                your account may be at risk.
-            </p>
-        </div>
-        <div style="background:#0f172a;padding:16px 32px;font-size:.73rem;color:#334155;text-align:center">
-            © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
-        </div>
-    </div>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;background:#060D1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#060D1A;padding:40px 20px;">
+    <tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#0B1524;border-radius:16px;border:1px solid rgba(0,182,122,0.2);overflow:hidden;">
+      <tr><td style="padding:32px 36px 8px;">
+        <div style="font-size:1.4rem;font-weight:800;color:#F8FAFC;letter-spacing:-.02em;">AlphaSync</div>
+        <div style="width:44px;height:3px;background:linear-gradient(90deg,#00B67A,#009B68);border-radius:2px;margin:10px 0 4px;"></div>
+        <div style="font-size:.85rem;color:#8FA3BF;margin-top:8px;">Password Changed</div>
+      </td></tr>
+      <tr><td style="padding:20px 36px 8px;">
+        <table cellpadding="0" cellspacing="0" style="margin:4px 0 22px;">
+          <tr>
+            <td style="width:40px;height:40px;border-radius:999px;background:rgba(0,182,122,0.12);text-align:center;vertical-align:middle;">
+              <span style="color:#00B67A;font-size:1.1rem;line-height:40px;">&#10003;</span>
+            </td>
+            <td style="padding-left:14px;">
+              <p style="margin:0;font-size:.95rem;color:#CBD5E1;line-height:1.55;">
+                Hi <strong style="color:#F8FAFC;">{user_name}</strong>, your AlphaSync password was
+                just changed successfully.
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 4px;font-size:.82rem;color:#64748B;line-height:1.6;">
+          If you did not make this change, please contact support immediately — your account may be at risk.
+        </p>
+      </td></tr>
+      <tr><td style="padding:16px 36px;background:#060D1A;">
+        <p style="color:#334155;font-size:.72rem;margin:0;text-align:center;">
+          © AlphaSync &nbsp;·&nbsp; This is an automated message — do not reply.
+        </p>
+      </td></tr>
+    </table>
+    </td></tr>
+    </table>
     </body>
     </html>
     """
