@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from time import monotonic as _monotonic
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
@@ -91,6 +92,10 @@ class HistoricalReplayEngine:
         self._session_id = None
         self._simulation_date: Optional[date] = None
         self._sim_epoch: Optional[int] = None
+        # Sub-second remainder carried between ticks so fractional speeds
+        # (and non-integer speed changes) never truncate away. Without this
+        # an int() per tick makes speed=0.5 stall the clock entirely.
+        self._sim_fraction: float = 0.0
         self._speed: float = 1.0
         self._status: str = SIM_READY
         self._instruments: dict[str, ReplayInstrument] = {}
@@ -151,6 +156,7 @@ class HistoricalReplayEngine:
         """
         self._simulation_date = simulation_date
         self._speed = float(speed) if speed and float(speed) > 0 else 1.0
+        self._sim_fraction = 0.0
         self._instruments.clear()
         self._state.clear()
         self._by_trading_symbol.clear()
@@ -382,9 +388,15 @@ class HistoricalReplayEngine:
         change = round(close - day_open, 2)
         change_pct = round((change / day_open) * 100.0, 2) if day_open else 0.0
 
-        cumulative_volume = sum(
-            c["volume"] for c in track.candles[: track.cursor + 1]
-        ) if track.cursor >= 0 else candle["volume"]
+        # Running session high/low up to the current cursor — matches the
+        # equity builder. Using the single candle's high/low here would make
+        # the reported day range collapse to one minute's range.
+        elapsed = track.candles[: track.cursor + 1] if track.cursor >= 0 else []
+        day_high = max((c["high"] for c in elapsed), default=candle["high"])
+        day_low = min((c["low"] for c in elapsed), default=candle["low"])
+        cumulative_volume = (
+            sum(c["volume"] for c in elapsed) if elapsed else candle["volume"]
+        )
 
         oi = candle["open_interest"]
         return {
@@ -399,8 +411,8 @@ class HistoricalReplayEngine:
             "volume": int(cumulative_volume),
             "oi": int(oi) if oi is not None else prev.get("oi", 0),
             "open": day_open,
-            "high": candle["high"],
-            "low": candle["low"],
+            "high": day_high,
+            "low": day_low,
             "close": day_open,
             "change": change,
             "percent_change": change_pct,
@@ -501,6 +513,23 @@ class HistoricalReplayEngine:
         self._stats["ticks"] += 1
         return advanced
 
+    def _advance_clock(self, elapsed_wall_seconds: float) -> int:
+        """
+        Next simulated epoch after `elapsed_wall_seconds` of real time.
+
+        simulated_delta = elapsed_wall * speed, with the sub-second
+        remainder carried across ticks so fractional speeds accumulate
+        correctly instead of being truncated to zero every iteration.
+
+        This is a single clock shared by ALL instruments — advance_to()
+        then moves every track to the same simulated instant, so no
+        instrument can run on an independent timer.
+        """
+        delta = float(elapsed_wall_seconds) * float(self._speed) + self._sim_fraction
+        whole = int(delta)
+        self._sim_fraction = delta - whole
+        return int(self._sim_epoch or 0) + whole
+
     def session_end_epoch(self) -> Optional[int]:
         if not self._simulation_date:
             return None
@@ -543,6 +572,9 @@ class HistoricalReplayEngine:
         if value <= 0:
             raise ValueError("speed must be positive")
         self._speed = value
+        # Drop any partial second accumulated at the previous speed so the
+        # new rate takes effect cleanly from this instant.
+        self._sim_fraction = 0.0
         return self._speed
 
     async def _persist_status(self, db, ended: bool = False) -> None:
@@ -585,10 +617,18 @@ class HistoricalReplayEngine:
             return
 
         logger.info("Replay loop running")
+        last_wall = _monotonic()
         while self._running:
             try:
                 await asyncio.sleep(TICK_INTERVAL_SEC)
                 self._stats["loops"] += 1
+
+                # Measure ACTUAL elapsed wall time. asyncio.sleep only
+                # guarantees a lower bound, so assuming a fixed tick would
+                # let the simulated clock drift behind real time under load.
+                now_wall = _monotonic()
+                elapsed = now_wall - last_wall
+                last_wall = now_wall
 
                 if self._status != SIM_RUNNING:
                     continue
@@ -597,9 +637,7 @@ class HistoricalReplayEngine:
                 if not market_data_mode.is_simulation():
                     continue
 
-                next_epoch = int(
-                    (self._sim_epoch or 0) + SIM_SECONDS_PER_TICK * self._speed
-                )
+                next_epoch = self._advance_clock(elapsed)
                 if next_epoch > end_epoch:
                     await self.advance_to(end_epoch)
                     logger.info("Replay reached session end")
@@ -623,6 +661,7 @@ class HistoricalReplayEngine:
         self._session_id = None
         self._simulation_date = None
         self._sim_epoch = None
+        self._sim_fraction = 0.0
         self._speed = 1.0
         self._instruments.clear()
         self._state.clear()

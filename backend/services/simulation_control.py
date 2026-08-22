@@ -13,7 +13,14 @@ import logging
 from datetime import date
 from typing import Optional
 
+from sqlalchemy import select
+
 from core.market_data_mode import MarketDataMode, market_data_mode
+from models.market_data import (
+    SIM_PAUSED,
+    SIM_RUNNING,
+    SimulationSession,
+)
 from services.historical_downloader import latest_complete_trading_day
 from services.historical_replay import historical_replay_engine
 
@@ -59,6 +66,64 @@ class SimulationController:
 
         logger.info(f"Simulation started for {target} at {speed}x")
         return self.status()
+
+    async def recover_orphaned_sessions(self, db) -> dict:
+        """
+        Reconcile DB simulation state with reality after a process restart.
+
+        The replay engine lives entirely in memory. After a restart the
+        process starts in LIVE mode with no engine, but the DB may still
+        hold a session marked RUNNING from before the crash/restart. That
+        combination is a lie: the UI would report an active simulation
+        while the live Zebu feed drives the pipeline.
+
+        Safe behavior — deliberately NOT auto-resume:
+            RUNNING -> PAUSED, preserving simulation_date/simulation_time.
+
+        Auto-resuming would silently restart a market simulation nobody
+        asked for (and, at speed, race far ahead of where it stopped).
+        An operator must explicitly restart it. The simulated clock
+        position is preserved so nothing is lost.
+
+        Portfolio/holding/order rows are never touched here.
+        """
+        stale = (
+            await db.execute(
+                select(SimulationSession).where(
+                    SimulationSession.status == SIM_RUNNING
+                )
+            )
+        ).scalars().all()
+
+        recovered = []
+        for session in stale:
+            session.status = SIM_PAUSED
+            recovered.append(
+                {
+                    "id": str(session.id),
+                    "simulation_date": str(session.simulation_date),
+                    "simulation_time": (
+                        session.simulation_time.isoformat()
+                        if session.simulation_time
+                        else None
+                    ),
+                }
+            )
+
+        if recovered:
+            await db.flush()
+            logger.warning(
+                "Recovered %d orphaned RUNNING simulation session(s) after "
+                "restart; marked PAUSED. Explicit resume required — market "
+                "data mode stays LIVE until then.",
+                len(recovered),
+            )
+
+        # The in-memory engine holds nothing after a restart, so the mode
+        # must be LIVE regardless of what the DB said.
+        market_data_mode.set_mode(MarketDataMode.LIVE)
+
+        return {"recovered": recovered, "count": len(recovered)}
 
     async def stop(self, db=None) -> dict:
         """Stop replaying and return the pipeline to the live Zebu feed."""

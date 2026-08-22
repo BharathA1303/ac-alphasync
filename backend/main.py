@@ -269,6 +269,25 @@ async def lifespan(app: FastAPI):
             "ZeroLoss restore skipped — market session is %s",
             market_session.get_current_state().value,
         )
+    # ── Simulation restart recovery ────────────────────────────────
+    # The replay engine is in-memory only. If the process restarted while a
+    # simulation was RUNNING, the DB still says RUNNING but no engine exists.
+    # Reconcile to PAUSED (explicit resume required) so the UI can never
+    # report an active simulation while live data drives the pipeline.
+    try:
+        from services.simulation_control import simulation_controller
+
+        async with async_session_factory() as db:
+            recovery = await simulation_controller.recover_orphaned_sessions(db)
+            await db.commit()
+        if recovery["count"]:
+            logger.warning(
+                "Simulation restart recovery: %d session(s) marked PAUSED",
+                recovery["count"],
+            )
+    except Exception as exc:
+        logger.error(f"Simulation restart recovery failed: {exc}", exc_info=True)
+
     background_tasks.extend(
         [
             asyncio.create_task(market_data_worker.run()),

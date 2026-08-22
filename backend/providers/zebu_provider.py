@@ -407,6 +407,24 @@ class ZebuProvider(MarketProvider):
         (e.g., "c" prev_close is only in the initial "tk" ack). We must
         merge with the previous tick to preserve values like prev_close.
         """
+        # ── SIMULATION mode guard ──────────────────────────────────
+        # When the market data mode is SIMULATION the quote pipeline is
+        # driven exclusively by HistoricalReplayEngine. A live websocket
+        # tick arriving here (the socket may still be connected, e.g. the
+        # mode was flipped mid-session) must NEVER reach quote_coordinator,
+        # the EventBus, or the price cache — otherwise real market prices
+        # would silently mix into a replayed session.
+        #
+        # This is a hard drop, not a fallback: if replay has no data for an
+        # instrument, the correct outcome is "no data", never live data.
+        try:
+            from core.market_data_mode import market_data_mode
+
+            if market_data_mode.is_simulation():
+                return
+        except Exception:  # pragma: no cover - defensive
+            pass
+
         token = data.get("tk", "")
         exchange = str(data.get("e") or "").strip().upper()
         canonical = zebu_token_to_canonical(token, exchange=exchange)
