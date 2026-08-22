@@ -983,24 +983,79 @@ export default function LoginPage() {
 
                   {inviteInfo ? (
                     <>
-                      <h3 className="step3-title">Account Verified</h3>
-                      <p className="step3-headline">
-                        WELCOME TO {(inviteInfo.institutionName || "").toUpperCase()}
-                      </p>
-                      <p className="step3-subtitle">
-                        Your account has been created as{" "}
-                        <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>.
-                        You're all set to get started.
-                      </p>
+                      {(() => {
+                        const instName = (inviteInfo.institutionName || "").toUpperCase();
+                        const ROLE_COMPLETE_COPY = {
+                          institution_admin: {
+                            headline: `COMMAND CENTER UNLOCKED — ${instName}`,
+                            subtitle: (
+                              <>
+                                You're now the <strong>Institution Admin</strong> for{" "}
+                                <strong>{inviteInfo.institutionName}</strong>. Invite faculty and
+                                students, track every trade, and build your campus trading floor.
+                                Your dashboard is ready.
+                              </>
+                            ),
+                            cta: "ENTER COMMAND CENTER",
+                            tagline: `"Every great trading floor starts with one admin." — ${inviteInfo.institutionName}`,
+                          },
+                          faculty: {
+                            headline: `WELCOME TO THE FACULTY LOUNGE — ${instName}`,
+                            subtitle: (
+                              <>
+                                You've joined <strong>{inviteInfo.institutionName}</strong> as{" "}
+                                <strong>Faculty</strong>, with{" "}
+                                <strong>₹10,00,000 virtual capital</strong> to teach, trade, and
+                                lead by example. Time to inspire the next generation of traders.
+                              </>
+                            ),
+                            cta: "STEP INTO THE CLASSROOM",
+                            tagline: '"The best traders never stop teaching." — AlphaSync Campus',
+                          },
+                          student: {
+                            headline: `WELCOME ABOARD, ${instName} TRADER`,
+                            subtitle: (
+                              <>
+                                You're officially enrolled at <strong>{inviteInfo.institutionName}</strong>{" "}
+                                with <strong>₹10,00,000 virtual capital</strong> to learn, backtest,
+                                and trade — zero risk, all upside. Class is in session.
+                              </>
+                            ),
+                            cta: "START MY FIRST TRADE",
+                            tagline: '"Every legend started as a student." — AlphaSync Campus',
+                          },
+                        };
+                        const copy = ROLE_COMPLETE_COPY[inviteInfo.targetRole] || {
+                          headline: `WELCOME TO ${instName}`,
+                          subtitle: (
+                            <>
+                              Your account has been created as{" "}
+                              <strong>{INVITE_ROLE_LABELS[inviteInfo.targetRole] || inviteInfo.targetRole}</strong>.
+                              You're all set to get started.
+                            </>
+                          ),
+                          cta: "Continue",
+                          tagline: null,
+                        };
+                        return (
+                          <>
+                            <h3 className="step3-title">Account Verified</h3>
+                            <p className="step3-headline">{copy.headline}</p>
+                            <p className="step3-subtitle">{copy.subtitle}</p>
 
-                      <button
-                        id="launch-campus-btn"
-                        type="button"
-                        className="lp-btn-primary step3-cta"
-                        onClick={handleEnterCampus}
-                      >
-                        Continue
-                      </button>
+                            <button
+                              id="launch-campus-btn"
+                              type="button"
+                              className="lp-btn-primary step3-cta"
+                              onClick={handleEnterCampus}
+                            >
+                              <i className="fa fa-bolt" />&nbsp;{copy.cta}
+                            </button>
+
+                            {copy.tagline && <p className="step3-tagline">{copy.tagline}</p>}
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     <>
