@@ -405,6 +405,7 @@ from routes.broker import router as broker_router
 from routes.admin import router as admin_router
 from routes.futures import router as futures_router
 from routes.options import router as options_router
+from routes.simulation import router as simulation_router
 from routes.mentor import router as mentor_router
 from routes.bug_reports import router as bug_reports_router
 from routes.feedback import router as feedback_router
@@ -425,6 +426,7 @@ app.include_router(broker_router)
 app.include_router(admin_router)
 app.include_router(futures_router)
 app.include_router(options_router)
+app.include_router(simulation_router)
 app.include_router(mentor_router)
 app.include_router(bug_reports_router)
 app.include_router(feedback_router)

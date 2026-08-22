@@ -294,6 +294,53 @@ class TestCarryForwardSemantics:
         assert engine.get_current_quote("UNTRADEDCO") is None
         engine.reset()
 
+    async def test_running_day_aggregates_are_correct(self, db):
+        """
+        Day high/low must be the running session extremes and volume must be
+        cumulative — matching how live cumulative-volume ticks behave.
+        """
+        engine = HistoricalReplayEngine()
+        inst = await _make_instrument(db, "AGGCO", "EQUITY", "7810")
+        # (hh, mm, o, h, l, c, v) written directly for precise control.
+        for k, (o, h, l, c, v) in enumerate(
+            [(100, 102, 99, 101, 10), (101, 103, 95, 96, 20), (96, 120, 96, 118, 30)]
+        ):
+            db.add(
+                HistoricalCandle(
+                    instrument_id=inst.id,
+                    trading_date=SIM_DATE,
+                    timestamp=datetime.fromtimestamp(_epoch(9, 15 + k), tz=timezone.utc),
+                    open=o, high=h, low=l, close=c, volume=v,
+                    source="zebu_tp_series",
+                )
+            )
+        await db.flush()
+        await engine.load_session(db, SIM_DATE)
+
+        seen = []
+
+        async def _capture(symbol, quote, **kwargs):
+            seen.append(quote)
+            return True
+
+        with patch(
+            "market.quote_coordinator.quote_coordinator.ingest_equity_quote",
+            new=AsyncMock(side_effect=_capture),
+        ):
+            for k in range(3):
+                await engine.advance_to(_epoch(9, 15 + k))
+
+        assert [q["price"] for q in seen] == [101.0, 96.0, 118.0]
+        # Running extremes, not per-bar values.
+        assert [q["high"] for q in seen] == [102.0, 103.0, 120.0]
+        assert [q["low"] for q in seen] == [99.0, 95.0, 95.0]
+        # Cumulative session volume.
+        assert [q["volume"] for q in seen] == [10, 30, 60]
+        # Day open is stable; change is measured from it.
+        assert all(q["open"] == 100.0 for q in seen)
+        assert [q["change"] for q in seen] == [1.0, -4.0, 18.0]
+        engine.reset()
+
     async def test_ohlc_values_come_verbatim_from_stored_candles(self, db):
         engine = HistoricalReplayEngine()
         inst = await _make_instrument(db, "VERBATIMCO", "FUTURES", "7801", exchange="NFO")
