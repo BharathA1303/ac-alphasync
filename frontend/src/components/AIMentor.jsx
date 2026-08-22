@@ -3,6 +3,7 @@ import { Bot, ChevronDown, Clipboard, Loader2, Send, Sparkles, Star, Trash2, Use
 import api from '../services/api';
 import { cn } from '../utils/cn';
 import toast from 'react-hot-toast';
+import MentorMarkdown from './MentorMarkdown';
 
 const QUICK_PROMPTS = [
   'How do I avoid revenge trading?',
@@ -265,10 +266,10 @@ const AIMentor = () => {
                     {msg.type === 'user' ? <UserRound className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
 
-                  <div className="group max-w-xs sm:max-w-sm">
+                  <div className="group max-w-[85%] sm:max-w-sm">
                     <div
                       className={cn(
-                        'p-3 rounded-2xl text-sm leading-relaxed border shadow-lg',
+                        'p-3 rounded-2xl text-sm leading-relaxed border shadow-lg max-w-full overflow-hidden',
                         msg.type === 'user'
                           ? 'bg-gradient-to-br from-cyan-400 to-blue-500 text-white border-cyan-200/40 rounded-br-md'
                           : msg.type === 'error'
@@ -276,7 +277,11 @@ const AIMentor = () => {
                             : 'bg-white/12 text-cyan-50 border-white/20 rounded-bl-md'
                       )}
                     >
-                      {msg.content}
+                      {msg.type === 'user' ? (
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      ) : (
+                        <MentorMarkdown content={msg.content} />
+                      )}
                       <span className="block text-[10px] mt-1.5 opacity-80">{formatTime(msg.timestamp)}</span>
                     </div>
 

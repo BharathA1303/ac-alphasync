@@ -23,6 +23,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useIsLgUp } from '../responsive/hooks/useMediaQuery';
 import { cn } from '../utils/cn';
 import toast from 'react-hot-toast';
+import MentorMarkdown from '../components/MentorMarkdown';
 
 const makeConversation = (title = 'New chat') => ({
     id: `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -909,7 +910,11 @@ export default function AIMentorPage() {
                                                     msg.type === 'ai' && (msg.flagged ? (isDark ? 'bg-rose-950/40 border-rose-500/50 text-rose-100' : 'bg-rose-50 border-rose-200 text-rose-950') : ui.bubbleAi),
                                                     msg.type === 'error' && ui.bubbleError,
                                                 )}>
-                                                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                                    {msg.type === 'ai' || msg.type === 'error' ? (
+                                                        <MentorMarkdown content={msg.content} />
+                                                    ) : (
+                                                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                                    )}
                                                     <div className={cn('mt-1.5 flex items-center justify-end gap-1.5 text-[10px] opacity-80', ui.meta)}>
                                                         <span>{formatTime(msg.timestamp)}</span>
                                                         {msg.type === 'user' && <Check className="w-3 h-3" />}
