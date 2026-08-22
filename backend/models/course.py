@@ -1,0 +1,68 @@
+"""
+Faculty course-builder models — subjects/courses uploaded by faculty,
+approved by their Institution Admin, and scoped strictly to that institution.
+
+Lifecycle: faculty creates a Course (status="pending") -> institution_admin
+approves/rejects (status="approved"/"rejected") -> only "approved" courses
+are visible to students in that institution. Super Admin can view/delete
+across institutions but never approves.
+"""
+
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, text
+from sqlalchemy.dialects.postgresql import UUID
+from database.connection import Base
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
+
+
+class Course(Base):
+    __tablename__ = "courses"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    institution_id = Column(UUID(as_uuid=True), ForeignKey("institutions.id"), nullable=True, index=True)
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # "pending" | "approved" | "rejected"
+    status = Column(String(20), default="pending", nullable=False, server_default=text("'pending'"))
+    review_note = Column(Text, nullable=True)
+    reviewed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # platform-wide default courses (institution_id is NULL) ship with is_default=true
+    is_default = Column(Boolean, default=False, nullable=False, server_default=text("false"))
+
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class Lesson(Base):
+    __tablename__ = "lessons"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=True)  # markdown/plain text body
+    order_index = Column(Integer, default=0, nullable=False, server_default=text("0"))
+
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class Assessment(Base):
+    __tablename__ = "assessments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    title = Column(String(200), nullable=False)
+    instructions = Column(Text, nullable=True)
+    pass_score = Column(Integer, default=70, nullable=False, server_default=text("70"))
+
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))

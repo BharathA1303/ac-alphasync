@@ -140,7 +140,13 @@ export default function LoginPage() {
         navigate("/institution/portal");
         return;
       }
-      if (role === "faculty" || role === "student") {
+      if (role === "faculty") {
+        localStorage.setItem("alphasync_trading_mode", "demo");
+        localStorage.setItem("alphasync_onboarded", "1");
+        navigate("/faculty/portal");
+        return;
+      }
+      if (role === "student") {
         localStorage.setItem("alphasync_trading_mode", "demo");
         localStorage.setItem("alphasync_onboarded", "1");
         navigate("/dashboard");
@@ -295,8 +301,11 @@ export default function LoginPage() {
   const handleEnterCampus = () => {
     localStorage.setItem("alphasync_trading_mode", "demo");
     localStorage.setItem("alphasync_onboarded", "1");
-    if ((registeredUser?.role || "").toLowerCase() === "institution_admin") {
+    const registeredRole = (registeredUser?.role || "").toLowerCase();
+    if (registeredRole === "institution_admin") {
       navigate("/institution/portal");
+    } else if (registeredRole === "faculty") {
+      navigate("/faculty/portal");
     } else {
       navigate("/dashboard");
     }

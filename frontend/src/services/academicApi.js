@@ -60,6 +60,23 @@ const academicApi = {
         return api.get(`/institution/student-stats/${studentId}`);
     },
 
+    // ── Institution Admin: course approval (this institution only) ──
+    listInstitutionCourses(params = {}) {
+        return api.get('/institution/courses', { params });
+    },
+
+    approveCourse(courseId, payload = {}) {
+        return api.post(`/institution/courses/${courseId}/approve`, payload);
+    },
+
+    rejectCourse(courseId, payload = {}) {
+        return api.post(`/institution/courses/${courseId}/reject`, payload);
+    },
+
+    deleteInstitutionCourse(courseId) {
+        return api.delete(`/institution/courses/${courseId}`);
+    },
+
     // ── Public invite lookup (registration banner) ─────────────────
     getInviteInfo(token) {
         return api.get('/auth/invite-info', { params: { token } });

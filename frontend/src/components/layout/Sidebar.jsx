@@ -318,6 +318,15 @@ export default function Sidebar({ collapsed, onToggle }) {
                   onNavigate={closeMobileDrawer}
                 />
               )}
+              {user?.role === 'faculty' && (
+                <SidebarItem
+                  to="/faculty/portal"
+                  icon={GraduationCap}
+                  label="Course Builder"
+                  collapsed={collapsed}
+                  onNavigate={closeMobileDrawer}
+                />
+              )}
             </div>
           ) : (
             <>
@@ -368,6 +377,20 @@ export default function Sidebar({ collapsed, onToggle }) {
                       to="/institution/portal"
                       icon={GraduationCap}
                       label="Institution Portal"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                  </div>
+                </div>
+              )}
+              {user?.role === 'faculty' && (
+                <div>
+                  <SectionLabel label="Academic" collapsed={collapsed} />
+                  <div className="space-y-0.5">
+                    <SidebarItem
+                      to="/faculty/portal"
+                      icon={GraduationCap}
+                      label="Course Builder"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
                     />

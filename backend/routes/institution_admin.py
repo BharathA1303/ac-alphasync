@@ -18,6 +18,7 @@ from database.connection import get_db
 from models.user import User
 from models.portfolio import Portfolio, Transaction
 from models.order import Order
+from models.course import Course, Lesson, Assessment
 from dependencies.institution import require_institution_admin
 from services import invite_service
 from services.invite_service import _as_uuid
@@ -33,6 +34,10 @@ class CreateMemberInviteRequest(BaseModel):
     target_role: str  # "faculty" | "student"
     expiry: str = "7d"
     max_uses: int = 0
+
+
+class ReviewCourseRequest(BaseModel):
+    review_note: Optional[str] = None
 
 
 @router.get("/dashboard")
@@ -257,3 +262,112 @@ async def get_student_stats(
             for tx in recent_transactions
         ],
     }
+
+
+# ── Course approval — faculty-uploaded subjects for this institution only ──
+
+def _course_out(course: Course, lesson_count: int = 0, assessment_count: int = 0, author_name: str = None) -> dict:
+    return {
+        "id": str(course.id),
+        "title": course.title,
+        "description": course.description,
+        "status": course.status,
+        "review_note": course.review_note,
+        "author_name": author_name,
+        "lesson_count": lesson_count,
+        "assessment_count": assessment_count,
+        "created_at": course.created_at.isoformat() if course.created_at else None,
+        "reviewed_at": course.reviewed_at.isoformat() if course.reviewed_at else None,
+    }
+
+
+async def _get_institution_course(db: AsyncSession, admin: User, course_id: str) -> Course:
+    course_uuid = _as_uuid(course_id)
+    course = await db.get(Course, course_uuid) if course_uuid else None
+    if not course or course.institution_id != admin.institution_id:
+        raise HTTPException(status_code=404, detail="Course not found in your institution")
+    return course
+
+
+@router.get("/courses")
+async def list_institution_courses(
+    status: Optional[str] = Query(None),
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    filters = [Course.institution_id == admin.institution_id]
+    if status:
+        if status not in ("pending", "approved", "rejected"):
+            raise HTTPException(status_code=400, detail="Invalid status filter")
+        filters.append(Course.status == status)
+
+    result = await db.execute(
+        select(Course, User.full_name)
+        .join(User, User.id == Course.created_by_user_id)
+        .where(*filters)
+        .order_by(Course.created_at.desc())
+    )
+    rows = result.all()
+    if not rows:
+        return {"courses": []}
+
+    course_ids = [c.id for c, _ in rows]
+    lesson_counts = dict((await db.execute(
+        select(Lesson.course_id, func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids)).group_by(Lesson.course_id)
+    )).all())
+    assessment_counts = dict((await db.execute(
+        select(Assessment.course_id, func.count(Assessment.id)).where(Assessment.course_id.in_(course_ids)).group_by(Assessment.course_id)
+    )).all())
+
+    return {
+        "courses": [
+            _course_out(c, lesson_counts.get(c.id, 0), assessment_counts.get(c.id, 0), author_name)
+            for c, author_name in rows
+        ]
+    }
+
+
+@router.post("/courses/{course_id}/approve")
+async def approve_course(
+    course_id: str,
+    req: ReviewCourseRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_institution_course(db, admin, course_id)
+    course.status = "approved"
+    course.review_note = req.review_note
+    course.reviewed_by_user_id = admin.id
+    course.reviewed_at = func.now()
+    await db.commit()
+    await db.refresh(course)
+    return _course_out(course)
+
+
+@router.post("/courses/{course_id}/reject")
+async def reject_course(
+    course_id: str,
+    req: ReviewCourseRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_institution_course(db, admin, course_id)
+    course.status = "rejected"
+    course.review_note = req.review_note
+    course.reviewed_by_user_id = admin.id
+    course.reviewed_at = func.now()
+    await db.commit()
+    await db.refresh(course)
+    return _course_out(course)
+
+
+@router.delete("/courses/{course_id}")
+async def delete_institution_course(
+    course_id: str,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_institution_course(db, admin, course_id)
+    await db.delete(course)
+    await db.commit()
+    return {"success": True}
