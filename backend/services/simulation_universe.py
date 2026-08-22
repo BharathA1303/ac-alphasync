@@ -1,17 +1,28 @@
 """
-Scoped instrument universe for historical download + replay.
+Instrument universe for historical download + replay.
 
-Deliberately small for this pass — prove the pipeline end-to-end before
-widening. Covers:
-    - NIFTY index (spot)
-    - RELIANCE, TCS equities
-    - NIFTY futures: current + next expiry
-    - NIFTY options: ATM +/- 10 strikes, current + next expiry
+The universe TRACKS THE APP'S REAL SUPPORTED SYMBOL SET rather than
+maintaining its own list. Sources, all of them existing production
+registries populated from the Zebu contract master at startup:
 
-Instrument discovery reuses existing systems:
-    - equities/index  -> providers.symbol_mapper.canonical_to_zebu
-    - futures         -> services.futures_contract_registry
-    - options         -> routes.options._load_zebu_option_contracts
+    equities/indices -> providers.symbol_mapper (_ZEBU_SYMBOL_MAP via
+                        get_all_zebu_tokens) — the same map the live quote
+                        pipeline resolves tokens through
+    futures          -> services.futures_contract_registry
+                        (underlying_to_contracts)
+    options          -> routes.options._load_zebu_option_contracts
+
+Because those registries grow to the full contract master in production,
+resolution is CAPPED. Downloading per-minute candles for the entire NSE
+would be a very expensive accident, so:
+
+    MAX_UNIVERSE_SIZE      hard ceiling on total instruments
+    MAX_EQUITY_INSTRUMENTS ceiling on equities specifically
+    UNIVERSE_OVERRIDE      explicit allow-list; when set, ONLY these
+                           symbols resolve (escape hatch for a small run)
+
+Caps are applied deterministically (sorted) so repeated runs pick the same
+instruments rather than drifting with dict ordering.
 """
 
 from __future__ import annotations
@@ -23,19 +34,34 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ── Scope for this pass ────────────────────────────────────────────
-SCOPED_EQUITIES = ["RELIANCE", "TCS"]
-SCOPED_INDICES = ["NIFTY"]
-SCOPED_OPTION_UNDERLYINGS = ["NIFTY"]
-SCOPED_FUTURES_UNDERLYINGS = ["NIFTY"]
+# ── Caps ───────────────────────────────────────────────────────────
+# Safety ceilings so a full contract master can never trigger a runaway
+# download. Tunable by callers via build_universe(...) arguments.
+MAX_UNIVERSE_SIZE = 250
+MAX_EQUITY_INSTRUMENTS = 100
+MAX_FUTURES_UNDERLYINGS = 10
+MAX_OPTION_UNDERLYINGS = 3
+
+# Explicit allow-list. Empty = "use the app's full supported set (capped)".
+# Set to e.g. ["RELIANCE", "TCS"] to pin a small, predictable run.
+UNIVERSE_OVERRIDE: list[str] = []
+
+# Underlyings whose option chains are worth replaying. Index options carry
+# the volume; equity option chains would multiply the universe enormously.
+PREFERRED_OPTION_UNDERLYINGS = ["NIFTY", "BANKNIFTY", "FINNIFTY"]
 
 # ATM +/- N strikes per expiry
 OPTION_STRIKE_WIDTH = 10
 # Current + next expiry
 EXPIRY_DEPTH = 2
 
-# Canonical symbol used across the quote pipeline for the NIFTY index.
-INDEX_CANONICAL = {"NIFTY": "^NSEI"}
+# Canonical symbols for the index spots, as used across the quote pipeline.
+INDEX_CANONICAL = {
+    "NIFTY": "^NSEI",
+    "BANKNIFTY": "^NSEBANK",
+    "FINNIFTY": "^CNXFIN",
+    "SENSEX": "^BSESN",
+}
 
 
 @dataclass
@@ -63,45 +89,106 @@ class UniverseInstrument:
         return f"{self.exchange}:{self.trading_symbol}".upper()
 
 
-def _equity_instruments() -> list[UniverseInstrument]:
-    """Resolve scoped equities via the existing Zebu symbol mapper."""
-    from providers.symbol_mapper import canonical_to_zebu
+def _is_index_canonical(canonical: str) -> bool:
+    """Index canonicals are the '^'-prefixed ones (e.g. ^NSEI)."""
+    return str(canonical or "").startswith("^")
 
+
+def _mapped_symbols() -> list[dict]:
+    """
+    Every symbol the app currently supports, from the live symbol mapper.
+
+    This is the same map the production quote pipeline resolves tokens
+    through, so the historical universe automatically tracks whatever the
+    app supports — no separate list to drift out of sync.
+    """
+    try:
+        from providers.symbol_mapper import get_all_zebu_tokens
+
+        return get_all_zebu_tokens() or []
+    except Exception as exc:
+        logger.warning(f"Universe: symbol mapper unavailable: {exc}")
+        return []
+
+
+def _equity_instruments(
+    max_equities: int = MAX_EQUITY_INSTRUMENTS,
+    override: Optional[list[str]] = None,
+) -> list[UniverseInstrument]:
+    """
+    Equities from the app's real supported set, capped.
+
+    Sorted before capping so the selection is deterministic across runs.
+    """
+    override_set = {s.upper() for s in (override or [])}
     out: list[UniverseInstrument] = []
-    for symbol in SCOPED_EQUITIES:
-        mapped = canonical_to_zebu(symbol)
-        if not mapped:
-            logger.warning(f"Universe: no Zebu mapping for equity {symbol}; skipping")
+
+    for entry in sorted(_mapped_symbols(), key=lambda e: str(e.get("canonical") or "")):
+        canonical = str(entry.get("canonical") or "").strip()
+        if not canonical or _is_index_canonical(canonical):
             continue
+
+        token = str(entry.get("token") or "").strip()
+        tsym = str(entry.get("trading_symbol") or "").upper().strip()
+        if not token or not tsym:
+            continue
+
+        # Base symbol without the exchange suffix (RELIANCE.NS -> RELIANCE).
+        base = canonical.split(".")[0].upper()
+        if override_set and base not in override_set and canonical.upper() not in override_set:
+            continue
+
         out.append(
             UniverseInstrument(
-                token=str(mapped.get("token") or "").strip(),
-                trading_symbol=str(mapped.get("trading_symbol") or symbol).upper(),
-                exchange=str(mapped.get("exchange") or "NSE").upper(),
+                token=token,
+                trading_symbol=tsym,
+                exchange=str(entry.get("exchange") or "NSE").upper(),
                 instrument_type="EQUITY",
-                underlying=symbol.upper(),
-                canonical_symbol=symbol.upper(),
+                underlying=base,
+                canonical_symbol=canonical,
             )
         )
+
+    if len(out) > max_equities:
+        logger.info(
+            "Universe: capping equities from %d to %d (MAX_EQUITY_INSTRUMENTS)",
+            len(out),
+            max_equities,
+        )
+        out = out[:max_equities]
     return out
 
 
-def _index_instruments() -> list[UniverseInstrument]:
-    """Resolve scoped indices via the existing Zebu symbol mapper."""
-    from providers.symbol_mapper import canonical_to_zebu
-
+def _index_instruments(
+    override: Optional[list[str]] = None,
+) -> list[UniverseInstrument]:
+    """Indices from the app's real supported set. Never capped — small set."""
+    override_set = {s.upper() for s in (override or [])}
     out: list[UniverseInstrument] = []
-    for name in SCOPED_INDICES:
-        canonical = INDEX_CANONICAL.get(name, name)
-        mapped = canonical_to_zebu(canonical) or canonical_to_zebu(name)
-        if not mapped:
-            logger.warning(f"Universe: no Zebu mapping for index {name}; skipping")
+
+    for entry in sorted(_mapped_symbols(), key=lambda e: str(e.get("canonical") or "")):
+        canonical = str(entry.get("canonical") or "").strip()
+        if not canonical or not _is_index_canonical(canonical):
             continue
+
+        token = str(entry.get("token") or "").strip()
+        tsym = str(entry.get("trading_symbol") or "").upper().strip()
+        if not token or not tsym:
+            continue
+
+        # Friendly name for the index (^NSEI -> NIFTY), when we know one.
+        name = next(
+            (k for k, v in INDEX_CANONICAL.items() if v == canonical),
+            canonical.lstrip("^"),
+        )
+        if override_set and name.upper() not in override_set and canonical.upper() not in override_set:
+            continue
+
         out.append(
             UniverseInstrument(
-                token=str(mapped.get("token") or "").strip(),
-                trading_symbol=str(mapped.get("trading_symbol") or name).upper(),
-                exchange=str(mapped.get("exchange") or "NSE").upper(),
+                token=token,
+                trading_symbol=tsym,
+                exchange=str(entry.get("exchange") or "NSE").upper(),
                 instrument_type="INDEX",
                 underlying=name.upper(),
                 canonical_symbol=canonical,
@@ -125,12 +212,44 @@ def _parse_expiry(value) -> Optional[date]:
     return None
 
 
-def _futures_instruments() -> list[UniverseInstrument]:
-    """Current + next expiry NIFTY futures from the existing registry."""
+def _futures_underlyings(
+    max_underlyings: int = MAX_FUTURES_UNDERLYINGS,
+    override: Optional[list[str]] = None,
+) -> list[str]:
+    """
+    Underlyings that actually have futures contracts, from the real
+    registry. Index underlyings are preferred (they carry the volume),
+    then the rest alphabetically, then capped.
+    """
+    try:
+        from services.futures_contract_registry import futures_contract_registry
+
+        available = sorted(
+            str(u).upper()
+            for u in (futures_contract_registry.underlying_to_contracts or {}).keys()
+        )
+    except Exception as exc:
+        logger.warning(f"Universe: futures registry unavailable: {exc}")
+        return []
+
+    override_set = {s.upper() for s in (override or [])}
+    if override_set:
+        available = [u for u in available if u in override_set]
+
+    preferred = [u for u in PREFERRED_OPTION_UNDERLYINGS if u in available]
+    rest = [u for u in available if u not in preferred]
+    return (preferred + rest)[:max_underlyings]
+
+
+def _futures_instruments(
+    max_underlyings: int = MAX_FUTURES_UNDERLYINGS,
+    override: Optional[list[str]] = None,
+) -> list[UniverseInstrument]:
+    """Current + next expiry futures for each supported underlying."""
     from services.futures_contract_registry import futures_contract_registry
 
     out: list[UniverseInstrument] = []
-    for underlying in SCOPED_FUTURES_UNDERLYINGS:
+    for underlying in _futures_underlyings(max_underlyings, override):
         try:
             contracts = futures_contract_registry.get_contracts_for_underlying(underlying)
         except Exception as exc:
@@ -161,7 +280,29 @@ def _futures_instruments() -> list[UniverseInstrument]:
     return out
 
 
-async def _option_instruments(spot_by_underlying: Optional[dict] = None) -> list[UniverseInstrument]:
+def _option_underlyings(
+    max_underlyings: int = MAX_OPTION_UNDERLYINGS,
+    override: Optional[list[str]] = None,
+) -> list[str]:
+    """
+    Underlyings to build option chains for.
+
+    Restricted to the index underlyings by default: an option chain is
+    ~40 legs per expiry, so opening this up to every equity would blow
+    past any sane universe size.
+    """
+    override_set = {s.upper() for s in (override or [])}
+    candidates = list(PREFERRED_OPTION_UNDERLYINGS)
+    if override_set:
+        candidates = [u for u in candidates if u in override_set]
+    return candidates[:max_underlyings]
+
+
+async def _option_instruments(
+    spot_by_underlying: Optional[dict] = None,
+    max_underlyings: int = MAX_OPTION_UNDERLYINGS,
+    override: Optional[list[str]] = None,
+) -> list[UniverseInstrument]:
     """
     ATM +/- OPTION_STRIKE_WIDTH strikes for current + next expiry.
 
@@ -173,7 +314,7 @@ async def _option_instruments(spot_by_underlying: Optional[dict] = None) -> list
     spot_by_underlying = spot_by_underlying or {}
     out: list[UniverseInstrument] = []
 
-    for underlying in SCOPED_OPTION_UNDERLYINGS:
+    for underlying in _option_underlyings(max_underlyings, override):
         try:
             by_expiry = await _load_zebu_option_contracts(underlying)
         except Exception as exc:
@@ -239,16 +380,30 @@ async def _option_instruments(spot_by_underlying: Optional[dict] = None) -> list
 async def build_universe(
     spot_by_underlying: Optional[dict] = None,
     include_options: bool = True,
+    max_universe_size: int = MAX_UNIVERSE_SIZE,
+    max_equities: int = MAX_EQUITY_INSTRUMENTS,
+    override: Optional[list[str]] = None,
 ) -> list[UniverseInstrument]:
     """
-    Resolve the full scoped instrument universe.
+    Resolve the instrument universe from the app's real supported set.
 
     Each category is resolved independently — a failure in one category
     (e.g. option contract master download) never blocks the others.
+
+    `override` (defaulting to the module-level UNIVERSE_OVERRIDE) pins the
+    run to an explicit symbol list. Caps always apply: indices and options
+    are prioritized over the long tail of equities, because losing an index
+    would break the chain views while losing the 90th equity would not.
     """
+    override = override if override is not None else UNIVERSE_OVERRIDE
     instruments: list[UniverseInstrument] = []
 
-    for label, resolver in (("index", _index_instruments), ("equity", _equity_instruments), ("futures", _futures_instruments)):
+    resolvers = (
+        ("index", lambda: _index_instruments(override)),
+        ("equity", lambda: _equity_instruments(max_equities, override)),
+        ("futures", lambda: _futures_instruments(MAX_FUTURES_UNDERLYINGS, override)),
+    )
+    for label, resolver in resolvers:
         try:
             instruments.extend(resolver())
         except Exception as exc:
@@ -256,7 +411,11 @@ async def build_universe(
 
     if include_options:
         try:
-            instruments.extend(await _option_instruments(spot_by_underlying))
+            instruments.extend(
+                await _option_instruments(
+                    spot_by_underlying, MAX_OPTION_UNDERLYINGS, override
+                )
+            )
         except Exception as exc:
             logger.warning(f"Universe: option resolution failed: {exc}", exc_info=True)
 
@@ -268,6 +427,22 @@ async def build_universe(
             continue
         seen.add(inst.key)
         unique.append(inst)
+
+    # Hard ceiling. Trim the least critical category (equities) first so a
+    # cap can never silently drop an index or an option chain leg.
+    if len(unique) > max_universe_size:
+        priority = {"INDEX": 0, "FUTURES": 1, "OPTIONS": 2, "EQUITY": 3}
+        overflow = len(unique) - max_universe_size
+        logger.warning(
+            "Universe: %d instruments exceeds MAX_UNIVERSE_SIZE=%d; "
+            "dropping %d lowest-priority (equity-first) instruments",
+            len(unique),
+            max_universe_size,
+            overflow,
+        )
+        unique = sorted(
+            unique, key=lambda i: (priority.get(i.instrument_type, 9), i.key)
+        )[:max_universe_size]
 
     logger.info(
         "Universe resolved: %d instruments (%s)",
