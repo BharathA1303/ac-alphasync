@@ -267,6 +267,102 @@ class TestOptionsChainNeverReachesLiveRest:
             assert _replay_option_quote("NIFTY24000CE", "1234") is None
             lookup.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_underlying_future_price_never_hits_live_zebu_in_simulation(self):
+        """
+        _zebu_underlying_future_price is a live-only spot-price fallback
+        (/SearchScrip + /GetQuotes), reached from _zebu_option_chain when
+        the primary quote pipeline has no spot price yet. That "no spot
+        price" outcome is the NORMAL SIMULATION-mode state whenever replay
+        hasn't produced data for this underlying — the fallback itself must
+        still never call live Zebu; the correct answer stays 0.0.
+        """
+        from routes.options import _zebu_underlying_future_price
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        provider = AsyncMock()
+        price = await _zebu_underlying_future_price(provider, "NIFTY", "NFO")
+
+        assert price == 0.0
+        provider._rest_post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_live_mode_underlying_future_price_still_calls_zebu(self):
+        """The LIVE-mode fallback path itself must be unchanged."""
+        from routes.options import _zebu_underlying_future_price
+
+        assert market_data_mode.is_live()
+        provider = AsyncMock()
+        provider._rest_post.return_value = {"stat": "Not_Ok"}
+        await _zebu_underlying_future_price(provider, "NIFTY", "NFO")
+
+        provider._rest_post.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_option_chain_never_falls_through_to_live_discovery_in_simulation(
+        self,
+    ):
+        """
+        _zebu_option_chain's tail (/SearchScrip, /GetOptionChain, /GetQuotes)
+        has no replay awareness of its own — it must never run in
+        SIMULATION mode. When the primary contract-master path finds
+        nothing (e.g. this underlying/expiry is outside the replay
+        universe), the correct SIMULATION-mode answer is "no chain", not a
+        live discovery sequence.
+        """
+        from routes.options import _zebu_option_chain
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+
+        with (
+            patch(
+                "routes.options._get_active_zebu_provider",
+                new=AsyncMock(return_value=AsyncMock()),
+            ),
+            patch(
+                "routes.options.get_system_quote_live_only",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "routes.options._zebu_contract_master_chain",
+                new=AsyncMock(return_value=None),
+            ) as contract_master,
+        ):
+            result = await _zebu_option_chain("NIFTY", None, 5)
+
+        assert result is None
+        contract_master.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_get_system_quote_live_only_refuses_fallback_in_simulation(self):
+        """
+        get_system_quote_live_only is the spot-price source _zebu_option_chain
+        consults before falling back to a live REST call. If it silently
+        served a live quote in SIMULATION mode, the fallback guard above
+        would never even engage — real prices would flow through here
+        first. Must return None, not a live-fetched quote, when replay
+        (Redis) has nothing. market_frozen is forced False so this actually
+        exercises the SIMULATION guard rather than the (separately-tested,
+        pre-existing, mode-independent) frozen-market path.
+        """
+        import services.market_data as md
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        with (
+            patch.object(md, "_is_market_frozen", return_value=False),
+            patch("cache.redis_client.get_price", new=AsyncMock(return_value=None)),
+            patch.object(
+                md,
+                "_get_any_provider_live",
+                side_effect=AssertionError(
+                    "live provider must never be used in SIMULATION mode"
+                ),
+            ),
+        ):
+            result = await md.get_system_quote_live_only("^NSEI")
+
+        assert result is None
+
 
 class TestNoOrderPlacementInSimulationCode:
     """

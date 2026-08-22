@@ -847,7 +847,24 @@ async def _zebu_contract_master_chain(
 
 
 async def _zebu_underlying_future_price(provider, sym: str, exch: str) -> float:
-    """Fast spot proxy for indices whose direct Zebu index token is unavailable."""
+    """
+    Fast spot proxy for indices whose direct Zebu index token is unavailable.
+
+    This is a live Zebu REST fallback (/SearchScrip + /GetQuotes) reached
+    from _zebu_option_chain when the primary quote pipeline (Redis /
+    replay engine, via get_system_quote_live_only) has no spot price. In
+    SIMULATION mode that "no spot price" outcome is expected whenever
+    replay holds no data yet for this underlying — the correct answer is
+    still 0.0 (no data), never a live-fetched price.
+    """
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if market_data_mode.is_simulation():
+            return 0.0
+    except Exception:  # pragma: no cover - defensive
+        pass
+
     try:
         search = await asyncio.wait_for(
             provider._rest_post("/SearchScrip", {"exch": exch, "stext": sym}),
@@ -936,6 +953,26 @@ async def _zebu_option_chain(
     )
     if contract_master_result:
         return contract_master_result
+
+    # In SIMULATION mode the contract-master path above is the only
+    # supported source (it consults replayed state via _replay_option_quote
+    # for every leg). Everything below this point is a live-only discovery
+    # + quoting sequence (/SearchScrip, /GetOptionChain, /GetQuotes) with no
+    # replay awareness — falling through to it would silently price a
+    # simulated chain off real market data. "No chain" is the correct
+    # SIMULATION-mode answer when the primary path found nothing (e.g. an
+    # underlying/expiry outside the replay universe), not a live fetch.
+    try:
+        from core.market_data_mode import market_data_mode
+
+        if market_data_mode.is_simulation():
+            logger.debug(
+                f"SIMULATION mode: contract-master chain empty for {sym}; "
+                f"refusing live /GetOptionChain fallback"
+            )
+            return None
+    except Exception:  # pragma: no cover - defensive
+        pass
 
     async def _post(route: str, payload: dict, timeout_sec: float = 8.0):
         try:

@@ -2122,6 +2122,15 @@ async def get_system_quote_live_only(
     if market_frozen:
         return await _get_closed_session_quote(fmt)
 
+    # SIMULATION mode: never fall back to the live provider — see
+    # _simulation_data_mode_active(). No replayed data means no data.
+    if _simulation_data_mode_active():
+        logger.debug(
+            f"SIMULATION mode: no replayed quote for {fmt}; "
+            f"refusing live provider fallback (live_only path)"
+        )
+        return None
+
     dedup_key = f"sys_live:{fmt}"
     if dedup_key in _symbol_requests:
         try:
