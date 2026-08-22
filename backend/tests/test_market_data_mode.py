@@ -282,16 +282,47 @@ class TestNoRealOrdersReachBroker:
 
     def test_primary_download_path_uses_whitelisted_endpoint(self):
         """
-        Replay data is sourced from /TPSeries, which IS whitelisted.
-
-        Note: /EODChartData is not currently in ALLOWED_ENDPOINTS. That is
-        pre-existing and unchanged by this feature — and today the whitelist
-        is not enforced on zebu_provider._rest_post at all. This test pins
-        the endpoint the simulation pipeline actually depends on.
+        Replay data is sourced from /TPSeries, which IS whitelisted. This
+        test pins the endpoint the simulation pipeline actually depends on.
         """
         from services.broker_safety import validate_api_call
 
         assert validate_api_call("/TPSeries", "POST") is True
+
+    def test_eod_chart_data_is_narrowly_scoped(self):
+        """
+        /EODChartData was added to ALLOWED_ENDPOINTS (it's read-only OHLCV,
+        used by the daily-interval leg of the historical downloader). The
+        pattern must be an exact, anchored match — not a wildcard that
+        could be exploited to reach an unrelated or dangerous endpoint by
+        smuggling it into the same path.
+        """
+        from services.broker_safety import BrokerSafetyError, validate_api_call
+
+        assert validate_api_call("/EODChartData", "POST") is True
+
+        # Adjacent-but-different paths must still be rejected — the
+        # whitelist entry must not have accidentally become a prefix or
+        # substring match.
+        for path in (
+            "/EODChartDataExtra",
+            "/NotEODChartData",
+            "/EODChartData/PlaceOrder",
+            "/api/EODChartData/PlaceOrder",
+        ):
+            with pytest.raises(BrokerSafetyError):
+                validate_api_call(path, "POST")
+
+    def test_eod_chart_data_cannot_be_combined_with_an_order_path(self):
+        """
+        BLOCKED_PATTERNS is checked before ALLOWED_ENDPOINTS and always
+        wins (services/broker_safety.py:validate_api_call). A path that
+        matches both must still be blocked.
+        """
+        from services.broker_safety import BrokerSafetyError, validate_api_call
+
+        with pytest.raises(BrokerSafetyError):
+            validate_api_call("/EODChartData/PlaceOrder", "POST")
 
     def test_downloader_only_uses_readonly_historical_endpoints(self):
         """The downloader must reuse only read-only Zebu fetch methods."""
