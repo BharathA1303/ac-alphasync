@@ -31,7 +31,6 @@ import TradingWorkspace from './workspaces/TradingWorkspace';
 import BrokerSelectPage from './pages/BrokerSelectPage';
 import BrokerCallbackPage from './pages/BrokerCallbackPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AccountStatusPage from './pages/AccountStatusPage';
 import AdminAccessPage from './pages/AdminAccessPage';
@@ -69,7 +68,7 @@ export default function App() {
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<LoginPage />} />
                         <Route path="/verify-email" element={<VerifyEmailPage />} />
-                        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                        <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
                         <Route path="/reset-password" element={<ResetPasswordPage />} />
                         <Route path="/admin" element={<AdminAccessPage />} />
 

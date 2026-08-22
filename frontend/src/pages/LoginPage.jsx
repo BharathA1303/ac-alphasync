@@ -112,8 +112,14 @@ export default function LoginPage() {
   const passMatch    = regConfirmPass.length > 0 && regPass === regConfirmPass;
   const passMismatch = regConfirmPass.length > 0 && regPass !== regConfirmPass;
 
+  /* --- Forgot password (inline) state --- */
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
+  const [forgotSending,    setForgotSending]    = useState(false);
+  const [forgotSent,       setForgotSent]       = useState(false);
+
   const loginWithEmail    = useAuthStore((s) => s.loginWithEmail);
   const registerWithEmail = useAuthStore((s) => s.registerWithEmail);
+  const resetPassword     = useAuthStore((s) => s.resetPassword);
   const existingUser      = useAuthStore((s) => s.user);
   const updateUser        = useAuthStore((s) => s.updateUser);
   const logout            = useAuthStore((s) => s.logout);
@@ -296,10 +302,29 @@ export default function LoginPage() {
     }
   };
 
-  /* ─── Forgot password ────────────────────────────────────────────────────── */
+  /* ─── Forgot password (inline panel) ─────────────────────────────────────── */
   const handleForgotPassword = (e) => {
     e.preventDefault();
-    navigate("/forgot-password");
+    setForgotIdentifier("");
+    setForgotSent(false);
+    switchTab("forgot");
+  };
+
+  const handleSendResetLink = async (e) => {
+    e.preventDefault();
+    if (!forgotIdentifier.trim()) {
+      toast.error("Enter your email or username");
+      return;
+    }
+    setForgotSending(true);
+    try {
+      await resetPassword(forgotIdentifier);
+      setForgotSent(true);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Could not send reset email. Try again.");
+    } finally {
+      setForgotSending(false);
+    }
   };
 
   /* ─── Back to login from Step 2 ─────────────────────────────────────────── */
@@ -1087,6 +1112,79 @@ export default function LoginPage() {
 
             </div>
             {/* end register panel */}
+
+            {/* ══════════════════════════════════════════════
+                FORGOT PASSWORD PANEL (inline)
+                ══════════════════════════════════════════════ */}
+            <div className={"lp-panel" + (tab === "forgot" ? " active" : "")} id="forgot-panel">
+              <div className="lp-card-head">
+                <h2>{forgotSent ? "Check your inbox" : "Forgot your password?"}</h2>
+                <p>
+                  {forgotSent
+                    ? <>If an account matches <strong>{forgotIdentifier}</strong>, we've sent a password reset link. It's valid for 30 minutes.</>
+                    : "Enter your email or username and we'll send you a link to reset your password."}
+                </p>
+              </div>
+
+              {forgotSent ? (
+                <>
+                  <button
+                    type="button"
+                    className="lp-btn-primary"
+                    onClick={() => { setForgotSent(false); setForgotIdentifier(""); }}
+                  >
+                    Use a different email or username
+                  </button>
+                  <div className="lp-switch-row">
+                    <button
+                      type="button"
+                      className="lp-switch-btn"
+                      onClick={() => switchTab("login")}
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={handleSendResetLink} id="forgot-form">
+                  <div className="lp-field">
+                    <label htmlFor="forgot-identifier">Email or Username</label>
+                    <div className="lp-inp">
+                      <i className="lp-ico fa fa-envelope" />
+                      <input
+                        id="forgot-identifier"
+                        type="text"
+                        placeholder="you@example.com or username"
+                        autoComplete="username"
+                        value={forgotIdentifier}
+                        onChange={e => setForgotIdentifier(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="lp-btn-primary"
+                    disabled={forgotSending}
+                  >
+                    {forgotSending
+                      ? <><i className="fa fa-spinner fa-spin" />&nbsp;Sending…</>
+                      : <><i className="fa fa-envelope" />&nbsp;Send Reset Link</>}
+                  </button>
+
+                  <div className="lp-switch-row">
+                    <button
+                      type="button"
+                      className="lp-switch-btn"
+                      onClick={() => switchTab("login")}
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+            {/* end forgot password panel */}
 
           </div>
         </div>
