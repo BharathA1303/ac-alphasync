@@ -820,7 +820,7 @@ export default function FacultyPortalPage() {
             {showNewModal && (
                 <NewCourseModal
                     onClose={() => setShowNewModal(false)}
-                    onCreated={(newCourseId) => { setFilter(''); loadCourses(); loadStats(); setActiveCourseId(newCourseId); }}
+                    onCreated={(newCourseId) => { setFilter(''); loadCourses(); setActiveCourseId(newCourseId); }}
                 />
             )}
         </div>
