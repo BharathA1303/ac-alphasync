@@ -732,26 +732,12 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
 export default function FacultyPortalPage() {
     const user = useAuthStore((s) => s.user);
 
-    const [stats, setStats] = useState(null);
-    const [statsLoading, setStatsLoading] = useState(true);
     const [courses, setCourses] = useState([]);
     const [coursesLoading, setCoursesLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [showNewModal, setShowNewModal] = useState(false);
     const [activeCourseId, setActiveCourseId] = useState(null);
     const [aiAvailable, setAiAvailable] = useState(true);
-
-    const loadStats = useCallback(async () => {
-        setStatsLoading(true);
-        try {
-            const { data } = await facultyApi.getDashboard();
-            setStats(data);
-        } catch (err) {
-            toast.error(parseApiError(err, 'Failed to load dashboard'));
-        } finally {
-            setStatsLoading(false);
-        }
-    }, []);
 
     const loadCourses = useCallback(async () => {
         setCoursesLoading(true);
@@ -765,7 +751,6 @@ export default function FacultyPortalPage() {
         }
     }, [filter]);
 
-    useEffect(() => { loadStats(); }, [loadStats]);
     useEffect(() => { loadCourses(); }, [loadCourses]);
     useEffect(() => {
         facultyApi.getAssessmentAiStatus()
@@ -775,7 +760,6 @@ export default function FacultyPortalPage() {
 
     const handleBack = () => {
         setActiveCourseId(null);
-        loadStats();
         loadCourses();
     };
 
@@ -798,23 +782,6 @@ export default function FacultyPortalPage() {
                     </button>
                 )}
             </header>
-
-            {!activeCourseId && (
-                <section className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
-                    <div className="admin-mini-stat">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Pending</div>
-                        <div className="text-lg font-extrabold font-mono" style={{ color: '#f59e0b' }}>{statsLoading ? '—' : stats?.pending ?? 0}</div>
-                    </div>
-                    <div className="admin-mini-stat">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Approved</div>
-                        <div className="text-lg font-extrabold font-mono" style={{ color: '#10b981' }}>{statsLoading ? '—' : stats?.approved ?? 0}</div>
-                    </div>
-                    <div className="admin-mini-stat">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Total</div>
-                        <div className="text-lg font-extrabold font-mono">{statsLoading ? '—' : stats?.total_courses ?? 0}</div>
-                    </div>
-                </section>
-            )}
 
             <section className="admin-card p-3 sm:p-4">
                 {activeCourseId ? (
