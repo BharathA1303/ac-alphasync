@@ -89,12 +89,15 @@ class Question(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     assessment_id = Column(UUID(as_uuid=True), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    text = Column(Text, nullable=False)
     order_index = Column(Integer, default=0, nullable=False, server_default=text("0"))
     # "ai" | "manual"
     source = Column(String(10), default="manual", nullable=False, server_default=text("'manual'"))
 
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+    # Assigned last: naming this column "text" shadows the module-level
+    # sqlalchemy.text() import for any code below it in this class body.
+    text = Column(Text, nullable=False)
 
 
 class Choice(Base):
@@ -103,6 +106,9 @@ class Choice(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    text = Column(Text, nullable=False)
     is_correct = Column(Boolean, default=False, nullable=False, server_default=text("false"))
     order_index = Column(Integer, default=0, nullable=False, server_default=text("0"))
+
+    # Assigned last: naming this column "text" shadows the module-level
+    # sqlalchemy.text() import for any code below it in this class body.
+    text = Column(Text, nullable=False)
