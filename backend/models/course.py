@@ -112,3 +112,46 @@ class Choice(Base):
     # Assigned last: naming this column "text" shadows the module-level
     # sqlalchemy.text() import for any code below it in this class body.
     text = Column(Text, nullable=False)
+
+
+class LessonProgress(Base):
+    """Tracks which lessons a student has marked as read, per course."""
+
+    __tablename__ = "lesson_progress"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    lesson_id = Column(UUID(as_uuid=True), ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    completed_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AssessmentAttempt(Base):
+    """One student's attempt at an assessment; graded immediately on submit."""
+
+    __tablename__ = "assessment_attempts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    assessment_id = Column(UUID(as_uuid=True), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    score_percent = Column(Integer, nullable=False)
+    passed = Column(Boolean, nullable=False)
+    total_questions = Column(Integer, nullable=False)
+    correct_count = Column(Integer, nullable=False)
+
+    submitted_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AttemptAnswer(Base):
+    """One question's recorded answer within an AssessmentAttempt."""
+
+    __tablename__ = "attempt_answers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    attempt_id = Column(UUID(as_uuid=True), ForeignKey("assessment_attempts.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), nullable=False)
+    choice_id = Column(UUID(as_uuid=True), ForeignKey("choices.id"), nullable=True)
+    is_correct = Column(Boolean, nullable=False, default=False, server_default=text("false"))

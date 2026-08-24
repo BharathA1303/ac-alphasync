@@ -22,7 +22,10 @@ from models.portfolio import Portfolio, Holding, Transaction  # noqa: F401
 from models.watchlist import Watchlist, WatchlistItem  # noqa: F401
 from models.algo import AlgoStrategy, AlgoTrade, AlgoLog  # noqa: F401
 from models.password_reset_token import PasswordResetToken  # noqa: F401
-from models.course import Course, Lesson, Assessment, Question, Choice  # noqa: F401
+from models.course import (  # noqa: F401
+    Course, Lesson, Assessment, Question, Choice,
+    LessonProgress, AssessmentAttempt, AttemptAnswer,
+)
 from strategies.zeroloss.models import ZeroLossSignal, ZeroLossPerformance  # noqa: F401
 
 config = context.config

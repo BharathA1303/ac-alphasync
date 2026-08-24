@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import InstitutionRoute from './components/InstitutionRoute';
 import FacultyRoute from './components/FacultyRoute';
+import StudentRoute from './components/StudentRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './stores/useAuthStore';
 
@@ -46,6 +47,7 @@ import AdminAcademicPage from './pages/AdminAcademicPage';
 import AdminInstitutionDetailPage from './pages/AdminInstitutionDetailPage';
 import InstitutionPortalPage from './pages/InstitutionPortalPage';
 import FacultyPortalPage from './pages/FacultyPortalPage';
+import AcademyPage from './pages/AcademyPage';
 
 export default function App() {
     useEffect(() => {
@@ -139,6 +141,10 @@ export default function App() {
                             {/* ── Faculty portal ── */}
                             <Route path="/faculty/portal" element={
                                 <FacultyRoute><FacultyPortalPage /></FacultyRoute>
+                            } />
+                            {/* ── Student Academy ── */}
+                            <Route path="/academy" element={
+                                <StudentRoute><AcademyPage /></StudentRoute>
                             } />
                         </Route>
 
