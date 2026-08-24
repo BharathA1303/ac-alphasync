@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     GraduationCap, Plus, Loader2, X, ArrowLeft, Trash2, Upload, FileText,
     File as FileIcon, Sparkles, CheckCircle2, XCircle, Clock, Save, Wand2,
+    ChevronRight, ChevronDown, Settings2, ListChecks, Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import facultyApi from '../services/facultyApi';
@@ -89,7 +90,7 @@ function NewCourseModal({ onClose, onCreated }) {
                         />
                     </div>
                     <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                        Next you'll add lessons and build an assessment — all in one place. This goes to your Institution Admin for approval before students can see it.
+                        Next you'll add lessons and build an assessment — each in its own section. This goes to your Institution Admin for approval before students can see it.
                     </p>
                     <button className="admin-action-btn admin-action-btn--primary text-sm justify-center" disabled={saving} onClick={handleCreate}>
                         {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create &amp; Continue
@@ -136,6 +137,7 @@ function CourseListRow({ course, onOpen, onDelete }) {
                     {course.status === 'rejected' && course.review_note ? ` · "${course.review_note}"` : ''}
                 </div>
             </div>
+            <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} className="flex-shrink-0" />
             <button
                 className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
                 style={{ color: '#ef4444' }}
@@ -177,7 +179,7 @@ function FilterTabs({ value, onChange }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * STAGE 2 — Course builder panel (lessons + assessments), replaces list
+ * Lessons section — clickable rows, one open at a time
  * ──────────────────────────────────────────────────────────────── */
 
 function LessonMaterialUpload({ courseId, lesson, locked, onChanged }) {
@@ -260,7 +262,7 @@ function LessonMaterialUpload({ courseId, lesson, locked, onChanged }) {
     );
 }
 
-function LessonCard({ courseId, lesson, locked, onChanged, onDeleted }) {
+function LessonRow({ courseId, lesson, locked, expanded, onToggle, onChanged, onDeleted }) {
     const [title, setTitle] = useState(lesson.title);
     const [content, setContent] = useState(lesson.content || '');
     const [saving, setSaving] = useState(false);
@@ -280,7 +282,8 @@ function LessonCard({ courseId, lesson, locked, onChanged, onDeleted }) {
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = async (e) => {
+        e.stopPropagation();
         if (!window.confirm(`Remove lesson "${lesson.title}"?`)) return;
         setDeleting(true);
         try {
@@ -293,41 +296,65 @@ function LessonCard({ courseId, lesson, locked, onChanged, onDeleted }) {
     };
 
     return (
-        <div className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-                <input
-                    className="input-field text-sm flex-1"
-                    style={{ height: 34 }}
-                    value={title}
-                    disabled={locked}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Lesson title"
-                />
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+            <div
+                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:brightness-110 transition-all"
+                style={{ background: 'var(--bg-muted)' }}
+                onClick={onToggle}
+            >
+                {expanded ? <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />}
+                <span className="text-sm font-semibold flex-1 truncate">{lesson.title}</span>
+                {lesson.file_url && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
+                        {FILE_ICON_LABEL[lesson.file_type] || lesson.file_type}
+                    </span>
+                )}
                 {!locked && (
-                    <button className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0" style={{ color: '#ef4444' }} onClick={handleDelete} disabled={deleting} title="Remove lesson">
+                    <button className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ color: '#ef4444' }} onClick={handleDelete} disabled={deleting} title="Remove lesson">
                         {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                     </button>
                 )}
             </div>
-            <textarea
-                className="input-field text-xs w-full"
-                style={{ height: 60, resize: 'vertical', paddingTop: 8 }}
-                placeholder="Written notes (optional)"
-                value={content}
-                disabled={locked}
-                onChange={(e) => setContent(e.target.value)}
-            />
-            <LessonMaterialUpload courseId={courseId} lesson={lesson} locked={locked} onChanged={onChanged} />
-            {!locked && dirty && (
-                <button className="admin-action-btn admin-action-btn--secondary text-xs self-end" style={{ minHeight: 28 }} disabled={saving} onClick={handleSave}>
-                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save lesson
-                </button>
+
+            {expanded && (
+                <div className="p-3 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderTop: '1px solid var(--border)' }}>
+                    <div>
+                        <label className="label-text">Lesson title</label>
+                        <input
+                            className="input-field text-sm w-full"
+                            style={{ height: 34 }}
+                            value={title}
+                            disabled={locked}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="label-text">Written notes (optional)</label>
+                        <textarea
+                            className="input-field text-xs w-full"
+                            style={{ height: 70, resize: 'vertical', paddingTop: 8 }}
+                            value={content}
+                            disabled={locked}
+                            onChange={(e) => setContent(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="label-text">Material</label>
+                        <LessonMaterialUpload courseId={courseId} lesson={lesson} locked={locked} onChanged={onChanged} />
+                    </div>
+                    {!locked && dirty && (
+                        <button className="admin-action-btn admin-action-btn--secondary text-xs self-end" style={{ minHeight: 28 }} disabled={saving} onClick={handleSave}>
+                            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save lesson
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );
 }
 
 function AddLessonInline({ courseId, onAdded }) {
+    const [open, setOpen] = useState(false);
     const [title, setTitle] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -340,6 +367,7 @@ function AddLessonInline({ courseId, onAdded }) {
         try {
             await facultyApi.addLesson(courseId, { title: title.trim(), content: null, order_index: 0 });
             setTitle('');
+            setOpen(false);
             onAdded();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to add lesson'));
@@ -348,8 +376,20 @@ function AddLessonInline({ courseId, onAdded }) {
         }
     };
 
+    if (!open) {
+        return (
+            <button
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg w-full justify-center"
+                style={{ color: 'var(--brand)', background: 'var(--bg-muted)', border: '1px dashed var(--border-strong)' }}
+                onClick={() => setOpen(true)}
+            >
+                <Plus size={13} /> Add Lesson
+            </button>
+        );
+    }
+
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
             <input
                 className="input-field text-sm flex-1"
                 style={{ height: 34 }}
@@ -357,13 +397,44 @@ function AddLessonInline({ courseId, onAdded }) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+                autoFocus
             />
             <button className="admin-action-btn admin-action-btn--primary text-xs flex-shrink-0" style={{ minHeight: 34 }} disabled={saving} onClick={handleAdd}>
                 {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add
             </button>
+            <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" style={{ minHeight: 34 }} onClick={() => setOpen(false)}>Cancel</button>
         </div>
     );
 }
+
+function LessonsSection({ courseId, lessons, locked, onChanged }) {
+    const [expandedId, setExpandedId] = useState(null);
+
+    return (
+        <div className="flex flex-col gap-2">
+            {lessons.length === 0 && (
+                <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No lessons yet — add one below.</p>
+            )}
+            {lessons.map((lesson) => (
+                <LessonRow
+                    key={lesson.id}
+                    courseId={courseId}
+                    lesson={lesson}
+                    locked={locked}
+                    expanded={expandedId === lesson.id}
+                    onToggle={() => setExpandedId(expandedId === lesson.id ? null : lesson.id)}
+                    onChanged={onChanged}
+                    onDeleted={onChanged}
+                />
+            ))}
+            {!locked && <AddLessonInline courseId={courseId} onAdded={onChanged} />}
+        </div>
+    );
+}
+
+/* ────────────────────────────────────────────────────────────────
+ * Assessment section — config as its own step, then questions
+ * ──────────────────────────────────────────────────────────────── */
 
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
@@ -375,6 +446,7 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
     const [questionCount, setQuestionCount] = useState(assessment?.question_count ?? 5);
     const [difficulty, setDifficulty] = useState(assessment?.difficulty || 'medium');
     const [saving, setSaving] = useState(false);
+    const [editing, setEditing] = useState(isNew);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -397,6 +469,7 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
                 await facultyApi.updateAssessment(courseId, assessment.id, payload);
                 toast.success('Assessment updated');
             }
+            setEditing(false);
             onSaved();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to save assessment'));
@@ -405,8 +478,32 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
         }
     };
 
+    if (!isNew && !editing) {
+        return (
+            <div className="rounded-lg p-4" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                        <div className="text-sm font-semibold">{assessment.title}</div>
+                        {assessment.instructions && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{assessment.instructions}</p>}
+                    </div>
+                    {!locked && (
+                        <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" style={{ minHeight: 28 }} onClick={() => setEditing(true)}>
+                            <Settings2 size={12} /> Edit
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-4 text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>
+                    <span>{assessment.question_count} question{assessment.question_count === 1 ? '' : 's'}</span>
+                    <span>Pass at {assessment.pass_score}%</span>
+                    <span className="capitalize">{assessment.difficulty} difficulty</span>
+                    <span>{assessment.question_count} min time limit</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex flex-col gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+        <div className="flex flex-col gap-3 p-4 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
             <div>
                 <label className="label-text">Assessment title</label>
                 <input className="input-field text-sm w-full" style={{ height: 34 }} value={title} disabled={locked} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Module 1 Check" />
@@ -431,14 +528,20 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
                     </select>
                 </div>
             </div>
-            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Set this configuration first — question count and difficulty control what the AI generates below.
+            <p className="text-[11px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <Info size={12} className="flex-shrink-0 mt-0.5" />
+                Students get 1 minute per question as a timer, and only one attempt. Set this configuration first — question count and difficulty control what the AI generates in the Questions section.
             </p>
-            {!locked && (
-                <button className="admin-action-btn admin-action-btn--primary text-xs self-end" style={{ minHeight: 30 }} disabled={saving} onClick={handleSave}>
-                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {isNew ? 'Create Assessment' : 'Save Config'}
-                </button>
-            )}
+            <div className="flex gap-2 self-end">
+                {!isNew && (
+                    <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 30 }} onClick={() => setEditing(false)}>Cancel</button>
+                )}
+                {!locked && (
+                    <button className="admin-action-btn admin-action-btn--primary text-xs" style={{ minHeight: 30 }} disabled={saving} onClick={handleSave}>
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {isNew ? 'Create Assessment' : 'Save Config'}
+                    </button>
+                )}
+            </div>
         </div>
     );
 }
@@ -457,11 +560,11 @@ function QuestionCard({ courseId, assessmentId, question, locked, onDeleted }) {
     };
 
     return (
-        <div className="p-2.5 rounded-md" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+        <div className="p-3 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
             <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     {question.source === 'ai' && <Sparkles size={11} style={{ color: 'var(--brand)' }} className="flex-shrink-0 mt-0.5" />}
-                    <span className="text-xs font-medium">{question.text}</span>
+                    <span className="text-sm font-medium">{question.text}</span>
                 </div>
                 {!locked && (
                     <button className="flex-shrink-0" style={{ color: 'var(--text-muted)' }} onClick={handleDelete} disabled={deleting} title="Remove question">
@@ -469,10 +572,10 @@ function QuestionCard({ courseId, assessmentId, question, locked, onDeleted }) {
                     </button>
                 )}
             </div>
-            <div className="flex flex-col gap-1 mt-2">
+            <div className="flex flex-col gap-1 mt-2.5">
                 {question.choices.map((c) => (
-                    <div key={c.id} className="flex items-center gap-1.5 text-[11px]" style={{ color: c.is_correct ? '#10b981' : 'var(--text-muted)' }}>
-                        {c.is_correct ? <CheckCircle2 size={11} className="flex-shrink-0" /> : <span className="w-[11px] h-[11px] rounded-full flex-shrink-0" style={{ border: '1px solid var(--border-strong)' }} />}
+                    <div key={c.id} className="flex items-center gap-1.5 text-xs" style={{ color: c.is_correct ? '#10b981' : 'var(--text-muted)' }}>
+                        {c.is_correct ? <CheckCircle2 size={12} className="flex-shrink-0" /> : <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ border: '1px solid var(--border-strong)' }} />}
                         {c.text}
                     </div>
                 ))}
@@ -513,8 +616,10 @@ function ManualQuestionForm({ courseId, assessmentId, onAdded, onCancel }) {
     };
 
     return (
-        <div className="flex flex-col gap-2 p-3 rounded-md" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-strong)' }}>
-            <input className="input-field text-xs w-full" style={{ height: 32 }} placeholder="Question text" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+        <div className="flex flex-col gap-2 p-4 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-strong)' }}>
+            <label className="label-text">New question</label>
+            <input className="input-field text-sm w-full" style={{ height: 34 }} placeholder="Question text" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+            <label className="label-text mt-1">Answer choices — click the circle to mark correct</label>
             {choices.map((c, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                     <button
@@ -524,11 +629,11 @@ function ManualQuestionForm({ courseId, assessmentId, onAdded, onCancel }) {
                         className="flex-shrink-0"
                         style={{ color: c.is_correct ? '#10b981' : 'var(--text-muted)' }}
                     >
-                        <CheckCircle2 size={14} />
+                        <CheckCircle2 size={16} />
                     </button>
                     <input
-                        className="input-field text-xs flex-1"
-                        style={{ height: 30 }}
+                        className="input-field text-sm flex-1"
+                        style={{ height: 32 }}
                         placeholder={`Choice ${idx + 1}`}
                         value={c.text}
                         onChange={(e) => setChoiceText(idx, e.target.value)}
@@ -536,16 +641,16 @@ function ManualQuestionForm({ courseId, assessmentId, onAdded, onCancel }) {
                 </div>
             ))}
             <div className="flex gap-1.5 mt-1">
-                <button className="admin-action-btn admin-action-btn--primary text-xs flex-1 justify-center" style={{ minHeight: 28 }} disabled={saving} onClick={handleAdd}>
+                <button className="admin-action-btn admin-action-btn--primary text-xs flex-1 justify-center" style={{ minHeight: 30 }} disabled={saving} onClick={handleAdd}>
                     {saving ? <Loader2 size={12} className="animate-spin" /> : 'Add Question'}
                 </button>
-                <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 28 }} onClick={onCancel}>Cancel</button>
+                <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 30 }} onClick={onCancel}>Cancel</button>
             </div>
         </div>
     );
 }
 
-function AssessmentBuilder({ courseId, assessment, locked, aiAvailable, onChanged }) {
+function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestionsChanged }) {
     const [questions, setQuestions] = useState([]);
     const [loadingQuestions, setLoadingQuestions] = useState(true);
     const [showManualForm, setShowManualForm] = useState(false);
@@ -571,6 +676,7 @@ function AssessmentBuilder({ courseId, assessment, locked, aiAvailable, onChange
             const { data } = await facultyApi.generateQuestionsWithAi(courseId, assessment.id);
             toast.success(`Generated ${data.generated_count} question${data.generated_count === 1 ? '' : 's'}`);
             loadQuestions();
+            onQuestionsChanged?.();
         } catch (err) {
             toast.error(parseApiError(err, 'AI generation failed'));
         } finally {
@@ -580,22 +686,20 @@ function AssessmentBuilder({ courseId, assessment, locked, aiAvailable, onChange
 
     return (
         <div className="flex flex-col gap-3">
-            <AssessmentConfigForm courseId={courseId} assessment={assessment} locked={locked} onSaved={onChanged} />
-
             {!locked && (
                 <div className="flex items-center gap-2">
                     <button
                         className="admin-action-btn text-xs flex-1 justify-center"
-                        style={{ background: 'var(--brand)', color: '#04121a', minHeight: 32 }}
+                        style={{ background: 'var(--brand)', color: '#04121a', minHeight: 34 }}
                         disabled={generating || !aiAvailable}
                         onClick={handleGenerate}
                         title={aiAvailable ? `Generate ${assessment.question_count} ${assessment.difficulty} questions from lesson material` : 'AI question generation is not configured'}
                     >
-                        {generating ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                        {generating ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
                         Generate with AI ({assessment.question_count} questions)
                     </button>
-                    <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 32 }} onClick={() => setShowManualForm((v) => !v)}>
-                        <Plus size={12} /> Manual
+                    <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 34 }} onClick={() => setShowManualForm((v) => !v)}>
+                        <Plus size={13} /> Manual
                     </button>
                 </div>
             )}
@@ -607,19 +711,19 @@ function AssessmentBuilder({ courseId, assessment, locked, aiAvailable, onChange
                 <ManualQuestionForm
                     courseId={courseId}
                     assessmentId={assessment.id}
-                    onAdded={() => { setShowManualForm(false); loadQuestions(); }}
+                    onAdded={() => { setShowManualForm(false); loadQuestions(); onQuestionsChanged?.(); }}
                     onCancel={() => setShowManualForm(false)}
                 />
             )}
 
             <div className="flex flex-col gap-2">
                 {loadingQuestions ? (
-                    <div className="flex items-center justify-center py-4"><Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
+                    <div className="flex items-center justify-center py-6"><Loader2 size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
                 ) : questions.length === 0 ? (
-                    <p className="text-[11px] text-center py-3" style={{ color: 'var(--text-muted)' }}>No questions yet.</p>
+                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No questions yet.</p>
                 ) : (
                     questions.map((q) => (
-                        <QuestionCard key={q.id} courseId={courseId} assessmentId={assessment.id} question={q} locked={locked} onDeleted={loadQuestions} />
+                        <QuestionCard key={q.id} courseId={courseId} assessmentId={assessment.id} question={q} locked={locked} onDeleted={() => { loadQuestions(); onQuestionsChanged?.(); }} />
                     ))
                 )}
             </div>
@@ -628,12 +732,45 @@ function AssessmentBuilder({ courseId, assessment, locked, aiAvailable, onChange
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Course builder panel — full detail, no dropdown/accordion
+ * Course builder panel — tabbed: Lessons / Assessment / Questions
  * ──────────────────────────────────────────────────────────────── */
+const BUILDER_TABS = [
+    { key: 'lessons', label: 'Lessons', icon: FileIcon },
+    { key: 'assessment', label: 'Assessment', icon: Settings2 },
+    { key: 'questions', label: 'Questions', icon: ListChecks },
+];
+
+function BuilderTabs({ active, onChange, lessonCount }) {
+    return (
+        <div className="flex items-center gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+            {BUILDER_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = active === tab.key;
+                const count = tab.key === 'lessons' ? lessonCount : null;
+                return (
+                    <button
+                        key={tab.key}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 justify-center"
+                        style={{
+                            background: isActive ? 'var(--bg-surface)' : 'transparent',
+                            color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                            boxShadow: isActive ? 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.06))' : 'none',
+                        }}
+                        onClick={() => onChange(tab.key)}
+                    >
+                        <Icon size={13} /> {tab.label}
+                        {count !== null && <span className="opacity-60">({count})</span>}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [showAssessmentConfig, setShowAssessmentConfig] = useState(false);
+    const [activeTab, setActiveTab] = useState('lessons');
 
     const loadCourse = useCallback(async () => {
         setLoading(true);
@@ -650,6 +787,7 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
     useEffect(() => { loadCourse(); }, [loadCourse]);
 
     const locked = course?.status === 'approved';
+    const assessment = course?.assessments?.[0] || null;
 
     return (
         <div className="flex flex-col gap-4">
@@ -682,44 +820,45 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
                         </p>
                     )}
 
-                    {/* ── Lessons ── */}
-                    <section className="admin-card p-3 sm:p-4">
-                        <div className="flex items-center gap-1.5 mb-3">
-                            <FileIcon size={13} style={{ color: 'var(--brand)' }} />
-                            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Lessons</h3>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            {course.lessons.length === 0 && (
-                                <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No lessons yet — add one below.</p>
-                            )}
-                            {course.lessons.map((lesson) => (
-                                <LessonCard key={lesson.id} courseId={course.id} lesson={lesson} locked={locked} onChanged={loadCourse} onDeleted={loadCourse} />
-                            ))}
-                            {!locked && <AddLessonInline courseId={course.id} onAdded={loadCourse} />}
-                        </div>
-                    </section>
+                    <div className="admin-card p-3 sm:p-4">
+                        <BuilderTabs
+                            active={activeTab}
+                            onChange={setActiveTab}
+                            lessonCount={course.lessons.length}
+                        />
 
-                    {/* ── Assessment ── */}
-                    <section className="admin-card p-3 sm:p-4">
-                        <div className="flex items-center gap-1.5 mb-3">
-                            <Sparkles size={13} style={{ color: 'var(--brand)' }} />
-                            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Assessment</h3>
-                        </div>
-                        {course.assessments.length === 0 && !showAssessmentConfig && !locked && (
-                            <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={() => setShowAssessmentConfig(true)}>
-                                <Plus size={12} /> Set up assessment
-                            </button>
+                        {activeTab === 'lessons' && (
+                            <LessonsSection courseId={course.id} lessons={course.lessons} locked={locked} onChanged={loadCourse} />
                         )}
-                        {course.assessments.length === 0 && showAssessmentConfig && (
-                            <AssessmentConfigForm courseId={course.id} locked={locked} onSaved={() => { setShowAssessmentConfig(false); loadCourse(); }} />
+
+                        {activeTab === 'assessment' && (
+                            !assessment ? (
+                                locked ? (
+                                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No assessment was configured for this course.</p>
+                                ) : (
+                                    <AssessmentConfigForm courseId={course.id} locked={locked} onSaved={loadCourse} />
+                                )
+                            ) : (
+                                <AssessmentConfigForm courseId={course.id} assessment={assessment} locked={locked} onSaved={loadCourse} />
+                            )
                         )}
-                        {course.assessments.length === 0 && locked && (
-                            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No assessment was configured for this course.</p>
+
+                        {activeTab === 'questions' && (
+                            !assessment ? (
+                                <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
+                                    Set up the assessment first in the Assessment tab.
+                                </p>
+                            ) : (
+                                <QuestionsSection
+                                    courseId={course.id}
+                                    assessment={assessment}
+                                    locked={locked}
+                                    aiAvailable={aiAvailable}
+                                    onQuestionsChanged={loadCourse}
+                                />
+                            )
                         )}
-                        {course.assessments.map((assessment) => (
-                            <AssessmentBuilder key={assessment.id} courseId={course.id} assessment={assessment} locked={locked} aiAvailable={aiAvailable} onChanged={loadCourse} />
-                        ))}
-                    </section>
+                    </div>
                 </>
             )}
         </div>
@@ -783,39 +922,37 @@ export default function FacultyPortalPage() {
                 )}
             </header>
 
-            <section className="admin-card p-3 sm:p-4">
-                {activeCourseId ? (
-                    <CourseBuilderPanel courseId={activeCourseId} onBack={handleBack} aiAvailable={aiAvailable} />
-                ) : (
-                    <>
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <h2 className="text-sm font-bold admin-section-title">My Courses</h2>
-                            <FilterTabs value={filter} onChange={setFilter} />
-                        </div>
+            {activeCourseId ? (
+                <CourseBuilderPanel courseId={activeCourseId} onBack={handleBack} aiAvailable={aiAvailable} />
+            ) : (
+                <section className="admin-card p-3 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h2 className="text-sm font-bold admin-section-title">My Courses</h2>
+                        <FilterTabs value={filter} onChange={setFilter} />
+                    </div>
 
-                        {coursesLoading ? (
-                            <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
-                        ) : courses.length === 0 ? (
-                            <div className="text-center py-8">
-                                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                                    {filter ? 'No courses match this filter.' : 'No courses yet.'}
-                                </p>
-                                {!filter && (
-                                    <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={() => setShowNewModal(true)}>
-                                        <Plus size={12} /> Create your first course
-                                    </button>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {courses.map((c) => (
-                                    <CourseListRow key={c.id} course={c} onOpen={setActiveCourseId} onDelete={loadCourses} />
-                                ))}
-                            </div>
-                        )}
-                    </>
-                )}
-            </section>
+                    {coursesLoading ? (
+                        <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
+                    ) : courses.length === 0 ? (
+                        <div className="text-center py-8">
+                            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+                                {filter ? 'No courses match this filter.' : 'No courses yet.'}
+                            </p>
+                            {!filter && (
+                                <button className="admin-action-btn admin-action-btn--secondary text-xs" onClick={() => setShowNewModal(true)}>
+                                    <Plus size={12} /> Create your first course
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {courses.map((c) => (
+                                <CourseListRow key={c.id} course={c} onOpen={setActiveCourseId} onDelete={loadCourses} />
+                            ))}
+                        </div>
+                    )}
+                </section>
+            )}
 
             {showNewModal && (
                 <NewCourseModal
