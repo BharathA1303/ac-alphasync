@@ -111,6 +111,23 @@ def _mapped_symbols() -> list[dict]:
         return []
 
 
+def _popular_equity_canonicals() -> list[str]:
+    """
+    The app's own curated "well-known stocks" list (RELIANCE, TCS,
+    HDFCBANK, ...) — the same one workers/market_worker.py auto-subscribes
+    on every live boot, and what every watchlist/navbar screenshot of this
+    app actually shows. Used to prioritize the equity cap toward symbols
+    users actually look at, rather than an alphabetical accident.
+    """
+    try:
+        from services.market_data import POPULAR_INDIAN_STOCKS
+
+        return [str(s.get("symbol") or "").upper() for s in POPULAR_INDIAN_STOCKS]
+    except Exception as exc:
+        logger.warning(f"Universe: POPULAR_INDIAN_STOCKS unavailable: {exc}")
+        return []
+
+
 def _equity_instruments(
     max_equities: int = MAX_EQUITY_INSTRUMENTS,
     override: Optional[list[str]] = None,
@@ -118,11 +135,24 @@ def _equity_instruments(
     """
     Equities from the app's real supported set, capped.
 
-    Sorted before capping so the selection is deterministic across runs.
+    The mapped set grows to the full NSE contract master in production
+    (thousands of symbols) — capping it by a plain alphabetical sort
+    picked "20MICRONS", "21STCENMGM", ... ahead of RELIANCE/TCS/HDFCBANK
+    purely because of where they land in the alphabet, a real production
+    bug (2026-08-24): the app's actual watchlist/navbar symbols were
+    correctly loaded and replaying, but never selected into the universe
+    at all, so their quotes were never reachable.
+
+    Selection is now two-tier, each tier internally alphabetical for
+    determinism: POPULAR_INDIAN_STOCKS symbols first (if present in the
+    mapped set), then whatever else fills the remaining cap. A symbol
+    list that isn't in the mapped set (e.g. mapper not yet populated)
+    silently contributes nothing from that tier rather than erroring.
     """
     override_set = {s.upper() for s in (override or [])}
-    out: list[UniverseInstrument] = []
+    popular = set(_popular_equity_canonicals())
 
+    candidates: list[UniverseInstrument] = []
     for entry in sorted(_mapped_symbols(), key=lambda e: str(e.get("canonical") or "")):
         canonical = str(entry.get("canonical") or "").strip()
         if not canonical or _is_index_canonical(canonical):
@@ -138,7 +168,7 @@ def _equity_instruments(
         if override_set and base not in override_set and canonical.upper() not in override_set:
             continue
 
-        out.append(
+        candidates.append(
             UniverseInstrument(
                 token=token,
                 trading_symbol=tsym,
@@ -149,11 +179,17 @@ def _equity_instruments(
             )
         )
 
+    popular_first = [c for c in candidates if c.canonical_symbol.upper() in popular]
+    rest = [c for c in candidates if c.canonical_symbol.upper() not in popular]
+    out = popular_first + rest
+
     if len(out) > max_equities:
         logger.info(
-            "Universe: capping equities from %d to %d (MAX_EQUITY_INSTRUMENTS)",
+            "Universe: capping equities from %d to %d (MAX_EQUITY_INSTRUMENTS, "
+            "%d popular symbols prioritized)",
             len(out),
             max_equities,
+            min(len(popular_first), max_equities),
         )
         out = out[:max_equities]
     return out

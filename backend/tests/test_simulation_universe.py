@@ -127,6 +127,56 @@ class TestUniverseCaps:
 
         assert first == second, "cap selection must be order-independent"
 
+    def test_popular_stocks_survive_the_cap_over_alphabetically_earlier_symbols(self):
+        """
+        Regression test for a real production bug (found 2026-08-24): the
+        mapped equity set grows to the full NSE contract master (~4000
+        symbols) in production. Capping it with a plain alphabetical sort
+        picked "20MICRONS", "21STCENMGM", ... — legitimate NSE tickers
+        that happen to sort first — ahead of RELIANCE, TCS, HDFCBANK, and
+        the rest of the app's own POPULAR_INDIAN_STOCKS list (exactly
+        what workers/market_worker.py auto-subscribes on every live boot,
+        and what every watchlist/navbar view of this app actually shows).
+        Those symbols were correctly downloaded and replayed internally
+        the whole time — they were simply never selected into the
+        universe at all, so their quotes were never reachable via the API.
+        """
+        # Symbols that alphabetically precede "RELIANCE" and "TCS", to
+        # prove they do NOT win the cap purely by sorting first anymore.
+        early_alphabet = [
+            {
+                "canonical": f"{name}.NS",
+                "trading_symbol": f"{name}-EQ",
+                "token": f"9{i:04d}",
+                "exchange": "NSE",
+            }
+            for i, name in enumerate(
+                ["20MICRONS", "21STCENMGM", "360ONE", "3BBLACKBIO", "3MINDIA"]
+            )
+        ]
+        popular = [
+            {
+                "canonical": "RELIANCE.NS",
+                "trading_symbol": "RELIANCE-EQ",
+                "token": "2885",
+                "exchange": "NSE",
+            },
+            {
+                "canonical": "TCS.NS",
+                "trading_symbol": "TCS-EQ",
+                "token": "11536",
+                "exchange": "NSE",
+            },
+        ]
+        entries = early_alphabet + popular
+
+        with patch.object(su, "_mapped_symbols", return_value=entries):
+            out = _equity_instruments(max_equities=3)
+
+        selected = {i.canonical_symbol for i in out}
+        assert "RELIANCE.NS" in selected, "RELIANCE must survive a tight cap"
+        assert "TCS.NS" in selected, "TCS must survive a tight cap"
+
     def test_futures_underlying_cap_is_enforced(self):
         from services.futures_contract_registry import futures_contract_registry
 
