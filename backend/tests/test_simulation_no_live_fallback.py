@@ -648,6 +648,42 @@ class TestMarketDataWorkerNeverPollsLiveInSimulation:
         )
 
 
+class TestReplaySourceIsNotMislabeledFrozen:
+    """
+    Regression test for a real production bug (found 2026-08-24, after the
+    live-data leaks above were closed): with the leaks fixed, quotes
+    correctly stopped mixing in real Zebu data, but /api/market/quote/NIFTY
+    then showed "source":"frozen" with a price that only changed every few
+    polls — even though a raw Redis read of the same key showed
+    "source":"historical_replay" with a timestamp that WAS advancing.
+
+    The replay data itself was correct and moving. The bug was purely
+    cosmetic but user-facing and confusing: _normalize_display_source()
+    buckets raw source strings into "frozen" / "live" / official-EOD for
+    API responses, and its live_sources allowlist predated this feature —
+    "historical_replay" matched neither the frozen nor live sets, so it
+    fell through to the function's default-to-frozen fallthrough branch,
+    regardless of how fresh the underlying data actually was.
+    """
+
+    def test_historical_replay_source_displays_as_live_during_open_hours(self):
+        from services.market_data import _normalize_display_source
+
+        assert _normalize_display_source("historical_replay", market_open=True) == "live"
+
+    def test_historical_replay_source_still_treated_as_frozen_outside_open_hours(self):
+        """
+        Outside OPEN hours the existing frozen-display behavior must be
+        unchanged — this fix only affects how replay data is labeled
+        DURING active hours, not the separate closed-market freeze UX.
+        """
+        from services.market_data import _normalize_display_source
+
+        assert (
+            _normalize_display_source("historical_replay", market_open=False) == "frozen"
+        )
+
+
 class TestNoOrderPlacementInSimulationCode:
     """
     Static proof that nothing in the replay/download/simulation surface can

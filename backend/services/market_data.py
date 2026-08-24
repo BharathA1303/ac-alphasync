@@ -1204,6 +1204,18 @@ def _normalize_display_source(raw_source: Any, market_open: bool) -> str:
     if src == OFFICIAL_EOD_SOURCE:
         return OFFICIAL_EOD_SOURCE
 
+    # Under the "no live data, ever" architecture, historical replay is
+    # the current, actively-advancing data source during OPEN hours — the
+    # display-layer equivalent of "live". Handled as its own explicit
+    # branch (not folded into live_sources below) so it never inherits
+    # the closed-market "stale_live_ws" semantics that branch has for
+    # genuine live sources going stale after close: replay data outside
+    # OPEN hours is intentionally frozen, not stale, and the pre-existing
+    # closed-market frozen/EOD snapshot behavior (untouched by this fix)
+    # already handles that display correctly on its own.
+    if src == "historical_replay":
+        return "live" if market_open else "frozen"
+
     frozen_sources = {
         "frozen",
         "cache",
