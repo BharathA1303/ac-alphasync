@@ -427,6 +427,7 @@ async def get_history(
 
 def _closed_market_response_metadata() -> dict:
     """Response envelope for ticker/batch/indices market-session context."""
+    from core.market_data_mode import market_data_mode
     from engines.market_session import market_session
 
     state = market_session.get_current_state()
@@ -436,7 +437,18 @@ def _closed_market_response_metadata() -> dict:
         "frozen": frozen,
         "official": frozen,
     }
-    meta["source"] = "official_eod_close" if frozen else "live"
+    # This label previously said "live" for anything not frozen — a pure
+    # function of market state, with no connection to whether the
+    # underlying data was actually a live tick. Under the "no live data,
+    # ever" architecture that is always wrong: SIMULATION mode is the
+    # permanent state, so this envelope must never claim "live" data
+    # exists. "historical_replay" describes what is actually happening.
+    if frozen:
+        meta["source"] = "official_eod_close"
+    elif market_data_mode.is_simulation():
+        meta["source"] = "historical_replay"
+    else:
+        meta["source"] = "live"
     return meta
 
 

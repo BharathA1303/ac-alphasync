@@ -658,6 +658,25 @@ class MarketDataWorker:
                     await asyncio.sleep(self.IDLE_INTERVAL)
                     continue
 
+                # Under the "no live data, ever" architecture, SIMULATION
+                # mode is the permanent default and historical replay is
+                # the ONLY market data source — even during OPEN hours,
+                # when this worker would otherwise sweep live /GetQuotes
+                # for every subscribed symbol every cycle and overwrite
+                # whatever the replay engine just wrote into the same
+                # Redis keys. This was the actual, complete root cause of
+                # live prices reaching users after the WebSocket-connect
+                # fix: that fix closed the tick-stream path, but this
+                # worker's independent REST polling loop was never gated
+                # at all and kept running unconditionally through OPEN
+                # market hours.
+                from core.market_data_mode import market_data_mode
+
+                if market_data_mode.is_simulation():
+                    self._last_market_state = actual_state
+                    await asyncio.sleep(self.IDLE_INTERVAL)
+                    continue
+
                 # Get any available provider session
                 from services.broker_session import broker_session_manager
 

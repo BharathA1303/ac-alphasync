@@ -286,6 +286,81 @@ class TestQuoteReadsNeverFallBackToLive:
         assert provider.get_quote.called, "LIVE mode must still call the provider"
         assert result["price"] == 2500.0
 
+    async def test_get_batch_quotes_never_reaches_live_provider_in_simulation(self):
+        """
+        Regression test for a real production bug (found 2026-08-24):
+        get_batch_quotes() was the one sibling of get_quote /
+        get_quote_safe / get_system_quote / get_system_quote_safe that
+        never got the SIMULATION guard those four received. It is called
+        by workers/market_worker.py's main sweep loop, which ran
+        unconditionally through OPEN market hours regardless of
+        MarketDataMode — the actual root cause of live prices reaching
+        users even after the WebSocket-connect fix closed the tick-stream
+        path: this REST-polling path was independent of that fix entirely.
+        """
+        import services.market_data as md
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+
+        with (
+            patch.object(md, "_is_market_frozen", return_value=False),
+            patch(
+                "cache.redis_client.get_batch_prices",
+                new=AsyncMock(return_value={}),
+            ),
+            patch(
+                "cache.redis_client.get_last_price",
+                new=AsyncMock(return_value=None),
+            ),
+            patch.object(
+                md,
+                "_get_any_provider",
+                side_effect=AssertionError(
+                    "live provider must never be used in SIMULATION mode"
+                ),
+            ),
+        ):
+            result = await md.get_batch_quotes(["RELIANCE", "TCS"])
+
+        assert result == {}
+
+    async def test_get_batch_quotes_still_serves_replayed_redis_data(self):
+        """A symbol with a fresh replayed Redis quote must still be served."""
+        import services.market_data as md
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        # get_batch_quotes formats symbols before the Redis lookup
+        # (RELIANCE -> RELIANCE.NS), so the mocked cache must be keyed the
+        # same way the real call would be.
+        replayed = {"symbol": "RELIANCE.NS", "price": 2500.0, "source": "historical_replay"}
+
+        with (
+            patch.object(md, "_is_market_frozen", return_value=False),
+            patch(
+                "cache.redis_client.get_batch_prices",
+                new=AsyncMock(return_value={"RELIANCE.NS": replayed}),
+            ),
+            patch(
+                "cache.redis_client.get_last_price",
+                new=AsyncMock(return_value=None),
+            ),
+            patch.object(
+                md, "_align_quote_to_history", new=AsyncMock(side_effect=lambda s, q: q)
+            ),
+            patch.object(md, "_is_quote_stale", return_value=False),
+            patch.object(md, "_adjust_for_market_state", side_effect=lambda q: q),
+            patch.object(
+                md,
+                "_get_any_provider",
+                side_effect=AssertionError(
+                    "live provider must never be used in SIMULATION mode"
+                ),
+            ),
+        ):
+            result = await md.get_batch_quotes(["RELIANCE"])
+
+        assert result.get("RELIANCE.NS", {}).get("price") == 2500.0
+
 
 class TestOptionsChainNeverReachesLiveRest:
     """
@@ -513,6 +588,64 @@ class TestOptionsChainNeverReachesLiveRest:
                 )
 
         assert exc_info.value.status_code == 503
+
+
+class TestMarketDataWorkerNeverPollsLiveInSimulation:
+    """
+    Regression coverage for the actual root cause of a real production
+    incident (2026-08-24): workers/market_worker.py runs an independent
+    background sweep loop that calls provider.get_batch_quotes() (a live
+    Zebu /GetQuotes REST call) for every subscribed symbol, on its own
+    timer, completely unconditionally through OPEN market hours — with no
+    relationship to MarketDataMode, the WebSocket-connect guard, or any of
+    the other SIMULATION-mode fixes. It was the one live-data path none of
+    those fixes ever touched, confirmed via two consecutive real
+    production API calls returning "source":"market_data_worker" with a
+    genuinely moving price, 45 seconds apart, during SIMULATION mode.
+    """
+
+    def test_run_loop_checks_simulation_mode_before_fetching_quotes(self):
+        """
+        Static structural proof: the SIMULATION check must appear in
+        run()'s source BEFORE the line that calls get_batch_quotes,
+        exactly like the pre-existing market_frozen check it sits beside.
+        A guard added anywhere else in the method (e.g. after the fetch)
+        would not actually prevent the live call.
+        """
+        import inspect
+
+        import workers.market_worker as mw
+
+        source = inspect.getsource(mw.MarketDataWorker.run)
+        guard_pos = source.find("market_data_mode.is_simulation()")
+        fetch_pos = source.find("get_batch_quotes")
+
+        assert guard_pos != -1, "run() must check MarketDataMode.is_simulation()"
+        assert fetch_pos != -1, "run() must still call get_batch_quotes somewhere"
+        assert guard_pos < fetch_pos, (
+            "the SIMULATION guard must appear before the live quote fetch, "
+            "not after it"
+        )
+
+    def test_simulation_guard_continues_the_loop_like_the_frozen_market_guard(self):
+        """
+        The SIMULATION check must short-circuit the same way the existing
+        market_frozen check does (sleep + continue), not merely be present
+        somewhere without actually skipping the fetch.
+        """
+        import inspect
+
+        import workers.market_worker as mw
+
+        source = inspect.getsource(mw.MarketDataWorker.run)
+        idx = source.find("market_data_mode.is_simulation()")
+        assert idx != -1
+        # The next ~150 characters after the guard must contain a continue,
+        # mirroring "if market_frozen: ... continue" immediately above it.
+        window = source[idx : idx + 200]
+        assert "continue" in window, (
+            "the SIMULATION guard must skip the rest of this loop iteration"
+        )
 
 
 class TestNoOrderPlacementInSimulationCode:

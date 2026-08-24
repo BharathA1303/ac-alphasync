@@ -2877,6 +2877,17 @@ async def get_batch_quotes(symbols: list[str], user_id: Optional[str] = None) ->
         if market_frozen:
             return {sym: q for sym, q in results.items() if q}
 
+        # SIMULATION mode: symbols with no replayed Redis quote above stay
+        # missing — never fetch the live provider. See
+        # _simulation_data_mode_active() for why: replayed data with no
+        # entry yet is legitimately "no data", not a signal to fall back
+        # to Zebu live /GetQuotes. This is the same guard already applied
+        # to get_quote / get_quote_safe / get_system_quote /
+        # get_system_quote_safe — get_batch_quotes was the one sibling
+        # that had never been updated to match.
+        if _simulation_data_mode_active():
+            return {sym: q for sym, q in results.items() if q}
+
         # Register exact Zebu tokens from NSE master before live provider fetch.
         try:
             from services.contract_loader import ensure_nse_equity_mappings
