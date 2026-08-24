@@ -4,6 +4,27 @@ import { Star, X } from 'lucide-react';
 import api from '../services/api';
 import { useFeedbackStore } from '../stores/useFeedbackStore';
 
+const SNOOZE_KEY = 'alphasync_feedback_snooze_until';
+const SNOOZE_DAYS = 7;
+
+function isSnoozed() {
+    try {
+        const until = Number(window.localStorage.getItem(SNOOZE_KEY) || 0);
+        return until > Date.now();
+    } catch {
+        return false;
+    }
+}
+
+function setSnooze() {
+    try {
+        const until = Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+        window.localStorage.setItem(SNOOZE_KEY, String(until));
+    } catch {
+        // localStorage unavailable — widget will simply reappear next load.
+    }
+}
+
 const SPARKLE_ANGLES = [0, 60, 120, 180, 240, 300];
 const STAR_BURST_VECTORS = [
     [0, -1],
@@ -82,7 +103,7 @@ function FeedbackWidget() {
     }, []);
 
     useEffect(() => {
-        if (hasSubmitted) {
+        if (hasSubmitted || isSnoozed()) {
             clearTimers();
             return;
         }
@@ -152,6 +173,23 @@ function FeedbackWidget() {
         setPhase('open');
         setCardVisible(true);
         setIsOpen(true);
+    };
+
+    const snoozeWidget = () => {
+        if (isSubmitting) return;
+        setSnooze();
+        clearTimers();
+        setPhase('closing');
+        setIsOpen(false);
+        setCelebration(null);
+        queueTimer(() => {
+            if (!mountedRef.current) return;
+            setComment('');
+            setCurrentRating(0);
+            setPhase('rest');
+            setCardVisible(false);
+            setIsVisible(false);
+        }, 850);
     };
 
     const triggerCelebration = async (rating) => {
@@ -474,6 +512,16 @@ function FeedbackWidget() {
                                 style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}
                             >
                                 {isSubmitting ? 'Sending...' : 'Submit feedback'}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={snoozeWidget}
+                                disabled={isSubmitting}
+                                className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-2xl text-xs font-medium transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-55"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                View this later
                             </button>
                         </div>
                     </div>
