@@ -141,6 +141,78 @@ class TestLiveTicksBlockedInSimulation:
 
 
 @pytest.mark.asyncio
+class TestWebSocketNeverConnectsInSimulation:
+    """
+    Regression coverage for a real production bug (found 2026-08-24): the
+    master Zebu session is authenticated once at app startup (before
+    market hours logic runs) so the historical downloader has a session to
+    read /TPSeries from. That authentication also opened a live WebSocket
+    connection (ZebuProvider.start() -> _connect()) unconditionally — the
+    earlier _handle_tick guard only stopped ticks from that connection
+    being WRITTEN into the pipeline, it never stopped the connection
+    (and its live subscribe/receive loop) from existing in the first
+    place. Two consecutive requests to the same /api/market/quote/NIFTY
+    endpoint in production returned DIFFERENT sources ("frozen" then
+    "live") 45 seconds apart, proving live ticks were still reaching
+    quotes through a path the earlier fixes didn't cover.
+
+    The fix is at the true boundary: ZebuProvider.start() must not call
+    _connect() (which opens the WebSocket, authenticates it, subscribes,
+    and starts the receive loop) while SIMULATION mode is active — but it
+    must still leave the provider constructed and REST-usable, since
+    _rest_post() (used by the historical downloader's /TPSeries and
+    /EODChartData calls) has no dependency on the WebSocket at all.
+    """
+
+    async def _provider(self):
+        from providers.zebu_provider import ZebuProvider
+
+        return ZebuProvider(
+            ws_url="wss://example.invalid/NorenWSTP/",
+            api_url="https://example.invalid/NorenWClientTP",
+            user_id="test-user",
+            session_token="test-token",
+        )
+
+    async def test_start_skips_connect_in_simulation_mode(self):
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        provider = await self._provider()
+
+        with patch.object(
+            provider, "_connect", new=AsyncMock()
+        ) as connect:
+            await provider.start()
+
+        connect.assert_not_called()
+
+    async def test_start_still_connects_in_live_mode(self):
+        """LIVE behavior must be completely unchanged."""
+        assert market_data_mode.is_live()
+        provider = await self._provider()
+
+        with patch.object(provider, "_connect", new=AsyncMock()) as connect:
+            await provider.start()
+
+        connect.assert_called_once()
+
+    async def test_rest_calls_still_work_with_no_websocket_open(self):
+        """
+        The historical downloader's whole reason for needing a session:
+        _rest_post must keep working even though start() never opened a
+        WebSocket in SIMULATION mode.
+        """
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+        provider = await self._provider()
+
+        with patch.object(provider, "_connect", new=AsyncMock()):
+            await provider.start()
+
+        assert provider._ws is None, "no WebSocket object should exist"
+        assert provider._api_url, "REST base URL must still be set"
+        assert provider._session_token, "REST auth token must still be set"
+
+
+@pytest.mark.asyncio
 class TestQuoteReadsNeverFallBackToLive:
     """market_data quote helpers must not call the provider in SIMULATION."""
 
@@ -362,6 +434,85 @@ class TestOptionsChainNeverReachesLiveRest:
             result = await md.get_system_quote_live_only("^NSEI")
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_chain_endpoint_accepts_an_all_zero_simulation_chain(self):
+        """
+        Regression test for a real production bug (found 2026-08-24): a
+        SIMULATION-mode chain where every leg legitimately has ltp=0 (no
+        replayed candle yet for those strikes) was being treated as "the
+        fetch failed" by the /chain/{symbol} route's own success check,
+        which fell through to the LIVE-only 503 "Zebu live feed is
+        unavailable" error — even though nothing was actually broken and
+        _replay_option_quote() had already done its job correctly.
+
+        A non-empty chain returned while in SIMULATION mode must always be
+        served, regardless of whether its legs happen to be priced at 0.
+        """
+        from fastapi import HTTPException
+
+        import routes.options as opt
+
+        market_data_mode.set_mode(MarketDataMode.SIMULATION)
+
+        all_zero_chain = {
+            "symbol": "NIFTY",
+            "underlying_price": 24300.0,
+            "expiry_dates": ["2026-08-25"],
+            "selected_expiry": "2026-08-25",
+            "chain": [
+                {
+                    "CE": {"tsym": "NIFTY25AUG2624000CE", "ltp": 0, "token": "1"},
+                    "PE": {"tsym": "NIFTY25AUG2624000PE", "ltp": 0, "token": "2"},
+                }
+            ],
+            "stream_symbols": [],
+            "timestamp": "2026-08-24T04:00:00Z",
+            "source": "historical_replay_no_data",
+        }
+
+        with (
+            patch.object(
+                opt, "_zebu_option_chain", new=AsyncMock(return_value=all_zero_chain)
+            ),
+            patch.object(opt, "_set_redis_options_cache", new=AsyncMock()),
+        ):
+            result = await opt.option_chain(
+                "NIFTY",
+                expiry=None,
+                strikes=20,
+                snapshot=0,
+                reconcile=0,
+                user=None,
+            )
+
+        assert result["chain"], "a fetched SIMULATION chain must not be discarded"
+        assert result["chain"][0]["CE"]["ltp"] == 0
+
+    @pytest.mark.asyncio
+    async def test_chain_endpoint_still_503s_on_a_genuinely_failed_live_fetch(self):
+        """LIVE-mode "nothing came back" must still 503, unchanged."""
+        from fastapi import HTTPException
+
+        import routes.options as opt
+
+        assert market_data_mode.is_live()
+
+        with (
+            patch.object(opt, "_zebu_option_chain", new=AsyncMock(return_value=None)),
+            patch.object(opt, "_get_redis_options_cache", new=AsyncMock(return_value=None)),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await opt.option_chain(
+                    "NIFTY",
+                    expiry=None,
+                    strikes=20,
+                    snapshot=0,
+                    reconcile=0,
+                    user=None,
+                )
+
+        assert exc_info.value.status_code == 503
 
 
 class TestNoOrderPlacementInSimulationCode:

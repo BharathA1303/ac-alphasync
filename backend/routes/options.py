@@ -1337,11 +1337,27 @@ async def option_chain(
             for row in chain_rows
             if isinstance(row, dict)
         )
-        if has_live_quotes:
+        # In SIMULATION mode a fully-fetched chain is valid data even when
+        # every leg happens to be legitimately priced at 0 (no replayed
+        # candle for that strike yet, e.g. thin volume that minute).
+        # _replay_option_quote() never returns None in SIMULATION — it
+        # always yields either a real replayed price or an explicit
+        # zeroed quote (source="historical_replay_no_data") — so a
+        # non-empty chain_rows list here already means the fetch
+        # succeeded; treating an all-zero SIMULATION chain as "fetch
+        # failed" would incorrectly fall through to the LIVE-only 503
+        # error below, even though nothing is actually broken.
+        from core.market_data_mode import market_data_mode
+
+        is_valid_simulation_chain = (
+            market_data_mode.is_simulation() and len(chain_rows) > 0
+        )
+        if has_live_quotes or is_valid_simulation_chain:
             await _set_redis_options_cache(cache_key, result, ttl_seconds=45)
             await _set_redis_options_cache(latest_cache_key, result, ttl_seconds=120)
             logger.debug(
-                f"Option chain fetched for {sym}: {len(chain_rows)} strikes (live)"
+                f"Option chain fetched for {sym}: {len(chain_rows)} strikes "
+                f"({'live' if has_live_quotes else 'simulation, zero legs'})"
             )
             if reconcile_enabled:
                 return _snapshot_envelope(
@@ -1377,13 +1393,20 @@ async def option_chain(
             return cached
 
     logger.warning(f"Option chain data unavailable from all sources for {sym}")
-    raise HTTPException(
-        status_code=503,
-        detail=(
+    from core.market_data_mode import market_data_mode
+
+    if market_data_mode.is_simulation():
+        detail = (
+            f"Option chain data unavailable for {sym}. No historical "
+            "replay session is currently active — historical data is the "
+            "only source in SIMULATION mode."
+        )
+    else:
+        detail = (
             f"Option chain data unavailable for {sym}. "
             "Zebu live feed is unavailable right now."
-        ),
-    )
+        )
+    raise HTTPException(status_code=503, detail=detail)
 
 
 @router.get("/expiry/{symbol}")

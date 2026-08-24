@@ -116,10 +116,15 @@ class SimulationController:
         Reconcile DB simulation state with reality after a process restart.
 
         The replay engine lives entirely in memory. After a restart the
-        process starts in LIVE mode with no engine, but the DB may still
-        hold a session marked RUNNING from before the crash/restart. That
-        combination is a lie: the UI would report an active simulation
-        while the live Zebu feed drives the pipeline.
+        process has no engine, but the DB may still hold a session marked
+        RUNNING from before the crash/restart. That combination is a lie:
+        the UI would report an active simulation with nothing actually
+        driving it.
+
+        (main.py's lifespan sets MarketDataMode to SIMULATION at the very
+        first line, before this or anything else runs — see the comment
+        there for why. This call re-asserts it defensively; it is no
+        longer the thing that first establishes it.)
 
         Safe behavior — deliberately NOT auto-resume:
             RUNNING -> PAUSED, preserving simulation_date/simulation_time.

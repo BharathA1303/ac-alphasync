@@ -65,6 +65,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Redis initialization failed: {e}")
 
+    # ── Hold market data mode at SIMULATION from the very first moment ──
+    # Historical replay is the ONLY market data source now, permanently —
+    # not a point-in-time toggle. This must happen BEFORE
+    # master_session_service.initialize() below: that call authenticates a
+    # ZebuProvider and, until ZebuProvider.start() itself checks the mode
+    # (see providers/zebu_provider.py), a provider constructed while the
+    # mode still read its LIVE default would open a live WebSocket
+    # connection before anything downstream ever got a chance to block it.
+    # simulation_controller.recover_orphaned_sessions() (further below)
+    # re-asserts this after reconciling any DB session state, but that is
+    # about session bookkeeping, not this guarantee — this is set here,
+    # early and unconditionally, so the ordering never matters again.
+    from core.market_data_mode import MarketDataMode, market_data_mode
+
+    market_data_mode.set_mode(MarketDataMode.SIMULATION)
+
     # ── Load Zebu master contracts (NSE and BSE equities via live Zebu CDN) ──
     try:
         from services.contract_loader import get_nse_contracts_cached

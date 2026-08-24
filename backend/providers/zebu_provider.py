@@ -128,7 +128,21 @@ class ZebuProvider(MarketProvider):
     # ── Lifecycle ───────────────────────────────────────────────────
 
     async def start(self) -> None:
-        """Connect to Zebu WebSocket and start receiving data."""
+        """
+        Authenticate and, in LIVE mode only, connect the WebSocket feed.
+
+        Under the "no live data, ever" architecture, SIMULATION mode is the
+        permanent default (see main.py's lifespan). The historical
+        downloader still needs a REST-authenticated provider (it only
+        calls read-only endpoints: /TPSeries, /EODChartData, /SearchScrip
+        — see broker_safety.py's whitelist), so this method does NOT skip
+        registering the provider. It skips only the actual WebSocket
+        connect + subscribe + receive-loop, which is the one thing that
+        can deliver live ticks into the quote pipeline. _rest_post() has
+        no dependency on the WebSocket being connected — it only needs
+        self._api_url / self._session_token, both already set at this
+        point — so REST calls keep working normally with no WS open.
+        """
         self._running = True
         self._started_at = time.time()
         logger.info(
@@ -141,6 +155,18 @@ class ZebuProvider(MarketProvider):
             logger.warning(
                 "ZebuProvider started without credentials — "
                 "waiting for broker session manager to inject them."
+            )
+            self._status = ProviderStatus.DISCONNECTED
+            return
+
+        from core.market_data_mode import market_data_mode
+
+        if market_data_mode.is_simulation():
+            logger.info(
+                "ZebuProvider.start(): SIMULATION mode — skipping WebSocket "
+                "connect. Provider stays authenticated for read-only REST "
+                "calls (historical downloader) only; no live ticks will "
+                "ever be received."
             )
             self._status = ProviderStatus.DISCONNECTED
             return
