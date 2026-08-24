@@ -128,7 +128,12 @@ class LessonProgress(Base):
 
 
 class AssessmentAttempt(Base):
-    """One student's attempt at an assessment; graded immediately on submit."""
+    """One student's attempt at an assessment; graded immediately on submit.
+
+    Each student may have at most one attempt per assessment unless an
+    Institution Admin grants a retake (see AssessmentRetakeGrant) — that
+    grant is consumed by the next started attempt.
+    """
 
     __tablename__ = "assessment_attempts"
 
@@ -141,6 +146,30 @@ class AssessmentAttempt(Base):
     passed = Column(Boolean, nullable=False)
     total_questions = Column(Integer, nullable=False)
     correct_count = Column(Integer, nullable=False)
+
+    # Proctoring — set true and force-submitted when a student accumulates
+    # 3 suspicious actions (tab switch, right-click, screenshot attempt)
+    # during a timed attempt.
+    flagged = Column(Boolean, default=False, nullable=False, server_default=text("false"))
+    flag_reason = Column(Text, nullable=True)
+
+    started_at = Column(DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class AssessmentRetakeGrant(Base):
+    """An Institution Admin's one-time permission for a student to retake
+    an assessment they've already attempted. Consumed when the student
+    starts their next attempt on that assessment."""
+
+    __tablename__ = "assessment_retake_grants"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    assessment_id = Column(UUID(as_uuid=True), ForeignKey("assessments.id", ondelete="CASCADE"), nullable=False, index=True)
+    granted_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    consumed = Column(Boolean, default=False, nullable=False, server_default=text("false"))
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     submitted_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 

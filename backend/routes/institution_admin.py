@@ -7,6 +7,7 @@ never see Institution B's members or stats.
 """
 
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,10 +16,12 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.connection import get_db
-from models.user import User
+from models.user import User, UserSession
 from models.portfolio import Portfolio, Transaction
 from models.order import Order
-from models.course import Course, Lesson, Assessment
+from models.course import (
+    Course, Lesson, Assessment, AssessmentAttempt, LessonProgress, AssessmentRetakeGrant,
+)
 from dependencies.institution import require_institution_admin
 from services import invite_service
 from services.invite_service import _as_uuid
@@ -207,16 +210,28 @@ async def list_members(
     }
 
 
+ONLINE_THRESHOLD_MINUTES = 5
+
+
+class GrantRetakeRequest(BaseModel):
+    assessment_id: str
+
+
+async def _get_own_member(db: AsyncSession, admin: User, member_id: str) -> User:
+    member_uuid = _as_uuid(member_id)
+    member = await db.get(User, member_uuid) if member_uuid else None
+    if not member or member.institution_id != admin.institution_id or member.role not in ("student", "faculty"):
+        raise HTTPException(status_code=404, detail="Member not found in your institution")
+    return member
+
+
 @router.get("/student-stats/{student_id}")
 async def get_student_stats(
     student_id: str,
     admin: User = Depends(require_institution_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    student_uuid = _as_uuid(student_id)
-    student = await db.get(User, student_uuid) if student_uuid else None
-    if not student or student.institution_id != admin.institution_id or student.role not in ("student", "faculty"):
-        raise HTTPException(status_code=404, detail="Student not found in your institution")
+    student = await _get_own_member(db, admin, student_id)
 
     portfolio_result = await db.execute(select(Portfolio).where(Portfolio.user_id == student.id))
     portfolio = portfolio_result.scalar_one_or_none()
@@ -234,6 +249,41 @@ async def get_student_stats(
     )
     recent_transactions = recent_tx_result.scalars().all()
 
+    recent_orders_result = await db.execute(
+        select(Order)
+        .where(Order.user_id == student.id)
+        .order_by(Order.created_at.desc())
+        .limit(50)
+    )
+    recent_orders = recent_orders_result.scalars().all()
+
+    last_session_result = await db.execute(
+        select(UserSession)
+        .where(UserSession.user_id == student.id)
+        .order_by(UserSession.last_seen_at.desc())
+        .limit(1)
+    )
+    last_session = last_session_result.scalar_one_or_none()
+    is_online = bool(
+        last_session
+        and last_session.last_seen_at
+        and (datetime.now(timezone.utc) - last_session.last_seen_at) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+    )
+
+    lessons_completed_result = await db.execute(
+        select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
+    )
+    lessons_completed = lessons_completed_result.scalar() or 0
+
+    attempts_result = await db.execute(
+        select(AssessmentAttempt, Assessment.title, Course.title)
+        .join(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
+        .join(Course, Course.id == AssessmentAttempt.course_id)
+        .where(AssessmentAttempt.user_id == student.id)
+        .order_by(AssessmentAttempt.started_at.desc())
+    )
+    attempts = attempts_result.all()
+
     return {
         "student": {
             "id": str(student.id),
@@ -241,6 +291,12 @@ async def get_student_stats(
             "email": student.email,
             "username": student.username,
             "role": student.role,
+            "created_at": student.created_at.isoformat() if student.created_at else None,
+        },
+        "online": {
+            "is_online": is_online,
+            "last_seen_at": last_session.last_seen_at.isoformat() if last_session and last_session.last_seen_at else None,
+            "ip_address": last_session.ip_address if last_session else None,
         },
         "portfolio": {
             "current_value": float(portfolio.current_value) if portfolio else 0.0,
@@ -261,7 +317,82 @@ async def get_student_stats(
             }
             for tx in recent_transactions
         ],
+        "recent_orders": [
+            {
+                "symbol": o.symbol,
+                "side": o.side,
+                "order_type": o.order_type,
+                "quantity": o.quantity,
+                "price": float(o.price) if o.price is not None else None,
+                "status": o.status,
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+            }
+            for o in recent_orders
+        ],
+        "academy": {
+            "lessons_completed": lessons_completed,
+            "assessment_attempts": [
+                {
+                    "id": str(attempt.id),
+                    "assessment_title": assessment_title,
+                    "course_title": course_title,
+                    "score_percent": attempt.score_percent,
+                    "passed": attempt.passed,
+                    "flagged": attempt.flagged,
+                    "flag_reason": attempt.flag_reason,
+                    "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
+                }
+                for attempt, assessment_title, course_title in attempts
+            ],
+        },
     }
+
+
+@router.post("/members/{member_id}/grant-retake")
+async def grant_assessment_retake(
+    member_id: str,
+    req: GrantRetakeRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    member = await _get_own_member(db, admin, member_id)
+
+    assessment_uuid = _as_uuid(req.assessment_id)
+    assessment = await db.get(Assessment, assessment_uuid) if assessment_uuid else None
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    course = await db.get(Course, assessment.course_id)
+    if not course or course.institution_id != admin.institution_id:
+        raise HTTPException(status_code=404, detail="Assessment not found in your institution")
+
+    existing_result = await db.execute(
+        select(AssessmentRetakeGrant).where(
+            AssessmentRetakeGrant.user_id == member.id,
+            AssessmentRetakeGrant.assessment_id == assessment.id,
+            AssessmentRetakeGrant.consumed.is_(False),
+        )
+    )
+    if existing_result.scalars().first():
+        raise HTTPException(status_code=400, detail="A retake has already been granted and not yet used")
+
+    db.add(AssessmentRetakeGrant(user_id=member.id, assessment_id=assessment.id, granted_by_user_id=admin.id))
+    await db.commit()
+    return {"success": True}
+
+
+@router.delete("/members/{member_id}")
+async def remove_member(
+    member_id: str,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    member = await _get_own_member(db, admin, member_id)
+    member.institution_id = None
+    if member.role in ("student", "faculty"):
+        member.role = "user"
+    await db.commit()
+    return {"success": True}
 
 
 # ── Course approval — faculty-uploaded subjects for this institution only ──

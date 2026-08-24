@@ -1,14 +1,26 @@
 """
 Student Academy API — browse approved courses for the student's own
-institution, read lessons, mark them complete, and take graded MCQ
-assessments.
+institution, read lessons, mark them complete, and take graded, timed,
+proctored MCQ assessments.
 
 Scoping: a student only ever sees courses where status="approved" and
 institution_id matches their own institution_id. Correct-answer flags are
 never sent to the client before an attempt is submitted.
+
+Assessment rules:
+  - One attempt per student per assessment, ever — enforced server-side.
+  - An Institution Admin can grant exactly one more attempt
+    (AssessmentRetakeGrant); starting a new attempt consumes that grant.
+  - Time limit is question_count * 60 seconds, computed server-side and
+    returned as an absolute `expires_at` so the client timer can't be
+    tampered with. `started_at` is stamped when the attempt begins.
+  - The client reports proctoring violations (tab switch, right-click,
+    screenshot attempt); on the 3rd violation the attempt is force-
+    submitted and flagged.
 """
 
 import logging
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,7 +32,7 @@ from database.connection import get_db
 from models.user import User
 from models.course import (
     Course, Lesson, Assessment, Question, Choice,
-    LessonProgress, AssessmentAttempt, AttemptAnswer,
+    LessonProgress, AssessmentAttempt, AttemptAnswer, AssessmentRetakeGrant,
 )
 from dependencies.student import require_student
 from services.invite_service import _as_uuid
@@ -28,6 +40,8 @@ from services.invite_service import _as_uuid
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/academy", tags=["Student Academy"])
+
+SECONDS_PER_QUESTION = 60
 
 
 class SubmitAnswerInput(BaseModel):
@@ -37,6 +51,9 @@ class SubmitAnswerInput(BaseModel):
 
 class SubmitAttemptRequest(BaseModel):
     answers: list[SubmitAnswerInput] = Field(default_factory=list)
+    attempt_id: str
+    flagged: bool = False
+    flag_reason: Optional[str] = None
 
 
 async def _get_visible_course(db: AsyncSession, student: User, course_id: str) -> Course:
@@ -45,6 +62,26 @@ async def _get_visible_course(db: AsyncSession, student: User, course_id: str) -
     if not course or course.status != "approved" or course.institution_id != student.institution_id:
         raise HTTPException(status_code=404, detail="Course not found")
     return course
+
+
+async def _get_own_attempt(db: AsyncSession, student: User, assessment_id) -> Optional[AssessmentAttempt]:
+    result = await db.execute(
+        select(AssessmentAttempt)
+        .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id == assessment_id)
+        .order_by(AssessmentAttempt.started_at.desc())
+    )
+    return result.scalars().first()
+
+
+async def _has_unconsumed_grant(db: AsyncSession, student: User, assessment_id) -> bool:
+    result = await db.execute(
+        select(AssessmentRetakeGrant).where(
+            AssessmentRetakeGrant.user_id == student.id,
+            AssessmentRetakeGrant.assessment_id == assessment_id,
+            AssessmentRetakeGrant.consumed.is_(False),
+        )
+    )
+    return result.scalars().first() is not None
 
 
 @router.get("/courses")
@@ -121,6 +158,8 @@ async def get_course_detail(
     assessments = assessments_result.scalars().all()
 
     question_counts = {}
+    latest_by_assessment = {}
+    grant_by_assessment = {}
     if assessments:
         assessment_ids = [a.id for a in assessments]
         question_counts = dict((await db.execute(
@@ -129,17 +168,23 @@ async def get_course_detail(
             .group_by(Question.assessment_id)
         )).all())
 
-        best_attempts_result = await db.execute(
+        attempts_result = await db.execute(
             select(AssessmentAttempt)
             .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id.in_(assessment_ids))
-            .order_by(AssessmentAttempt.submitted_at.desc())
+            .order_by(AssessmentAttempt.started_at.desc())
         )
-        latest_by_assessment = {}
-        for attempt in best_attempts_result.scalars().all():
+        for attempt in attempts_result.scalars().all():
             if attempt.assessment_id not in latest_by_assessment:
                 latest_by_assessment[attempt.assessment_id] = attempt
-    else:
-        latest_by_assessment = {}
+
+        grants_result = await db.execute(
+            select(AssessmentRetakeGrant.assessment_id).where(
+                AssessmentRetakeGrant.user_id == student.id,
+                AssessmentRetakeGrant.assessment_id.in_(assessment_ids),
+                AssessmentRetakeGrant.consumed.is_(False),
+            )
+        )
+        grant_by_assessment = {row[0]: True for row in grants_result.all()}
 
     return {
         "id": str(course.id),
@@ -164,14 +209,18 @@ async def get_course_detail(
                 "instructions": a.instructions,
                 "pass_score": a.pass_score,
                 "question_count": question_counts.get(a.id, 0),
+                "time_limit_seconds": question_counts.get(a.id, 0) * SECONDS_PER_QUESTION,
                 "last_attempt": (
                     {
                         "score_percent": latest_by_assessment[a.id].score_percent,
                         "passed": latest_by_assessment[a.id].passed,
-                        "submitted_at": latest_by_assessment[a.id].submitted_at.isoformat(),
+                        "flagged": latest_by_assessment[a.id].flagged,
+                        "submitted_at": latest_by_assessment[a.id].started_at.isoformat(),
                     }
                     if a.id in latest_by_assessment else None
                 ),
+                # locked = attempted already and no admin-granted retake available
+                "locked": (a.id in latest_by_assessment) and not grant_by_assessment.get(a.id, False),
             }
             for a in assessments
         ],
@@ -208,12 +257,19 @@ async def start_assessment(
     student: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
-    """Returns questions WITHOUT is_correct flags — safe to send before grading."""
+    """Starts (or resumes) a timed attempt. Returns questions WITHOUT
+    is_correct flags, plus a server-computed expires_at deadline."""
     course = await _get_visible_course(db, student, course_id)
     assessment_uuid = _as_uuid(assessment_id)
     assessment = await db.get(Assessment, assessment_uuid) if assessment_uuid else None
     if not assessment or assessment.course_id != course.id:
         raise HTTPException(status_code=404, detail="Assessment not found")
+
+    existing = await _get_own_attempt(db, student, assessment.id)
+    if existing:
+        has_grant = await _has_unconsumed_grant(db, student, assessment.id)
+        if not has_grant:
+            raise HTTPException(status_code=403, detail="You've already taken this assessment. Ask your Institution Admin for a retake.")
 
     questions_result = await db.execute(
         select(Question).where(Question.assessment_id == assessment.id).order_by(Question.order_index, Question.created_at)
@@ -228,13 +284,34 @@ async def start_assessment(
     for c in choices_result.scalars().all():
         choices_by_question.setdefault(c.question_id, []).append(c)
 
+    # Create the in-progress attempt row now so the deadline is anchored
+    # server-side and can't be reset by refreshing the page.
+    attempt = AssessmentAttempt(
+        user_id=student.id,
+        assessment_id=assessment.id,
+        course_id=course.id,
+        score_percent=0,
+        passed=False,
+        total_questions=len(questions),
+        correct_count=0,
+    )
+    db.add(attempt)
+    await db.commit()
+    await db.refresh(attempt)
+
+    time_limit_seconds = len(questions) * SECONDS_PER_QUESTION
+    expires_at = attempt.started_at + timedelta(seconds=time_limit_seconds)
+
     return {
+        "attempt_id": str(attempt.id),
         "assessment": {
             "id": str(assessment.id),
             "title": assessment.title,
             "instructions": assessment.instructions,
             "pass_score": assessment.pass_score,
         },
+        "time_limit_seconds": time_limit_seconds,
+        "expires_at": expires_at.isoformat(),
         "questions": [
             {
                 "id": str(q.id),
@@ -263,6 +340,11 @@ async def submit_assessment(
     if not assessment or assessment.course_id != course.id:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
+    attempt_uuid = _as_uuid(req.attempt_id)
+    attempt = await db.get(AssessmentAttempt, attempt_uuid) if attempt_uuid else None
+    if not attempt or attempt.user_id != student.id or attempt.assessment_id != assessment.id:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
     questions_result = await db.execute(select(Question).where(Question.assessment_id == assessment.id))
     questions = questions_result.scalars().all()
     if not questions:
@@ -289,28 +371,35 @@ async def submit_assessment(
 
     total = len(questions)
     score_percent = round((correct_count / total) * 100) if total else 0
-    passed = score_percent >= assessment.pass_score
+    passed = score_percent >= assessment.pass_score and not req.flagged
 
-    attempt = AssessmentAttempt(
-        user_id=student.id,
-        assessment_id=assessment.id,
-        course_id=course.id,
-        score_percent=score_percent,
-        passed=passed,
-        total_questions=total,
-        correct_count=correct_count,
-    )
-    db.add(attempt)
-    await db.flush()
+    attempt.score_percent = score_percent
+    attempt.passed = passed
+    attempt.correct_count = correct_count
+    attempt.flagged = req.flagged
+    attempt.flag_reason = req.flag_reason
 
     for question_id, choice_id, is_correct in answer_rows:
         db.add(AttemptAnswer(attempt_id=attempt.id, question_id=question_id, choice_id=choice_id, is_correct=is_correct))
+
+    # Consume any unconsumed retake grant this attempt used.
+    grant_result = await db.execute(
+        select(AssessmentRetakeGrant).where(
+            AssessmentRetakeGrant.user_id == student.id,
+            AssessmentRetakeGrant.assessment_id == assessment.id,
+            AssessmentRetakeGrant.consumed.is_(False),
+        )
+    )
+    grant = grant_result.scalars().first()
+    if grant:
+        grant.consumed = True
 
     await db.commit()
 
     return {
         "score_percent": score_percent,
         "passed": passed,
+        "flagged": req.flagged,
         "correct_count": correct_count,
         "total_questions": total,
         "pass_score": assessment.pass_score,

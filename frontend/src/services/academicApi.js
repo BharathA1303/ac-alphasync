@@ -60,6 +60,14 @@ const academicApi = {
         return api.get(`/institution/student-stats/${studentId}`);
     },
 
+    grantAssessmentRetake(memberId, assessmentId) {
+        return api.post(`/institution/members/${memberId}/grant-retake`, { assessment_id: assessmentId });
+    },
+
+    removeMember(memberId) {
+        return api.delete(`/institution/members/${memberId}`);
+    },
+
     // ── Institution Admin: course approval (this institution only) ──
     listInstitutionCourses(params = {}) {
         return api.get('/institution/courses', { params });
