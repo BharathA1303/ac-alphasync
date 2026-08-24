@@ -1,7 +1,7 @@
 """Add assessment proctoring fields and retake grant table
 
 Revision ID: 015_assessment_proctoring
-Revises: 014_student_progress
+Revises: 014_fix_course_builder_drift
 Create Date: 2026-08-24 00:00:00.000000
 
 Adds flagged/flag_reason/started_at to assessment_attempts (timed,
@@ -15,7 +15,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
 
 revision = "015_assessment_proctoring"
-down_revision = "014_student_progress"
+down_revision = "014_fix_course_builder_drift"
 branch_labels = None
 depends_on = None
 

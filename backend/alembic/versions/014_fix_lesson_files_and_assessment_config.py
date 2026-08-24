@@ -1,7 +1,7 @@
 """Fix lessons/assessments schema drift from an earlier draft migration
 
 Revision ID: 014_fix_course_builder_drift
-Revises: 013_mcq_questions
+Revises: 014_student_progress
 Create Date: 2026-08-23 00:00:00.000000
 
 An earlier deploy attempt applied a draft version of the course-builder
@@ -30,7 +30,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "014_fix_course_builder_drift"
-down_revision = "013_mcq_questions"
+down_revision = "014_student_progress"
 branch_labels = None
 depends_on = None
 
