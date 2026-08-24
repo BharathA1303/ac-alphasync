@@ -253,24 +253,45 @@ class HistoricalReplayEngine:
         """
         Canonical pipeline symbol for an instrument.
 
-        Equities/indices go through the shared symbol mapper so replay ticks
-        land on exactly the same key live ticks would use.
+        Equities/indices must resolve to exactly the same key the frontend
+        queries by (services.market_data._format_symbol("RELIANCE") ->
+        "RELIANCE.NS", the same normalization the API layer applies to
+        every incoming symbol) and exactly the same key live ticks would
+        use — but WITHOUT depending on providers.symbol_mapper's live
+        token table. That table is populated by live contract-loading
+        activity (NSE/BSE master downloads, live WS registration) which
+        barely runs under the "no live data, ever" architecture, so it is
+        near-empty in practice: confirmed in production, only ~10 entries
+        (the pre-seeded indices) existed while 54 real equities had
+        already loaded into replay. Every one of those 54 fell back to
+        the bare, un-suffixed trading symbol (e.g. "RELIANCE" instead of
+        "RELIANCE.NS"), which the API never queries by, so no equity
+        quote was ever reachable despite replaying correctly internally.
+
+        _format_symbol() has no such dependency — it is a pure function
+        of the symbol string — so it is the reliable source of truth here.
         """
         itype = str(instrument.instrument_type or "").upper()
         tsym = str(instrument.trading_symbol or "").upper()
 
-        if itype in ("EQUITY", "INDEX"):
-            try:
-                from providers.symbol_mapper import zebu_token_to_canonical
+        if itype == "EQUITY":
+            from services.market_data import _format_symbol
 
-                canonical = zebu_token_to_canonical(
-                    str(instrument.token or ""), str(instrument.exchange or "")
-                )
-                if canonical:
-                    return canonical
-            except Exception:
-                pass
-            return tsym.replace("-EQ", "")
+            # trading_symbol carries Zebu's "-EQ" suffix (e.g.
+            # "RELIANCE-EQ"); strip it before handing to _format_symbol,
+            # which expects a bare symbol and appends ".NS" itself.
+            bare = tsym[:-3] if tsym.endswith("-EQ") else tsym
+            return _format_symbol(bare)
+
+        if itype == "INDEX":
+            from services.market_data import _format_symbol
+
+            # underlying carries the clean index name (NIFTY, BANKNIFTY,
+            # SENSEX, CNXIT, ...) that _format_symbol's INDEX_ALIAS_MAP is
+            # keyed on — trading_symbol ("NIFTY 50", "NIFTY IT") is not.
+            underlying = str(instrument.underlying or "").upper().strip()
+            return _format_symbol(underlying or tsym)
+
         return tsym
 
     # ── Candle lookup ──────────────────────────────────────────────

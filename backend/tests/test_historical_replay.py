@@ -151,6 +151,113 @@ class TestSessionLoading:
         engine.reset()
 
 
+class TestCanonicalSymbolResolution:
+    """
+    Regression coverage for a real production bug (found 2026-08-24):
+    _canonical_for() resolved equity/index canonical symbols via
+    providers.symbol_mapper.zebu_token_to_canonical(), a live in-memory
+    table populated by live contract-loading activity that barely runs
+    under the "no live data, ever" architecture. Confirmed empty in
+    production (10 entries — just the pre-seeded indices — while 54 real
+    equities had already loaded into replay). Every equity's lookup
+    returned None and fell back to the bare, un-suffixed trading symbol
+    (e.g. "RELIANCE" instead of "RELIANCE.NS"), which
+    services.market_data._format_symbol() (what every API/frontend
+    lookup actually queries by) never produces on its own — so no
+    equity's replayed quote was ever reachable through the API, despite
+    replaying correctly internally the whole time. Indices happened to
+    work only because their tokens were part of that small pre-seeded
+    set; a differently-configured deployment could lose that "by luck"
+    coverage entirely.
+
+    Fixed to use _format_symbol() directly — a pure function of the
+    symbol string, with no dependency on any live-populated table.
+    """
+
+    def test_equity_resolves_the_same_way_format_symbol_does(self):
+        from services.historical_replay import HistoricalReplayEngine
+        from services.market_data import _format_symbol
+
+        inst = _FakeInstrument(
+            instrument_type="EQUITY", trading_symbol="RELIANCE-EQ", underlying=None
+        )
+        assert HistoricalReplayEngine._canonical_for(inst) == _format_symbol("RELIANCE")
+        assert HistoricalReplayEngine._canonical_for(inst) == "RELIANCE.NS"
+
+    def test_equity_resolution_does_not_depend_on_the_symbol_mapper(self):
+        """
+        The whole point of the fix: even with a totally empty/unresolved
+        symbol mapper, equity resolution must still produce the correct
+        canonical symbol.
+        """
+        from services.historical_replay import HistoricalReplayEngine
+
+        with patch(
+            "providers.symbol_mapper.zebu_token_to_canonical", return_value=None
+        ) as mapper_lookup:
+            inst = _FakeInstrument(
+                instrument_type="EQUITY", trading_symbol="TCS-EQ", underlying=None
+            )
+            result = HistoricalReplayEngine._canonical_for(inst)
+
+        assert result == "TCS.NS"
+        mapper_lookup.assert_not_called()
+
+    def test_index_resolves_via_underlying_not_trading_symbol(self):
+        """
+        trading_symbol for an index is a display string ("NIFTY 50",
+        "NIFTY BANK") that _format_symbol's alias map is not keyed on;
+        underlying carries the clean name (NIFTY, BANKNIFTY) that is.
+        """
+        from services.historical_replay import HistoricalReplayEngine
+
+        nifty = _FakeInstrument(
+            instrument_type="INDEX", trading_symbol="NIFTY 50", underlying="NIFTY"
+        )
+        assert HistoricalReplayEngine._canonical_for(nifty) == "^NSEI"
+
+        banknifty = _FakeInstrument(
+            instrument_type="INDEX",
+            trading_symbol="NIFTY BANK",
+            underlying="BANKNIFTY",
+        )
+        assert HistoricalReplayEngine._canonical_for(banknifty) == "^NSEBANK"
+
+        sensex = _FakeInstrument(
+            instrument_type="INDEX", trading_symbol="SENSEX", underlying="SENSEX"
+        )
+        assert HistoricalReplayEngine._canonical_for(sensex) == "^BSESN"
+
+    def test_futures_and_options_are_unaffected(self):
+        """Only EQUITY/INDEX go through _format_symbol; derivatives keep
+        their trading_symbol as-is, exactly like before this fix."""
+        from services.historical_replay import HistoricalReplayEngine
+
+        fut = _FakeInstrument(
+            instrument_type="FUTURES", trading_symbol="NIFTY25AUG26F", underlying="NIFTY"
+        )
+        assert HistoricalReplayEngine._canonical_for(fut) == "NIFTY25AUG26F"
+
+        opt = _FakeInstrument(
+            instrument_type="OPTIONS",
+            trading_symbol="NIFTY25AUG2624000CE",
+            underlying="NIFTY",
+        )
+        assert HistoricalReplayEngine._canonical_for(opt) == "NIFTY25AUG2624000CE"
+
+
+class _FakeInstrument:
+    """Minimal stand-in for models.market_data.Instrument's fields that
+    _canonical_for() reads, without needing a real DB row."""
+
+    def __init__(self, instrument_type, trading_symbol, underlying=None, token="", exchange="NSE"):
+        self.instrument_type = instrument_type
+        self.trading_symbol = trading_symbol
+        self.underlying = underlying
+        self.token = token
+        self.exchange = exchange
+
+
 # ── Emission into the existing pipeline ────────────────────────────
 
 
