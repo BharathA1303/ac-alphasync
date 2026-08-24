@@ -170,6 +170,26 @@ class TestOpenStartsReplay:
 
         await historical_replay_engine.stop()
 
+    async def test_open_starts_replay_at_the_configured_speed(self, session_factory):
+        """
+        Regression test: source candles are real 1-minute bars, so at 1x
+        speed a visible update lands roughly once per real minute — easy
+        to mistake for a frozen/broken simulation next to a live feed.
+        The worker must start replay at its configured faster-than-1x
+        default (see _REPLAY_SPEED), not silently fall back to 1x.
+        """
+        import workers.auto_simulation_worker as asw
+
+        await seed(session_factory)
+        worker, patches = _worker(session_factory, MarketState.OPEN)
+
+        with _Ctx(patches):
+            await worker.check_once()
+
+        assert historical_replay_engine.get_stats()["speed"] == asw._REPLAY_SPEED
+
+        await historical_replay_engine.stop()
+
     async def test_repeated_open_polls_are_idempotent(self, session_factory):
         """The steady state during market hours must not restart anything."""
         await seed(session_factory)

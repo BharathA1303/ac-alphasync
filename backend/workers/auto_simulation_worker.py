@@ -59,6 +59,17 @@ _CHECK_INTERVAL = 30
 # Let the rest of the app (DB, Redis, event bus, workers) finish booting
 # before the first transition attempt.
 _STARTUP_DELAY = 15
+# Source candles are real 1-minute bars (see historical_replay.py's
+# advance_to() — an instrument's quote only updates when a new candle
+# comes into effect, by design, never fabricated between them). At 1.0x
+# that is one visible update per real-world minute, which reads as
+# "frozen" next to a live tick feed even though nothing is broken. At
+# 10x a trading day (~6h15m) compresses to ~37.5 real minutes and
+# updates land roughly every 6 seconds instead. A day that finishes
+# replaying restarts automatically from session open on this worker's
+# next poll (_ensure_running() is idempotent per-date, not per-run), so
+# a full trading day loops several times across real market hours.
+_REPLAY_SPEED = 10.0
 
 
 class AutoSimulationWorker:
@@ -102,7 +113,7 @@ class AutoSimulationWorker:
 
         try:
             async with async_session_factory() as db:
-                await simulation_controller.start(db, target, speed=1.0)
+                await simulation_controller.start(db, target, speed=_REPLAY_SPEED)
                 await db.commit()
         except RuntimeError as exc:
             # Expected and recoverable: the download worker has not stored
