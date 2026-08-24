@@ -334,6 +334,7 @@ async def get_student_stats(
             "assessment_attempts": [
                 {
                     "id": str(attempt.id),
+                    "assessment_id": str(attempt.assessment_id),
                     "assessment_title": assessment_title,
                     "course_title": course_title,
                     "score_percent": attempt.score_percent,

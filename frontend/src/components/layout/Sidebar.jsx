@@ -23,6 +23,7 @@ import {
   FlipHorizontal2,
   Lightbulb,
   GraduationCap,
+  ClipboardCheck,
 } from "lucide-react";
 
 /* ─── Avatar helpers ─────────────────────────────────────── */
@@ -318,6 +319,15 @@ export default function Sidebar({ collapsed, onToggle }) {
                   onNavigate={closeMobileDrawer}
                 />
               )}
+              {user?.role === 'institution_admin' && (
+                <SidebarItem
+                  to="/institution/courses"
+                  icon={ClipboardCheck}
+                  label="Course Approvals"
+                  collapsed={collapsed}
+                  onNavigate={closeMobileDrawer}
+                />
+              )}
               {user?.role === 'faculty' && (
                 <SidebarItem
                   to="/faculty/portal"
@@ -386,6 +396,13 @@ export default function Sidebar({ collapsed, onToggle }) {
                       to="/institution/portal"
                       icon={GraduationCap}
                       label="Institution Portal"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                    <SidebarItem
+                      to="/institution/courses"
+                      icon={ClipboardCheck}
+                      label="Course Approvals"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
                     />

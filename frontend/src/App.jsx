@@ -46,6 +46,7 @@ import ChartEmbed from './pages/ChartEmbed';
 import AdminAcademicPage from './pages/AdminAcademicPage';
 import AdminInstitutionDetailPage from './pages/AdminInstitutionDetailPage';
 import InstitutionPortalPage from './pages/InstitutionPortalPage';
+import InstitutionCoursesPage from './pages/InstitutionCoursesPage';
 import FacultyPortalPage from './pages/FacultyPortalPage';
 import AcademyPage from './pages/AcademyPage';
 
@@ -137,6 +138,9 @@ export default function App() {
                             {/* ── Institution Admin portal ── */}
                             <Route path="/institution/portal" element={
                                 <InstitutionRoute><InstitutionPortalPage /></InstitutionRoute>
+                            } />
+                            <Route path="/institution/courses" element={
+                                <InstitutionRoute><InstitutionCoursesPage /></InstitutionRoute>
                             } />
                             {/* ── Faculty portal ── */}
                             <Route path="/faculty/portal" element={
