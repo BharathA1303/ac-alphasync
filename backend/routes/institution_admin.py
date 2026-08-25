@@ -290,14 +290,18 @@ async def get_student_stats(
         )
         lessons_completed = lessons_completed_result.scalar() or 0
 
-        attempts_result = await db.execute(
-            select(AssessmentAttempt, Assessment.title.label("assessment_title"), Course.title.label("course_title"))
-            .outerjoin(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
-            .outerjoin(Course, Course.id == AssessmentAttempt.course_id)
-            .where(AssessmentAttempt.user_id == student.id)
-            .order_by(AssessmentAttempt.started_at.desc())
-        )
-        attempts = attempts_result.all()
+        attempts = []
+        try:
+            attempts_result = await db.execute(
+                select(AssessmentAttempt, Assessment.title.label("assessment_title"), Course.title.label("course_title"))
+                .outerjoin(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
+                .outerjoin(Course, Course.id == AssessmentAttempt.course_id)
+                .where(AssessmentAttempt.user_id == student.id)
+                .order_by(AssessmentAttempt.started_at.desc())
+            )
+            attempts = attempts_result.all()
+        except Exception as att_err:
+            logger.warning(f"Could not load member assessment attempts: {att_err}")
 
         return {
             "student": {
@@ -354,8 +358,8 @@ async def get_student_stats(
                         "course_title": course_title or "Untitled Course",
                         "score_percent": attempt.score_percent,
                         "passed": attempt.passed,
-                        "flagged": attempt.flagged,
-                        "flag_reason": attempt.flag_reason,
+                        "flagged": getattr(attempt, "flagged", False),
+                        "flag_reason": getattr(attempt, "flag_reason", None),
                         "started_at": _iso(attempt.started_at),
                     }
                     for attempt, assessment_title, course_title in attempts

@@ -197,24 +197,30 @@ async def get_course_detail(
                 if row[0] is not None
             }
 
-            attempts_result = await db.execute(
-                select(AssessmentAttempt)
-                .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id.in_(assessment_ids))
-                .order_by(AssessmentAttempt.started_at.desc())
-            )
-            for attempt in attempts_result.scalars().all():
-                att_key = str(attempt.assessment_id)
-                if att_key not in latest_by_assessment:
-                    latest_by_assessment[att_key] = attempt
-
-            grants_result = await db.execute(
-                select(AssessmentRetakeGrant.assessment_id).where(
-                    AssessmentRetakeGrant.user_id == student.id,
-                    AssessmentRetakeGrant.assessment_id.in_(assessment_ids),
-                    AssessmentRetakeGrant.consumed.is_(False),
+            try:
+                attempts_result = await db.execute(
+                    select(AssessmentAttempt)
+                    .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id.in_(assessment_ids))
+                    .order_by(AssessmentAttempt.started_at.desc())
                 )
-            )
-            grant_by_assessment = {str(row[0]): True for row in grants_result.all() if row[0] is not None}
+                for attempt in attempts_result.scalars().all():
+                    att_key = str(attempt.assessment_id)
+                    if att_key not in latest_by_assessment:
+                        latest_by_assessment[att_key] = attempt
+            except Exception as att_err:
+                logger.warning(f"Could not load assessment_attempts (schema mismatch or empty): {att_err}")
+
+            try:
+                grants_result = await db.execute(
+                    select(AssessmentRetakeGrant.assessment_id).where(
+                        AssessmentRetakeGrant.user_id == student.id,
+                        AssessmentRetakeGrant.assessment_id.in_(assessment_ids),
+                        AssessmentRetakeGrant.consumed.is_(False),
+                    )
+                )
+                grant_by_assessment = {str(row[0]): True for row in grants_result.all() if row[0] is not None}
+            except Exception as grant_err:
+                logger.warning(f"Could not load assessment_retake_grants: {grant_err}")
 
         return {
             "id": str(course.id),
@@ -244,7 +250,7 @@ async def get_course_detail(
                         {
                             "score_percent": latest_by_assessment[str(a.id)].score_percent,
                             "passed": latest_by_assessment[str(a.id)].passed,
-                            "flagged": latest_by_assessment[str(a.id)].flagged,
+                            "flagged": getattr(latest_by_assessment[str(a.id)], "flagged", False),
                             "submitted_at": _iso(latest_by_assessment[str(a.id)].started_at),
                         }
                         if str(a.id) in latest_by_assessment else None
