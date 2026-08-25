@@ -24,13 +24,24 @@ from models.course import (
 )
 from dependencies.institution import require_institution_admin
 from services import invite_service
-from services.invite_service import _as_uuid
+from services.invite_service import _as_uuid, _as_aware_utc
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/institution", tags=["InstitutionAdmin"])
 
 _EXPIRY_HOURS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
+ONLINE_THRESHOLD_MINUTES = 5
+
+
+def _iso(val):
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
 
 
 class CreateMemberInviteRequest(BaseModel):
@@ -41,6 +52,10 @@ class CreateMemberInviteRequest(BaseModel):
 
 class ReviewCourseRequest(BaseModel):
     review_note: Optional[str] = None
+
+
+class GrantRetakeRequest(BaseModel):
+    assessment_id: str
 
 
 @router.get("/dashboard")
@@ -210,17 +225,10 @@ async def list_members(
     }
 
 
-ONLINE_THRESHOLD_MINUTES = 5
-
-
-class GrantRetakeRequest(BaseModel):
-    assessment_id: str
-
-
 async def _get_own_member(db: AsyncSession, admin: User, member_id: str) -> User:
     member_uuid = _as_uuid(member_id)
     member = await db.get(User, member_uuid) if member_uuid else None
-    if not member or member.institution_id != admin.institution_id or member.role not in ("student", "faculty"):
+    if not member or str(member.institution_id) != str(admin.institution_id) or member.role not in ("student", "faculty"):
         raise HTTPException(status_code=404, detail="Member not found in your institution")
     return member
 
@@ -264,10 +272,10 @@ async def get_student_stats(
         .limit(1)
     )
     last_session = last_session_result.scalar_one_or_none()
+    last_seen = _as_aware_utc(last_session.last_seen_at) if last_session and last_session.last_seen_at else None
     is_online = bool(
-        last_session
-        and last_session.last_seen_at
-        and (datetime.now(timezone.utc) - last_session.last_seen_at) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+        last_seen
+        and (datetime.now(timezone.utc) - last_seen) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
     )
 
     lessons_completed_result = await db.execute(
@@ -291,19 +299,19 @@ async def get_student_stats(
             "email": student.email,
             "username": student.username,
             "role": student.role,
-            "created_at": student.created_at.isoformat() if student.created_at else None,
+            "created_at": _iso(student.created_at),
         },
         "online": {
             "is_online": is_online,
-            "last_seen_at": last_session.last_seen_at.isoformat() if last_session and last_session.last_seen_at else None,
+            "last_seen_at": _iso(last_session.last_seen_at) if last_session else None,
             "ip_address": last_session.ip_address if last_session else None,
         },
         "portfolio": {
-            "current_value": float(portfolio.current_value) if portfolio else 0.0,
-            "total_invested": float(portfolio.total_invested) if portfolio else 0.0,
-            "available_capital": float(portfolio.available_capital) if portfolio else 0.0,
-            "total_pnl": float(portfolio.total_pnl) if portfolio else 0.0,
-            "total_pnl_percent": float(portfolio.total_pnl_percent) if portfolio else 0.0,
+            "current_value": float(portfolio.current_value) if portfolio and portfolio.current_value is not None else 0.0,
+            "total_invested": float(portfolio.total_invested) if portfolio and portfolio.total_invested is not None else 0.0,
+            "available_capital": float(portfolio.available_capital) if portfolio and portfolio.available_capital is not None else 0.0,
+            "total_pnl": float(portfolio.total_pnl) if portfolio and portfolio.total_pnl is not None else 0.0,
+            "total_pnl_percent": float(portfolio.total_pnl_percent) if portfolio and portfolio.total_pnl_percent is not None else 0.0,
         },
         "trade_count": trade_count,
         "recent_transactions": [
@@ -311,9 +319,9 @@ async def get_student_stats(
                 "symbol": tx.symbol,
                 "type": tx.transaction_type,
                 "quantity": tx.quantity,
-                "price": float(tx.price),
-                "total_value": float(tx.total_value),
-                "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                "price": float(tx.price) if tx.price is not None else 0.0,
+                "total_value": float(tx.total_value) if tx.total_value is not None else 0.0,
+                "created_at": _iso(tx.created_at),
             }
             for tx in recent_transactions
         ],
@@ -325,7 +333,7 @@ async def get_student_stats(
                 "quantity": o.quantity,
                 "price": float(o.price) if o.price is not None else None,
                 "status": o.status,
-                "created_at": o.created_at.isoformat() if o.created_at else None,
+                "created_at": _iso(o.created_at),
             }
             for o in recent_orders
         ],
@@ -341,7 +349,7 @@ async def get_student_stats(
                     "passed": attempt.passed,
                     "flagged": attempt.flagged,
                     "flag_reason": attempt.flag_reason,
-                    "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
+                    "started_at": _iso(attempt.started_at),
                 }
                 for attempt, assessment_title, course_title in attempts
             ],

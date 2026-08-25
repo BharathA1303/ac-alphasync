@@ -4,7 +4,8 @@ import uuid
 import logging
 from contextlib import asynccontextmanager
 import os
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from config.settings import settings
@@ -425,6 +426,15 @@ app = FastAPI(
     description="Professional Indian Stock Market Simulation Trading Platform",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled server error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 # CORS
 app.add_middleware(

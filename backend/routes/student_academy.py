@@ -35,13 +35,23 @@ from models.course import (
     LessonProgress, AssessmentAttempt, AttemptAnswer, AssessmentRetakeGrant,
 )
 from dependencies.student import require_student
-from services.invite_service import _as_uuid
+from services.invite_service import _as_uuid, _as_aware_utc
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/academy", tags=["Student Academy"])
 
 SECONDS_PER_QUESTION = 60
+
+
+def _iso(val):
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
 
 
 class SubmitAnswerInput(BaseModel):
@@ -59,7 +69,15 @@ class SubmitAttemptRequest(BaseModel):
 async def _get_visible_course(db: AsyncSession, student: User, course_id: str) -> Course:
     course_uuid = _as_uuid(course_id)
     course = await db.get(Course, course_uuid) if course_uuid else None
-    if not course or course.status != "approved" or course.institution_id != student.institution_id:
+    if not course or course.status != "approved":
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    # Match student's institution, or default platform-wide course
+    is_match = (
+        (course.institution_id is not None and str(course.institution_id) == str(student.institution_id))
+        or (course.is_default and course.institution_id is None)
+    )
+    if not is_match:
         raise HTTPException(status_code=404, detail="Course not found")
     return course
 
@@ -215,7 +233,7 @@ async def get_course_detail(
                         "score_percent": latest_by_assessment[a.id].score_percent,
                         "passed": latest_by_assessment[a.id].passed,
                         "flagged": latest_by_assessment[a.id].flagged,
-                        "submitted_at": latest_by_assessment[a.id].started_at.isoformat(),
+                        "submitted_at": _iso(latest_by_assessment[a.id].started_at),
                     }
                     if a.id in latest_by_assessment else None
                 ),
@@ -300,7 +318,8 @@ async def start_assessment(
     await db.refresh(attempt)
 
     time_limit_seconds = len(questions) * SECONDS_PER_QUESTION
-    expires_at = attempt.started_at + timedelta(seconds=time_limit_seconds)
+    started_at = _as_aware_utc(attempt.started_at) or datetime.now(timezone.utc)
+    expires_at = started_at + timedelta(seconds=time_limit_seconds)
 
     return {
         "attempt_id": str(attempt.id),
