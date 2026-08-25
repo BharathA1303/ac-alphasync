@@ -357,7 +357,7 @@ async def get_course(
         "lessons": [
             _lesson_out(
                 l,
-                materials=materials_by_lesson.get(str(l.id)) or (
+                materials=(
                     [
                         {
                             "id": f"primary-{l.id}",
@@ -367,7 +367,10 @@ async def get_course(
                             "has_extracted_text": bool(l.extracted_text),
                         }
                     ] if l.file_url else []
-                )
+                ) + [
+                    m for m in materials_by_lesson.get(str(l.id), [])
+                    if m["file_url"] != l.file_url
+                ]
             )
             for l in lessons
         ],
@@ -637,7 +640,7 @@ async def update_lesson(
 
 
 @router.post("/courses/{course_id}/lessons/{lesson_id}/material")
-async def upload_lesson_material(
+async def upload_single_lesson_material(
     course_id: str,
     lesson_id: str,
     file: UploadFile = File(...),
@@ -650,30 +653,64 @@ async def upload_lesson_material(
 
     file_type = ALLOWED_FILE_TYPES.get(file.content_type)
     if not file_type:
-        raise HTTPException(status_code=400, detail="Unsupported file type. Upload a PDF, DOCX, PPTX, or Markdown file.")
+        fn = file.filename.lower()
+        if fn.endswith(".pdf"):
+            file_type = "pdf"
+        elif fn.endswith(".docx"):
+            file_type = "docx"
+        elif fn.endswith(".pptx"):
+            file_type = "pptx"
+        elif fn.endswith(".md"):
+            file_type = "md"
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format")
 
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 15MB.")
 
-    # Remove any previous material for this lesson
-    old_path = _lesson_file_path(lesson)
-    if old_path and os.path.exists(old_path):
-        os.remove(old_path)
-
-    filename = f"{lesson.id}_{uuid.uuid4().hex}.{file_type}"
+    mat_uuid = uuid.uuid4()
+    filename = f"{mat_uuid}.{file_type}"
     filepath = os.path.join(UPLOAD_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(contents)
 
-    lesson.file_url = f"/uploads/lesson-materials/{filename}"
-    lesson.file_name = file.filename
-    lesson.file_type = file_type
-    lesson.extracted_text = text_extraction.extract_text(filepath, file_type)
+    file_url = f"/uploads/lesson-materials/{filename}"
+    extracted_text = text_extraction.extract_text(filepath, file_type)
+
+    mat = LessonMaterial(
+        lesson_id=lesson.id,
+        file_url=file_url,
+        file_name=file.filename,
+        file_type=file_type,
+        extracted_text=extracted_text,
+    )
+    db.add(mat)
+
+    if not lesson.file_url:
+        lesson.file_url = file_url
+        lesson.file_name = file.filename
+        lesson.file_type = file_type
+        lesson.extracted_text = extracted_text
 
     await db.commit()
     await db.refresh(lesson)
-    return _lesson_out(lesson)
+
+    # Return full lesson representation with all materials
+    mats_res = await db.execute(
+        select(LessonMaterial).where(LessonMaterial.lesson_id == lesson.id).order_by(LessonMaterial.created_at)
+    )
+    materials = [
+        {
+            "id": str(m.id),
+            "file_url": m.file_url,
+            "file_name": m.file_name,
+            "file_type": m.file_type,
+            "has_extracted_text": bool(m.extracted_text),
+        }
+        for m in mats_res.scalars().all()
+    ]
+    return _lesson_out(lesson, materials=materials)
 
 
 @router.delete("/courses/{course_id}/lessons/{lesson_id}/material")

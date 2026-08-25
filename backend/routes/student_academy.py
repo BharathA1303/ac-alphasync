@@ -242,19 +242,18 @@ async def get_course_detail(
                 logger.warning(f"LessonMaterial query warning: {mat_err}")
 
         def _get_lesson_materials(l):
-            db_mats = materials_by_lesson.get(str(l.id), [])
-            if db_mats:
-                return db_mats
+            mats = []
             if l.file_url:
-                return [
-                    {
-                        "id": f"primary-{l.id}",
-                        "file_url": l.file_url,
-                        "file_name": l.file_name or "Lesson Notes",
-                        "file_type": l.file_type or "pdf",
-                    }
-                ]
-            return []
+                mats.append({
+                    "id": f"primary-{l.id}",
+                    "file_url": l.file_url,
+                    "file_name": l.file_name or "Lesson Notes",
+                    "file_type": l.file_type or "pdf",
+                })
+            for m in materials_by_lesson.get(str(l.id), []):
+                if not any(existing["file_url"] == m["file_url"] for existing in mats):
+                    mats.append(m)
+            return mats
 
         return {
             "id": str(course.id),
