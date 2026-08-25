@@ -830,6 +830,7 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
 
 function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, onToggle, onChanged }) {
     const [deleting, setDeleting] = useState(false);
+    const [editingConfig, setEditingConfig] = useState(false);
 
     const handleDelete = async (e) => {
         e.stopPropagation();
@@ -846,7 +847,7 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
     };
 
     return (
-        <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
+        <div className="rounded-xl overflow-hidden transition-all border border-edge/10" style={{ background: 'var(--bg-muted)' }}>
             <div
                 className="flex items-center justify-between gap-3 p-4 cursor-pointer hover:brightness-105 transition-all"
                 onClick={onToggle}
@@ -868,12 +869,35 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--brand)' }}>
-                        {expanded ? 'Hide Questions' : 'View Questions & AI Config'}
-                    </span>
-                    {expanded ? <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />}
                     {!locked && (
                         <button
+                            type="button"
+                            className="admin-action-btn admin-action-btn--secondary text-xs px-2.5 py-1"
+                            style={{ minHeight: 28 }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingConfig((v) => !v);
+                                if (!expanded) onToggle();
+                            }}
+                        >
+                            <Settings2 size={12} /> {editingConfig ? 'Close Config' : 'Edit Config'}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="text-xs font-semibold flex items-center gap-1"
+                        style={{ color: 'var(--brand)' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggle();
+                        }}
+                    >
+                        {expanded ? 'Hide Questions' : 'View Questions'}
+                        {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    </button>
+                    {!locked && (
+                        <button
+                            type="button"
                             className="w-7 h-7 rounded-md flex items-center justify-center"
                             style={{ color: '#ef4444' }}
                             onClick={handleDelete}
@@ -887,8 +911,20 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
             </div>
 
             {expanded && (
-                <div className="p-4 border-t border-edge/10 bg-surface-900/40">
-                    <AssessmentConfigForm courseId={courseId} assessment={assessment} locked={locked} onSaved={onChanged} />
+                <div className="p-4 border-t border-edge/10" style={{ background: 'var(--bg-surface)' }}>
+                    {editingConfig && (
+                        <div className="mb-4">
+                            <AssessmentConfigForm
+                                courseId={courseId}
+                                assessment={assessment}
+                                locked={locked}
+                                onSaved={() => {
+                                    setEditingConfig(false);
+                                    onChanged();
+                                }}
+                            />
+                        </div>
+                    )}
                     <QuestionsSection
                         courseId={courseId}
                         assessment={assessment}
@@ -1009,7 +1045,7 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
 
     useEffect(() => { loadCourse(); }, [loadCourse]);
 
-    const locked = course?.status === 'approved';
+    const locked = false;
 
     return (
         <div className="flex flex-col gap-4">
@@ -1036,11 +1072,6 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Course not found.</p>
             ) : (
                 <>
-                    {locked && (
-                        <p className="text-[11px] px-2.5 py-2 rounded-md" style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
-                            This course is approved and live for students — content is locked. Contact your Institution Admin to make changes.
-                        </p>
-                    )}
 
                     <div className="admin-card p-3 sm:p-4">
                         <BuilderTabs

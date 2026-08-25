@@ -198,8 +198,8 @@ async def _get_own_course(db: AsyncSession, faculty: User, course_id: str) -> Co
 
 
 def _assert_editable(course: Course):
-    if course.status == "approved":
-        raise HTTPException(status_code=400, detail="Approved courses can't be edited — contact your Institution Admin")
+    # Faculty members can add/edit lessons and assessments even if the course is approved
+    pass
 
 
 async def _get_own_lesson(db: AsyncSession, course: Course, lesson_id: str) -> Lesson:

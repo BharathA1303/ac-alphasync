@@ -279,17 +279,6 @@ async def get_student_stats(
             .limit(1)
         )
         last_session = last_session_result.scalar_one_or_none()
-        last_seen = _as_aware_utc(last_session.last_seen_at) if last_session and last_session.last_seen_at else None
-        is_online = bool(
-            last_seen
-            and (datetime.now(timezone.utc) - last_seen) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
-        )
-
-        lessons_completed_result = await db.execute(
-            select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
-        )
-        lessons_completed = lessons_completed_result.scalar() or 0
-
         attempts = []
         try:
             attempts_result = await db.execute(
@@ -302,6 +291,29 @@ async def get_student_stats(
             attempts = attempts_result.all()
         except Exception as att_err:
             logger.warning(f"Could not load member assessment attempts: {att_err}")
+
+        timestamps = []
+        if last_session and last_session.last_seen_at:
+            timestamps.append(_as_aware_utc(last_session.last_seen_at))
+        if recent_transactions:
+            timestamps.append(_as_aware_utc(recent_transactions[0].created_at))
+        if recent_orders:
+            timestamps.append(_as_aware_utc(recent_orders[0].created_at))
+        if attempts and attempts[0][0] and getattr(attempts[0][0], "started_at", None):
+            timestamps.append(_as_aware_utc(attempts[0][0].started_at))
+        if student.created_at:
+            timestamps.append(_as_aware_utc(student.created_at))
+
+        last_seen = max(timestamps) if timestamps else None
+        is_online = bool(
+            last_seen
+            and (datetime.now(timezone.utc) - last_seen) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+        )
+
+        lessons_completed_result = await db.execute(
+            select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
+        )
+        lessons_completed = lessons_completed_result.scalar() or 0
 
         # Construct chronological member activity logs feed
         activity_logs = []
@@ -377,7 +389,7 @@ async def get_student_stats(
             },
             "online": {
                 "is_online": is_online,
-                "last_seen_at": _iso(last_session.last_seen_at) if last_session else None,
+                "last_seen_at": _iso(last_seen) if last_seen else None,
                 "ip_address": last_session.ip_address if last_session else None,
             },
             "activity_logs": activity_logs,

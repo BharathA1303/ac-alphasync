@@ -215,17 +215,22 @@ function GrantRetakeRow({ memberId, attempt, onGranted }) {
     );
 }
 
-function MemberDetailView({ member, onBack }) {
-    const [loading, setLoading] = useState(true);
+function MemberDetailModal({ member, onBack }) {
     const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [removing, setRemoving] = useState(false);
+    const [activeTab, setActiveTab] = useState('activity');
 
-    const loadStats = useCallback(() => {
+    const loadStats = useCallback(async () => {
         setLoading(true);
-        academicApi.getStudentStats(member.id)
-            .then(({ data }) => setStats(data))
-            .catch((err) => toast.error(parseApiError(err, 'Failed to load member details')))
-            .finally(() => setLoading(false));
+        try {
+            const { data } = await academicApi.getStudentStats(member.id);
+            setStats(data);
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to load member details'));
+        } finally {
+            setLoading(false);
+        }
     }, [member.id]);
 
     useEffect(() => { loadStats(); }, [loadStats]);
@@ -254,12 +259,12 @@ function MemberDetailView({ member, onBack }) {
                         <div className="flex items-center gap-2">
                             <h2 className="text-lg font-bold">{member.full_name}</h2>
                             {stats?.online?.is_online ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
-                                    <Wifi size={10} /> Online
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                                    <Wifi size={10} /> Online Now
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
-                                    <WifiOff size={10} /> {stats?.online?.last_seen_at ? `Last seen ${timeAgoLabel(stats.online.last_seen_at)}` : 'Never logged in'}
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
+                                    <WifiOff size={10} /> {stats?.online?.last_seen_at ? `Last active ${timeAgoLabel(stats.online.last_seen_at)}` : 'Never logged in'}
                                 </span>
                             )}
                         </div>
@@ -267,7 +272,7 @@ function MemberDetailView({ member, onBack }) {
                     </div>
                 </div>
                 <button className="admin-action-btn text-xs flex-shrink-0" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }} disabled={removing} onClick={handleRemove}>
-                    {removing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Remove from institution
+                    {removing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Remove Member
                 </button>
             </div>
 
@@ -277,6 +282,7 @@ function MemberDetailView({ member, onBack }) {
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load member data.</p>
             ) : (
                 <>
+                    {/* Top Stats Overview Row */}
                     {member.role === 'faculty' ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             <div className="admin-mini-stat">
@@ -315,91 +321,137 @@ function MemberDetailView({ member, onBack }) {
                         </div>
                     )}
 
-                    <section className="admin-card p-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Assessment Attempts</h3>
-                        {stats.academy.assessment_attempts.length === 0 ? (
-                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No assessments attempted yet.</p>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {stats.academy.assessment_attempts.map((a) => (
-                                    <div key={a.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-1.5">
-                                                {a.flagged ? <ShieldAlert size={13} style={{ color: '#ef4444' }} className="flex-shrink-0" /> : a.passed ? <Trophy size={13} style={{ color: '#10b981' }} className="flex-shrink-0" /> : <XCircle size={13} style={{ color: '#ef4444' }} className="flex-shrink-0" />}
-                                                <span className="text-xs font-semibold truncate">{a.assessment_title}</span>
-                                                <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>· {a.course_title}</span>
+                    {/* Navigation Options Tabs */}
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+                        <button
+                            type="button"
+                            className="flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all"
+                            style={{
+                                background: activeTab === 'activity' ? 'var(--brand)' : 'transparent',
+                                color: activeTab === 'activity' ? '#04121a' : 'var(--text-muted)',
+                            }}
+                            onClick={() => setActiveTab('activity')}
+                        >
+                            📋 Activity Logs &amp; Timeline
+                        </button>
+                        <button
+                            type="button"
+                            className="flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all"
+                            style={{
+                                background: activeTab === 'assessments' ? 'var(--brand)' : 'transparent',
+                                color: activeTab === 'assessments' ? '#04121a' : 'var(--text-muted)',
+                            }}
+                            onClick={() => setActiveTab('assessments')}
+                        >
+                            📝 Assessment Attempts ({stats.academy.assessment_attempts.length})
+                        </button>
+                        <button
+                            type="button"
+                            className="flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all"
+                            style={{
+                                background: activeTab === 'trading' ? 'var(--brand)' : 'transparent',
+                                color: activeTab === 'trading' ? '#04121a' : 'var(--text-muted)',
+                            }}
+                            onClick={() => setActiveTab('trading')}
+                        >
+                            📈 Portfolio &amp; Trades
+                        </button>
+                    </div>
+
+                    {/* Tab Content Cards */}
+                    {activeTab === 'activity' && (
+                        <section className="admin-card p-4">
+                            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Member Activity &amp; Work Feed</h3>
+                            {!stats.activity_logs || stats.activity_logs.length === 0 ? (
+                                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recent activity logged for this member.</p>
+                            ) : (
+                                <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1">
+                                    {stats.activity_logs.map((log, idx) => (
+                                        <div key={idx} className="flex items-start justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                            <div className="flex items-start gap-2.5 min-w-0">
+                                                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5" style={{ background: 'rgba(0,188,212,0.15)', color: '#00bcd4' }}>
+                                                    {log.type === 'session' ? '🔑' : log.type === 'trade' ? '📈' : log.type === 'course' ? '📚' : '📝'}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="text-xs font-semibold truncate">{log.title}</h4>
+                                                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{log.details}</p>
+                                                </div>
                                             </div>
-                                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                                                {a.flagged ? 'Flagged for suspicious activity' : `Scored ${a.score_percent}%`} · {timeAgoLabel(a.started_at)}
-                                            </p>
+                                            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                                {timeAgoLabel(log.timestamp)}
+                                            </span>
                                         </div>
-                                        <GrantRetakeRow memberId={member.id} attempt={a} onGranted={loadStats} />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
 
-                    <section className="admin-card p-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Activity Logs &amp; Member Works</h3>
-                        {!stats.activity_logs || stats.activity_logs.length === 0 ? (
-                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recent activity logged for this member.</p>
-                        ) : (
-                            <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
-                                {stats.activity_logs.map((log, idx) => (
-                                    <div key={idx} className="flex items-start justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
-                                        <div className="flex items-start gap-2.5 min-w-0">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5" style={{ background: 'rgba(0,188,212,0.15)', color: '#00bcd4' }}>
-                                                {log.type === 'session' ? '🔑' : log.type === 'trade' ? '📈' : '📝'}
+                    {activeTab === 'assessments' && (
+                        <section className="admin-card p-4">
+                            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Assessment Attempt Records</h3>
+                            {stats.academy.assessment_attempts.length === 0 ? (
+                                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No assessments attempted yet.</p>
+                            ) : (
+                                <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1">
+                                    {stats.academy.assessment_attempts.map((a) => (
+                                        <div key={a.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5">
+                                                    {a.flagged ? <ShieldAlert size={13} style={{ color: '#ef4444' }} className="flex-shrink-0" /> : a.passed ? <Trophy size={13} style={{ color: '#10b981' }} className="flex-shrink-0" /> : <XCircle size={13} style={{ color: '#ef4444' }} className="flex-shrink-0" />}
+                                                    <span className="text-xs font-semibold truncate">{a.assessment_title}</span>
+                                                    <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>· {a.course_title}</span>
+                                                </div>
+                                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                                    {a.flagged ? 'Flagged for suspicious activity' : `Scored ${a.score_percent}%`} · {timeAgoLabel(a.started_at)}
+                                                </p>
                                             </div>
-                                            <div className="min-w-0">
-                                                <h4 className="text-xs font-semibold truncate">{log.title}</h4>
-                                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{log.details}</p>
-                                            </div>
+                                            <GrantRetakeRow memberId={member.id} attempt={a} onGranted={loadStats} />
                                         </div>
-                                        <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                                            {timeAgoLabel(log.timestamp)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    )}
 
-                    <section className="admin-card p-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Orders</h3>
-                        {stats.recent_orders.length === 0 ? (
-                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No orders placed yet.</p>
-                        ) : (
-                            <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
-                                {stats.recent_orders.map((o, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
-                                        <span className="font-semibold" style={{ color: o.side === 'BUY' ? '#10b981' : '#ef4444' }}>{o.side} {o.symbol}</span>
-                                        <span style={{ color: 'var(--text-secondary)' }}>{o.quantity} {o.price ? `@ ₹${o.price}` : ''}</span>
-                                        <span className="capitalize" style={{ color: 'var(--text-muted)' }}>{o.status?.toLowerCase()}</span>
-                                        <span className="font-mono" style={{ color: 'var(--text-muted)' }}>{o.created_at ? new Date(o.created_at).toLocaleDateString() : '—'}</span>
+                    {activeTab === 'trading' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <section className="admin-card p-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Orders ({stats.recent_orders.length})</h3>
+                                {stats.recent_orders.length === 0 ? (
+                                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No orders placed yet.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto pr-1">
+                                        {stats.recent_orders.map((o, idx) => (
+                                            <div key={idx} className="flex items-center justify-between text-xs py-2 px-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                                <span className="font-semibold" style={{ color: o.side === 'BUY' ? '#10b981' : '#ef4444' }}>{o.side} {o.symbol}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>{o.quantity} {o.price ? `@ ₹${o.price}` : ''}</span>
+                                                <span className="capitalize text-[11px]" style={{ color: 'var(--text-muted)' }}>{o.status?.toLowerCase()}</span>
+                                                <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{o.created_at ? timeAgoLabel(o.created_at) : '—'}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                )}
+                            </section>
 
-                    <section className="admin-card p-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Transactions</h3>
-                        {stats.recent_transactions.length === 0 ? (
-                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No trading activity yet.</p>
-                        ) : (
-                            <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
-                                {stats.recent_transactions.map((tx, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
-                                        <span className="font-semibold">{tx.type} {tx.symbol}</span>
-                                        <span style={{ color: 'var(--text-secondary)' }}>{tx.quantity} @ ₹{tx.price}</span>
-                                        <span className="font-mono" style={{ color: 'var(--text-muted)' }}>{tx.created_at ? new Date(tx.created_at).toLocaleDateString() : '—'}</span>
+                            <section className="admin-card p-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Filled Transactions ({stats.recent_transactions.length})</h3>
+                                {stats.recent_transactions.length === 0 ? (
+                                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No trading activity yet.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-1.5 max-h-80 overflow-y-auto pr-1">
+                                        {stats.recent_transactions.map((tx, idx) => (
+                                            <div key={idx} className="flex items-center justify-between text-xs py-2 px-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                                <span className="font-semibold">{tx.type} {tx.symbol}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>{tx.quantity} @ ₹{tx.price}</span>
+                                                <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{tx.created_at ? timeAgoLabel(tx.created_at) : '—'}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                )}
+                            </section>
+                        </div>
+                    )}
                 </>
             )}
         </div>

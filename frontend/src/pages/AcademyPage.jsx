@@ -182,6 +182,49 @@ function LessonReader({ courseId, lesson, onMarkedComplete, onPreview }) {
     );
 }
 
+function MaterialPreviewModal({ material, onClose }) {
+    if (!material) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+            <div className="w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col overflow-hidden bg-surface-900 border border-edge/10 shadow-2xl animate-scale-up">
+                <div className="flex items-center justify-between p-4 border-b border-edge/10 bg-surface-800/60">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <FileText size={18} className="text-primary-500 flex-shrink-0" />
+                        <h3 className="text-sm font-semibold text-heading truncate">{material.file_name}</h3>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary-500/10 text-primary-500">
+                            {material.file_type}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={material.file_url}
+                            download={material.file_name}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                        >
+                            <Download size={13} /> Download
+                        </a>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white bg-surface-700/50 hover:bg-surface-700 transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 w-full bg-black/50 overflow-auto p-2">
+                    <iframe
+                        src={material.file_url}
+                        title={material.file_name}
+                        className="w-full h-full rounded border-0"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
     const [previewMat, setPreviewMat] = useState(null);
     const completedCount = lessons.filter((l) => l.completed).length;
