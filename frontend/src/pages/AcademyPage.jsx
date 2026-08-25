@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     GraduationCap, BookOpen, ClipboardCheck, ArrowLeft, Loader2, FileText,
-    CheckCircle2, Circle, Sparkles, Trophy, XCircle, ChevronRight, Lock,
+    CheckCircle2, Circle, Sparkles, Trophy, XCircle, ChevronRight, ChevronDown, Lock,
     AlertTriangle, Clock, Eye, Download, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ function parseApiError(error, fallback = 'Request failed') {
 }
 
 const FILE_LABEL = { pdf: 'PDF', docx: 'DOCX', pptx: 'PPTX', md: 'Markdown' };
+const MAX_VIOLATIONS = 3;
 
 /* ────────────────────────────────────────────────────────────────
  * Course grid — student-facing card style, not the admin table look
@@ -308,7 +309,7 @@ function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
 /* ────────────────────────────────────────────────────────────────
  * Assessments sub-view
  * ──────────────────────────────────────────────────────────────── */
-function AssessmentRow({ assessment, onStart }) {
+function AssessmentRow({ assessment, onStart, onViewResult }) {
     const locked = assessment.locked;
     const attempt = assessment.last_attempt;
 
@@ -324,18 +325,22 @@ function AssessmentRow({ assessment, onStart }) {
                     )}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-0.5">
-                    {assessment.question_count} question{assessment.question_count === 1 ? '' : 's'} · pass at {assessment.pass_score}% · {Math.round(assessment.time_limit_seconds / 60)} min limit
+                    {assessment.question_count} question{assessment.question_count === 1 ? '' : 's'} · pass at {assessment.pass_score}% · {Math.round((assessment.time_limit_seconds || 300) / 60)} min limit
                     {attempt && (
-                        <span className={attempt.passed ? 'text-emerald-500' : 'text-red-500'}>
-                            {' '}· scored {attempt.score_percent}% ({attempt.passed ? 'passed' : 'not passed'})
+                        <span className={attempt.passed ? 'text-emerald-500 font-semibold' : 'text-red-500 font-semibold'}>
+                            {' '}· Scored {attempt.score_percent}% ({attempt.passed ? 'Passed' : 'Not Passed'})
                         </span>
                     )}
                 </p>
             </div>
             {locked ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 flex-shrink-0 px-3 py-2">
-                    <Lock size={13} /> Completed
-                </span>
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 bg-surface-800 hover:bg-surface-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+                    onClick={() => onViewResult(assessment)}
+                >
+                    <CheckCircle2 size={13} className="text-emerald-500" /> View Result
+                </button>
             ) : (
                 <button
                     className="admin-action-btn admin-action-btn--primary text-xs flex-shrink-0"
@@ -350,7 +355,7 @@ function AssessmentRow({ assessment, onStart }) {
     );
 }
 
-function AssessmentsView({ assessments, onBack, onStart }) {
+function AssessmentsView({ assessments, onBack, onStart, onViewResult }) {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
@@ -376,8 +381,6 @@ function AssessmentsView({ assessments, onBack, onStart }) {
 /* ────────────────────────────────────────────────────────────────
  * Quiz flow — timed, proctored, one attempt
  * ──────────────────────────────────────────────────────────────── */
-const MAX_VIOLATIONS = 3;
-
 function QuizResult({ result, onClose }) {
     const passed = result.passed;
     const flagged = result.flagged;
@@ -473,7 +476,7 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
             submitAttempt(true, reason);
         } else {
             const remaining = MAX_VIOLATIONS - count;
-            setWarning(`Warning ${count}/2: ${reason}. ${remaining} more and this assessment will be flagged and locked.`);
+            setWarning(`Warning ${count} of 3: ${reason}. ${remaining} warning${remaining > 1 ? 's' : ''} remaining before auto-submission.`);
         }
     }, [result, submitAttempt]);
 

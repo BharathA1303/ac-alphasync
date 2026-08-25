@@ -95,6 +95,7 @@ class CreateAssessmentRequest(BaseModel):
     pass_score: int = Field(default=70, ge=0, le=100)
     question_count: int = Field(default=5, ge=1, le=50)
     difficulty: str = Field(default="medium")
+    lesson_ids: Optional[list[str]] = None
 
 
 AssessmentConfigRequest = CreateAssessmentRequest
@@ -106,6 +107,7 @@ class UpdateAssessmentRequest(BaseModel):
     pass_score: Optional[int] = Field(default=None, ge=0, le=100)
     question_count: Optional[int] = Field(default=None, ge=1, le=50)
     difficulty: Optional[str] = None
+    lesson_ids: Optional[list[str]] = None
 
 
 class ChoiceInput(BaseModel):
@@ -185,6 +187,7 @@ def _assessment_out(assessment: Assessment, question_count: int = 0) -> dict:
         "pass_score": assessment.pass_score,
         "question_count": assessment.question_count,
         "difficulty": assessment.difficulty,
+        "lesson_ids": assessment.lesson_ids or [],
         "generated_question_count": question_count,
     }
 
@@ -479,7 +482,15 @@ async def regenerate_assessment_questions(
     _assert_editable(course)
     assessment = await _get_own_assessment(db, course, assessment_id)
 
-    lessons_res = await db.execute(select(Lesson).where(Lesson.course_id == course.id))
+    target_uuids = []
+    if assessment.lesson_ids and isinstance(assessment.lesson_ids, list):
+        target_uuids = [_as_uuid(lid) for lid in assessment.lesson_ids if _as_uuid(lid)]
+
+    if target_uuids:
+        lessons_res = await db.execute(select(Lesson).where(Lesson.course_id == course.id, Lesson.id.in_(target_uuids)))
+    else:
+        lessons_res = await db.execute(select(Lesson).where(Lesson.course_id == course.id))
+
     lessons = lessons_res.scalars().all()
     lesson_ids = [l.id for l in lessons]
 
@@ -731,6 +742,7 @@ async def add_assessment(
         pass_score=req.pass_score,
         question_count=req.question_count,
         difficulty=req.difficulty,
+        lesson_ids=req.lesson_ids or [],
     )
     db.add(assessment)
     await db.commit()
@@ -758,6 +770,8 @@ async def update_assessment_config(
     assessment.pass_score = req.pass_score
     assessment.question_count = req.question_count
     assessment.difficulty = req.difficulty
+    if req.lesson_ids is not None:
+        assessment.lesson_ids = req.lesson_ids
     await db.commit()
     await db.refresh(assessment)
     return _assessment_out(assessment)

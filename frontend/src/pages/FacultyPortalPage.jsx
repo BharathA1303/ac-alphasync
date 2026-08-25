@@ -860,7 +860,7 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
     );
 }
 
-function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, onToggle, onChanged }) {
+function AssessmentCard({ courseId, assessment, lessons = [], locked, aiAvailable, expanded, onToggle, onChanged }) {
     const [deleting, setDeleting] = useState(false);
     const [editingConfig, setEditingConfig] = useState(false);
 
@@ -944,10 +944,11 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
 
             {expanded && (
                 <div className="p-4 border-t border-edge/10" style={{ background: 'var(--bg-surface)' }}>
-                    {editingConfig && (
+                    {editingConfig ? (
                         <div className="mb-4">
                             <AssessmentConfigForm
                                 courseId={courseId}
+                                lessons={lessons}
                                 assessment={assessment}
                                 locked={locked}
                                 onSaved={() => {
@@ -956,14 +957,15 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
                                 }}
                             />
                         </div>
+                    ) : (
+                        <QuestionsSection
+                            courseId={courseId}
+                            assessment={assessment}
+                            locked={locked}
+                            aiAvailable={aiAvailable}
+                            onQuestionsChanged={onChanged}
+                        />
                     )}
-                    <QuestionsSection
-                        courseId={courseId}
-                        assessment={assessment}
-                        locked={locked}
-                        aiAvailable={aiAvailable}
-                        onQuestionsChanged={onChanged}
-                    />
                 </div>
             )}
         </div>
@@ -973,10 +975,6 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
 function AssessmentsSection({ courseId, assessments, lessons = [], locked, aiAvailable, onChanged }) {
     const [expandedId, setExpandedId] = useState(null);
     const [showNewForm, setShowNewForm] = useState(false);
-
-    const activeId = expandedId === 'none'
-        ? null
-        : (expandedId || assessments?.[assessments.length - 1]?.id || null);
 
     return (
         <div className="flex flex-col gap-4">
@@ -996,10 +994,11 @@ function AssessmentsSection({ courseId, assessments, lessons = [], locked, aiAva
                     key={a.id}
                     courseId={courseId}
                     assessment={a}
+                    lessons={lessons}
                     locked={locked}
                     aiAvailable={aiAvailable}
-                    expanded={activeId === a.id}
-                    onToggle={() => setExpandedId(activeId === a.id ? 'none' : a.id)}
+                    expanded={expandedId === a.id}
+                    onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
                     onChanged={onChanged}
                 />
             ))}
@@ -1009,8 +1008,15 @@ function AssessmentsSection({ courseId, assessments, lessons = [], locked, aiAva
                     {showNewForm ? (
                         <AssessmentConfigForm
                             courseId={courseId}
+                            lessons={lessons}
                             locked={locked}
-                            onSaved={() => { setShowNewForm(false); onChanged(); }}
+                            onSaved={(createdAssessment) => {
+                                setShowNewForm(false);
+                                if (createdAssessment?.id) {
+                                    setExpandedId(createdAssessment.id);
+                                }
+                                onChanged();
+                            }}
                         />
                     ) : (
                         <button
