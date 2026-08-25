@@ -1,0 +1,42 @@
+name: Backup Previous Commit
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    name: Backup Previous Commit to Backup Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update and Push Backup Branch
+        run: |
+          PREV_COMMIT="${{ github.event.before }}"
+          ZERO_SHA="0000000000000000000000000000000000000000"
+
+          if [ -z "$PREV_COMMIT" ] || [ "$PREV_COMMIT" = "$ZERO_SHA" ]; then
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              PREV_COMMIT=$(git rev-parse HEAD~1)
+            else
+              PREV_COMMIT=$(git rev-parse HEAD)
+            fi
+          fi
+
+          echo "Target backup commit SHA: $PREV_COMMIT"
+
+          git branch -f backup $PREV_COMMIT
+          git push origin backup --force
