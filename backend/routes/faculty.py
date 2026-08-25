@@ -483,23 +483,27 @@ async def regenerate_assessment_questions(
     lessons = lessons_res.scalars().all()
     lesson_ids = [l.id for l in lessons]
 
-    texts = [l.extracted_text for l in lessons if l.extracted_text]
+    texts = [f"{l.title}\n{l.content or ''}\n{l.extracted_text or ''}".strip() for l in lessons]
     if lesson_ids:
-        mats_res = await db.execute(select(LessonMaterial.extracted_text).where(LessonMaterial.lesson_id.in_(lesson_ids)))
-        texts.extend([t[0] for t in mats_res.all() if t[0]])
+        try:
+            mats_res = await db.execute(select(LessonMaterial.extracted_text).where(LessonMaterial.lesson_id.in_(lesson_ids)))
+            texts.extend([t[0] for t in mats_res.all() if t[0]])
+        except Exception:
+            pass
 
-    context_text = "\n\n".join(texts).strip()
-    if not context_text:
-        raise HTTPException(status_code=400, detail="No lesson study materials found for AI question generation")
+    material_text = "\n\n".join([t for t in texts if t]).strip()
+    if not material_text:
+        material_text = f"Course Title: {course.title}\nDescription: {course.description or 'Stock market trading fundamentals, technical analysis, and risk management.'}"
 
     try:
         mcqs = await generate_mcq_questions(
-            context_text=context_text,
-            count=assessment.question_count,
+            material_text=material_text,
+            question_count=assessment.question_count,
             difficulty=assessment.difficulty,
+            course_title=course.title,
         )
     except AssessmentAIError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
     existing_qs = await db.execute(select(Question).where(Question.assessment_id == assessment.id))
     for q in existing_qs.scalars().all():
@@ -512,18 +516,18 @@ async def regenerate_assessment_questions(
             assessment_id=assessment.id,
             order_index=idx,
             source="ai",
-            text=item["question"].strip(),
+            text=item["text"].strip(),
         )
         db.add(q)
         await db.commit()
         await db.refresh(q)
 
         created_choices = []
-        for c_idx, c_text in enumerate(item["choices"]):
+        for c_idx, choice_data in enumerate(item["choices"]):
             c = Choice(
                 question_id=q.id,
-                text=c_text.strip(),
-                is_correct=(c_idx == item["correct_choice_index"]),
+                text=choice_data["text"].strip(),
+                is_correct=bool(choice_data.get("is_correct", False)),
                 order_index=c_idx,
             )
             db.add(c)

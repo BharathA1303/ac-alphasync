@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     GraduationCap, BookOpen, ClipboardCheck, ArrowLeft, Loader2, FileText,
     CheckCircle2, Circle, Sparkles, Trophy, XCircle, ChevronRight, Lock,
-    AlertTriangle, Clock,
+    AlertTriangle, Clock, Eye, Download, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academyApi from '../services/academyApi';

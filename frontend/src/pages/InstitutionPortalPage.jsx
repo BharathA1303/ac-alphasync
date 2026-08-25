@@ -277,26 +277,43 @@ function MemberDetailView({ member, onBack }) {
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Failed to load member data.</p>
             ) : (
                 <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div className="admin-mini-stat">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Portfolio Value</div>
-                            <div className="text-base font-bold font-mono">₹{stats.portfolio.current_value.toLocaleString('en-IN')}</div>
-                        </div>
-                        <div className="admin-mini-stat">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total P&amp;L</div>
-                            <div className="text-base font-bold font-mono" style={{ color: stats.portfolio.total_pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                                ₹{stats.portfolio.total_pnl.toLocaleString('en-IN')} ({stats.portfolio.total_pnl_percent}%)
+                    {member.role === 'faculty' ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Courses Created</div>
+                                <div className="text-base font-bold font-mono" style={{ color: 'var(--brand)' }}>{stats.faculty_stats?.courses_created || 0}</div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Lessons Published</div>
+                                <div className="text-base font-bold font-mono" style={{ color: '#10b981' }}>{stats.faculty_stats?.lessons_published || 0}</div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Assessments Created</div>
+                                <div className="text-base font-bold font-mono" style={{ color: '#00bcd4' }}>{stats.faculty_stats?.assessments_created || 0}</div>
                             </div>
                         </div>
-                        <div className="admin-mini-stat">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Filled Trades</div>
-                            <div className="text-base font-bold font-mono">{stats.trade_count}</div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Portfolio Value</div>
+                                <div className="text-base font-bold font-mono">₹{stats.portfolio.current_value.toLocaleString('en-IN')}</div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Total P&amp;L</div>
+                                <div className="text-base font-bold font-mono" style={{ color: stats.portfolio.total_pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                                    ₹{stats.portfolio.total_pnl.toLocaleString('en-IN')} ({stats.portfolio.total_pnl_percent}%)
+                                </div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Filled Trades</div>
+                                <div className="text-base font-bold font-mono">{stats.trade_count}</div>
+                            </div>
+                            <div className="admin-mini-stat">
+                                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Lessons Completed</div>
+                                <div className="text-base font-bold font-mono">{stats.academy.lessons_completed}</div>
+                            </div>
                         </div>
-                        <div className="admin-mini-stat">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Lessons Completed</div>
-                            <div className="text-base font-bold font-mono">{stats.academy.lessons_completed}</div>
-                        </div>
-                    </div>
+                    )}
 
                     <section className="admin-card p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Assessment Attempts</h3>

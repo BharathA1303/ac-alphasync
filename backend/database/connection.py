@@ -116,6 +116,11 @@ async def init_db():
             # Idempotently add missing academic columns to existing PostgreSQL tables
             await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT FALSE;"))
             await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS flag_reason TEXT;"))
+            await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;"))
+            await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS score_percent INTEGER NOT NULL DEFAULT 0;"))
+            await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS passed BOOLEAN NOT NULL DEFAULT FALSE;"))
+            await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS total_questions INTEGER NOT NULL DEFAULT 0;"))
+            await conn.execute(text("ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS correct_count INTEGER NOT NULL DEFAULT 0;"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE;"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS review_note TEXT;"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS reviewed_by_user_id UUID REFERENCES users(id);"))

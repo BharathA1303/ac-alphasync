@@ -485,65 +485,132 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
 
     if (!isNew && !editing) {
         return (
-            <div className="rounded-lg p-4" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
-                <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                        <div className="text-sm font-semibold">{assessment.title}</div>
-                        {assessment.instructions && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{assessment.instructions}</p>}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-edge/10 bg-surface-800/40">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-7 h-7 rounded-md flex items-center justify-center text-primary-500 bg-primary-500/10 flex-shrink-0">
+                        <Settings2 size={15} />
                     </div>
-                    {!locked && (
-                        <button className="admin-action-btn admin-action-btn--secondary text-xs flex-shrink-0" style={{ minHeight: 28 }} onClick={() => setEditing(true)}>
-                            <Settings2 size={12} /> Edit
-                        </button>
-                    )}
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-heading truncate">{assessment.title}</span>
+                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-700 text-gray-400">
+                                {assessment.difficulty}
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                            {assessment.question_count} questions · Pass at {assessment.pass_score}% · {assessment.question_count} min limit
+                        </p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4 text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }}>
-                    <span>{assessment.question_count} question{assessment.question_count === 1 ? '' : 's'}</span>
-                    <span>Pass at {assessment.pass_score}%</span>
-                    <span className="capitalize">{assessment.difficulty} difficulty</span>
-                    <span>{assessment.question_count} min time limit</span>
-                </div>
+                {!locked && (
+                    <button
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-surface-700 hover:bg-surface-600 text-heading transition-colors flex-shrink-0"
+                        onClick={() => setEditing(true)}
+                    >
+                        <Settings2 size={12} /> Edit Config
+                    </button>
+                )}
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-3 p-4 rounded-lg" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
-            <div>
-                <label className="label-text">Assessment title</label>
-                <input className="input-field text-sm w-full" style={{ height: 34 }} value={title} disabled={locked} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Module 1 Check" />
-            </div>
-            <div>
-                <label className="label-text">Instructions (optional)</label>
-                <textarea className="input-field text-xs w-full" style={{ height: 50, resize: 'vertical', paddingTop: 8 }} value={instructions} disabled={locked} onChange={(e) => setInstructions(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-                <div>
-                    <label className="label-text">Questions</label>
-                    <input className="input-field text-sm w-full" style={{ height: 34 }} type="number" min="1" max="25" value={questionCount} disabled={locked} onChange={(e) => setQuestionCount(e.target.value)} />
-                </div>
-                <div>
-                    <label className="label-text">Pass %</label>
-                    <input className="input-field text-sm w-full" style={{ height: 34 }} type="number" min="0" max="100" value={passScore} disabled={locked} onChange={(e) => setPassScore(e.target.value)} />
-                </div>
-                <div>
-                    <label className="label-text">Difficulty</label>
-                    <select className="input-field text-sm w-full" style={{ height: 34 }} value={difficulty} disabled={locked} onChange={(e) => setDifficulty(e.target.value)}>
-                        {DIFFICULTIES.map((d) => <option key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</option>)}
-                    </select>
-                </div>
-            </div>
-            <p className="text-[11px] flex items-start gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <Info size={12} className="flex-shrink-0 mt-0.5" />
-                Students get 1 minute per question as a timer, and only one attempt. Set this configuration first — question count and difficulty control what the AI generates in the Questions section.
-            </p>
-            <div className="flex gap-2 self-end">
+        <div className="p-3.5 rounded-xl border border-edge/10 bg-surface-800/40 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                    {isNew ? 'New Assessment Configuration' : 'Edit Assessment Configuration'}
+                </h4>
                 {!isNew && (
-                    <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 30 }} onClick={() => setEditing(false)}>Cancel</button>
+                    <button className="text-xs text-gray-500 hover:text-heading" onClick={() => setEditing(false)}>
+                        Cancel
+                    </button>
                 )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="sm:col-span-2">
+                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Assessment Title</label>
+                    <input
+                        className="input-field text-xs w-full"
+                        style={{ height: 32 }}
+                        value={title}
+                        disabled={locked}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Module 1 Technical Analysis Check"
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Instructions (Optional)</label>
+                    <input
+                        className="input-field text-xs w-full"
+                        style={{ height: 32 }}
+                        value={instructions}
+                        disabled={locked}
+                        onChange={(e) => setInstructions(e.target.value)}
+                        placeholder="Short student instructions..."
+                    />
+                </div>
+                <div>
+                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Questions Count</label>
+                    <input
+                        className="input-field text-xs w-full font-mono"
+                        style={{ height: 32 }}
+                        type="number"
+                        min="1"
+                        max="25"
+                        value={questionCount}
+                        disabled={locked}
+                        onChange={(e) => setQuestionCount(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Pass Score (%)</label>
+                    <input
+                        className="input-field text-xs w-full font-mono"
+                        style={{ height: 32 }}
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={passScore}
+                        disabled={locked}
+                        onChange={(e) => setPassScore(e.target.value)}
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Difficulty Level</label>
+                    <div className="flex items-center gap-1.5">
+                        {DIFFICULTIES.map((d) => (
+                            <button
+                                key={d}
+                                type="button"
+                                className="flex-1 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all"
+                                style={{
+                                    background: difficulty === d ? 'var(--brand)' : 'var(--bg-muted)',
+                                    color: difficulty === d ? '#04121a' : 'var(--text-muted)',
+                                    border: '1px solid var(--border)',
+                                }}
+                                onClick={() => setDifficulty(d)}
+                            >
+                                {d}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-edge/10">
+                <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                    <Info size={11} /> 1 minute per question timer limit.
+                </p>
                 {!locked && (
-                    <button className="admin-action-btn admin-action-btn--primary text-xs" style={{ minHeight: 30 }} disabled={saving} onClick={handleSave}>
-                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {isNew ? 'Create Assessment' : 'Save Config'}
+                    <button
+                        className="admin-action-btn admin-action-btn--primary text-xs px-3 py-1.5"
+                        style={{ minHeight: 30 }}
+                        disabled={saving}
+                        onClick={handleSave}
+                    >
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        {isNew ? 'Create Assessment' : 'Save Config'}
                     </button>
                 )}
             </div>

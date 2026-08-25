@@ -331,6 +331,39 @@ async def get_student_stats(
                     "timestamp": _iso(attempt.started_at),
                 })
 
+        # Faculty specific contribution stats
+        faculty_stats = None
+        if student.role == "faculty":
+            courses_created_res = await db.execute(select(func.count(Course.id)).where(Course.created_by_user_id == student.id))
+            courses_created = courses_created_res.scalar() or 0
+
+            faculty_courses_res = await db.execute(select(Course).where(Course.created_by_user_id == student.id))
+            faculty_courses = faculty_courses_res.scalars().all()
+            faculty_course_ids = [c.id for c in faculty_courses]
+
+            lessons_published = 0
+            assessments_created = 0
+            if faculty_course_ids:
+                lp_res = await db.execute(select(func.count(Lesson.id)).where(Lesson.course_id.in_(faculty_course_ids)))
+                lessons_published = lp_res.scalar() or 0
+
+                ac_res = await db.execute(select(func.count(Assessment.id)).where(Assessment.course_id.in_(faculty_course_ids)))
+                assessments_created = ac_res.scalar() or 0
+
+                for fc in faculty_courses:
+                    activity_logs.append({
+                        "type": "course",
+                        "title": f"Course Created: {fc.title}",
+                        "details": f"Status: {fc.status.title()} | Course ID: {str(fc.id)[:8]}",
+                        "timestamp": _iso(fc.created_at),
+                    })
+
+            faculty_stats = {
+                "courses_created": courses_created,
+                "lessons_published": lessons_published,
+                "assessments_created": assessments_created,
+            }
+
         activity_logs.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
 
         return {
@@ -348,6 +381,7 @@ async def get_student_stats(
                 "ip_address": last_session.ip_address if last_session else None,
             },
             "activity_logs": activity_logs,
+            "faculty_stats": faculty_stats,
             "portfolio": {
                 "current_value": float(portfolio.current_value) if portfolio and portfolio.current_value is not None else 0.0,
                 "total_invested": float(portfolio.total_invested) if portfolio and portfolio.total_invested is not None else 0.0,
