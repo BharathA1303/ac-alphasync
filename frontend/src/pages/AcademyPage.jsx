@@ -664,6 +664,94 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ * Pathway Circular Progress Gauge Component
+ * ──────────────────────────────────────────────────────────────── */
+function CircularGauge({ pct = 0, size = 52, strokeWidth = 4.5, color = 'var(--brand, #00bcd4)' }) {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (Math.max(0, Math.min(100, pct)) / 100) * circumference;
+
+    return (
+        <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
+            <svg width={size} height={size} className="transform -rotate-90">
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    stroke="var(--bg-muted, rgba(255,255,255,0.08))"
+                    strokeWidth={strokeWidth}
+                    fill="none"
+                />
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    stroke={pct >= 100 ? '#10b981' : color}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    fill="none"
+                    className="transition-all duration-700 ease-out"
+                />
+            </svg>
+            <span className="absolute text-[11px] font-bold font-price tabular-nums" style={{ color: pct >= 100 ? '#10b981' : 'var(--text-primary)' }}>
+                {pct >= 100 ? '100%' : `${Math.round(pct)}%`}
+            </span>
+        </div>
+    );
+}
+
+/* ────────────────────────────────────────────────────────────────
+ * Pathway Course Card (Matching Reference Image)
+ * ──────────────────────────────────────────────────────────────── */
+function PathwayCourseCard({ index, course, isActive, onSelect, onOpenDetail }) {
+    const lessonPct = course.lesson_count > 0 ? (course.lessons_completed / course.lesson_count) * 100 : 0;
+    const isCompleted = lessonPct >= 100;
+    const hasScore = course.best_score_percent !== null && course.best_score_percent !== undefined;
+
+    return (
+        <div
+            onClick={() => onSelect(course)}
+            onDoubleClick={() => onOpenDetail(course.id)}
+            className={`group relative flex flex-col items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all duration-300 ${
+                isActive
+                    ? 'border-primary-500 bg-primary-500/10 shadow-lg shadow-primary-500/10 ring-2 ring-primary-500/20 -translate-y-1'
+                    : 'border-edge/10 bg-surface-900/60 hover:bg-surface-800/80 hover:border-edge/20 hover:-translate-y-0.5'
+            }`}
+            style={{ minHeight: 148 }}
+        >
+            {/* Top row: Module index & completed badge */}
+            <div className="w-full flex items-center justify-between text-[11px] font-mono mb-2">
+                <span className="font-bold tracking-wider" style={{ color: isActive ? 'var(--brand)' : 'var(--text-muted)' }}>
+                    M{index + 1}
+                </span>
+                {isCompleted && (
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center text-emerald-400 bg-emerald-500/15" title="Completed">
+                        ✓
+                    </span>
+                )}
+            </div>
+
+            {/* Middle: Gauge */}
+            <div className="my-1">
+                <CircularGauge pct={lessonPct} size={48} strokeWidth={4} />
+            </div>
+
+            {/* Title & metadata */}
+            <div className="w-full text-center mt-2">
+                <h4 className="text-xs font-bold text-heading truncate group-hover:text-primary-400 transition-colors">
+                    {course.title}
+                </h4>
+                <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                    {course.lesson_count} lesson{course.lesson_count === 1 ? '' : 's'} · {course.assessment_count} quiz{course.assessment_count === 1 ? '' : 'zes'}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+/* ────────────────────────────────────────────────────────────────
  * Course detail — Overview with two clickable summary cards
  * ──────────────────────────────────────────────────────────────── */
 function CourseDetail({ courseId, onBack }) {
@@ -748,44 +836,64 @@ function CourseDetail({ courseId, onBack }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Root page
+ * Root page — Pathway Curriculum Map Layout
  * ──────────────────────────────────────────────────────────────── */
 export default function AcademyPage() {
     const user = useAuthStore((s) => s.user);
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeCourseId, setActiveCourseId] = useState(null);
+    const [selectedCourse, setSelectedCourse] = useState(null);
 
     const loadCourses = useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await academyApi.listCourses();
-            setCourses(data?.courses || []);
+            const fetched = data?.courses || [];
+            setCourses(fetched);
+            if (fetched.length > 0 && !selectedCourse) {
+                setSelectedCourse(fetched[0]);
+            }
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to load courses'));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [selectedCourse]);
 
     useEffect(() => { loadCourses(); }, [loadCourses]);
 
+    // Calculate aggregated stats
+    const totalCourses = courses.length;
+    const completedCoursesCount = courses.filter((c) => c.lesson_count > 0 && c.lessons_completed >= c.lesson_count).length;
+    const overallProgressPct = totalCourses > 0 ? Math.round((completedCoursesCount / totalCourses) * 100) : 0;
+
+    const currentActiveCourse = selectedCourse || courses[0];
+    const activeLessonPct = currentActiveCourse?.lesson_count > 0
+        ? Math.round((currentActiveCourse.lessons_completed / currentActiveCourse.lesson_count) * 100)
+        : 0;
+
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto flex flex-col gap-6">
             {activeCourseId ? (
                 <CourseDetail courseId={activeCourseId} onBack={() => { setActiveCourseId(null); loadCourses(); }} />
             ) : (
                 <>
-                    <div className="flex items-center gap-2 mb-1">
-                        <GraduationCap size={16} className="text-primary-600" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Academy</span>
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-edge/10">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <GraduationCap size={16} className="text-primary-600" />
+                                <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Academy Pathway</span>
+                            </div>
+                            <h1 className="text-2xl font-display font-bold text-heading">
+                                {user?.full_name ? `Good day, ${user.full_name.split(' ')[0]}` : 'Your Academy Pathway'}
+                            </h1>
+                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                                Courses approved by your institution — complete pathway modules to build your track record.
+                            </p>
+                        </div>
                     </div>
-                    <h1 className="text-2xl font-display font-bold text-heading mb-1">
-                        {user?.full_name ? `Keep learning, ${user.full_name.split(' ')[0]}` : 'Your Courses'}
-                    </h1>
-                    <p className="text-sm text-gray-500 mb-6">
-                        Courses approved by your institution — complete lessons and pass the quiz to build your track record.
-                    </p>
 
                     {loading ? (
                         <div className="flex items-center justify-center py-20"><Loader2 size={22} className="animate-spin text-gray-500" /></div>
@@ -796,10 +904,176 @@ export default function AcademyPage() {
                             <p className="text-xs text-gray-600 mt-1">Check back once your institution approves a course.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {courses.map((c) => (
-                                <CourseCard key={c.id} course={c} onOpen={setActiveCourseId} />
-                            ))}
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                            {/* Main Content Area (3 Cols) */}
+                            <div className="lg:col-span-3 flex flex-col gap-6">
+                                
+                                {/* 1. Curriculum Pathway Grid (Top Section) */}
+                                <div className="p-5 rounded-2xl border border-edge/10 bg-surface-900/60 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={15} className="text-primary-500" />
+                                            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                                Curriculum map — Pathway
+                                            </h2>
+                                        </div>
+                                        <span className="text-xs font-mono text-gray-500">
+                                            {completedCoursesCount} of {totalCourses} modules complete
+                                        </span>
+                                    </div>
+
+                                    {/* Horizontal pathway grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+                                        {courses.map((c, idx) => (
+                                            <PathwayCourseCard
+                                                key={c.id}
+                                                index={idx}
+                                                course={c}
+                                                isActive={currentActiveCourse?.id === c.id}
+                                                onSelect={(selected) => setSelectedCourse(selected)}
+                                                onOpenDetail={(id) => setActiveCourseId(id)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 2. Active Selected Course Hero Banner (Middle Section) */}
+                                {currentActiveCourse && (
+                                    <div className="p-5 rounded-2xl border border-primary-500/20 bg-gradient-to-r from-surface-900 via-surface-900/90 to-primary-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 shadow-xl">
+                                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                                            <div className="w-12 h-12 rounded-xl bg-primary-500/15 border border-primary-500/30 flex items-center justify-center flex-shrink-0 text-primary-400">
+                                                <BookOpen size={22} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-primary-400 block mb-1">
+                                                    CONTINUE — {currentActiveCourse.title}
+                                                </span>
+                                                <h3 className="text-base font-bold text-heading truncate">
+                                                    {currentActiveCourse.title}
+                                                </h3>
+                                                <p className="text-xs text-gray-400 mt-1 line-clamp-1">
+                                                    {currentActiveCourse.description || `${currentActiveCourse.lesson_count} lesson(s) · ${currentActiveCourse.assessment_count} quiz(zes)`}
+                                                </p>
+                                                
+                                                <div className="flex items-center gap-3 mt-3">
+                                                    <div className="flex-1 max-w-xs">
+                                                        <ProgressBar pct={activeLessonPct} />
+                                                    </div>
+                                                    <span className="text-xs font-mono font-bold text-gray-400">
+                                                        {activeLessonPct}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveCourseId(currentActiveCourse.id)}
+                                            className="admin-action-btn admin-action-btn--primary text-xs font-bold px-5 py-2.5 rounded-xl flex-shrink-0 self-stretch sm:self-auto justify-center"
+                                        >
+                                            Resume Course <ChevronRight size={15} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* 3. Lower Grid (Due Quizzes & Overview) */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    {/* Quizzes & Assessments */}
+                                    <div className="p-4 rounded-xl border border-edge/10 bg-surface-900/60 flex flex-col gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <ClipboardCheck size={15} className="text-primary-500" />
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                                Quizzes &amp; Assessments
+                                            </h3>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            {courses.map((c) => {
+                                                const hasScore = c.best_score_percent !== null && c.best_score_percent !== undefined;
+                                                return (
+                                                    <div
+                                                        key={c.id}
+                                                        onClick={() => setActiveCourseId(c.id)}
+                                                        className="flex items-center justify-between p-3 rounded-lg border border-edge/5 bg-surface-800/40 hover:bg-surface-800 transition-colors cursor-pointer"
+                                                    >
+                                                        <div className="min-w-0 pr-2">
+                                                            <p className="text-xs font-semibold text-heading truncate">{c.title} Quiz</p>
+                                                            <p className="text-[10px] text-gray-500">{c.assessment_count} quiz available</p>
+                                                        </div>
+                                                        {hasScore ? (
+                                                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                Score: {c.best_score_percent}%
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] font-semibold text-gray-400 hover:text-primary-400 flex items-center gap-1">
+                                                                Start <ChevronRight size={12} />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Course Overview Summary */}
+                                    <div className="p-4 rounded-xl border border-edge/10 bg-surface-900/60 flex flex-col gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Trophy size={15} className="text-amber-400" />
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                                Pathway Progress
+                                            </h3>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 p-3.5 rounded-lg border border-edge/5 bg-surface-800/40">
+                                            <CircularGauge pct={overallProgressPct} size={56} strokeWidth={5} />
+                                            <div>
+                                                <h4 className="text-sm font-bold text-heading">Overall Mastery</h4>
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                    {completedCoursesCount} of {totalCourses} courses completed across your pathway.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-[11px] text-gray-500 italic mt-1">
+                                            Tip: Select any module card above in the pathway map to view its details or click "Resume Course".
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* Right Sidebar (Concept Mastery / Quick Overview) */}
+                            <div className="flex flex-col gap-5">
+                                <div className="p-5 rounded-2xl border border-edge/10 bg-surface-900/60 flex flex-col gap-4">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                        Concept Mastery
+                                    </h3>
+
+                                    <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-surface-800/40 border border-edge/5 text-center">
+                                        <CircularGauge pct={overallProgressPct} size={72} strokeWidth={6} />
+                                        <span className="text-sm font-bold text-heading mt-2">Overall Mastery</span>
+                                        <span className="text-xs text-gray-500">Modules 1–{totalCourses} active</span>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2.5 mt-2">
+                                        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                                            Module Progress
+                                        </span>
+                                        {courses.map((c, idx) => {
+                                            const pct = c.lesson_count > 0 ? Math.round((c.lessons_completed / c.lesson_count) * 100) : 0;
+                                            return (
+                                                <div key={c.id} className="flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="font-medium text-gray-300 truncate">M{idx + 1}. {c.title}</span>
+                                                        <span className="font-mono text-gray-400 tabular-nums">{pct}%</span>
+                                                    </div>
+                                                    <ProgressBar pct={pct} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </>
