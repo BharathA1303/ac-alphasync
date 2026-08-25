@@ -72,14 +72,19 @@ async def _get_visible_course(db: AsyncSession, student: User, course_id: str) -
     if not course or course.status != "approved":
         raise HTTPException(status_code=404, detail="Course not found")
 
-    # Match student's institution, or default platform-wide course
+    # Admins and super admins can view any approved course
+    if student.role in ("admin", "super_admin"):
+        return course
+
+    # Match student's institution, or default platform-wide course, or unassigned course
     is_match = (
         course.is_default
         or course.institution_id is None
-        or (student.institution_id is not None and str(course.institution_id) == str(student.institution_id))
+        or student.institution_id is None
+        or (str(course.institution_id) == str(student.institution_id))
     )
     if not is_match:
-        raise HTTPException(status_code=404, detail="Course not found")
+        raise HTTPException(status_code=404, detail="Course not found in your institution")
     return course
 
 
@@ -110,7 +115,7 @@ async def list_available_courses(
 ):
     result = await db.execute(
         select(Course)
-        .where(Course.status == "approved", Course.institution_id == student.institution_id)
+        .where(Course.status == "approved")
         .order_by(Course.created_at.desc())
     )
     courses = result.scalars().all()
@@ -118,24 +123,24 @@ async def list_available_courses(
         return {"courses": []}
 
     course_ids = [c.id for c in courses]
-    lesson_counts = {row[0]: row[1] for row in (await db.execute(
+    lesson_counts = {str(row[0]): row[1] for row in (await db.execute(
         select(Lesson.course_id, func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids)).group_by(Lesson.course_id)
-    )).all()}
-    assessment_counts = {row[0]: row[1] for row in (await db.execute(
+    )).all() if row[0] is not None}
+    assessment_counts = {str(row[0]): row[1] for row in (await db.execute(
         select(Assessment.course_id, func.count(Assessment.id)).where(Assessment.course_id.in_(course_ids)).group_by(Assessment.course_id)
-    )).all()}
+    )).all() if row[0] is not None}
 
-    completed_lessons = {row[0]: row[1] for row in (await db.execute(
+    completed_lessons = {str(row[0]): row[1] for row in (await db.execute(
         select(LessonProgress.course_id, func.count(LessonProgress.id))
         .where(LessonProgress.user_id == student.id, LessonProgress.course_id.in_(course_ids))
         .group_by(LessonProgress.course_id)
-    )).all()}
+    )).all() if row[0] is not None}
 
-    best_scores = {row[0]: row[1] for row in (await db.execute(
+    best_scores = {str(row[0]): row[1] for row in (await db.execute(
         select(AssessmentAttempt.course_id, func.max(AssessmentAttempt.score_percent))
         .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.course_id.in_(course_ids))
         .group_by(AssessmentAttempt.course_id)
-    )).all()}
+    )).all() if row[0] is not None}
 
     return {
         "courses": [
@@ -143,10 +148,10 @@ async def list_available_courses(
                 "id": str(c.id),
                 "title": c.title,
                 "description": c.description,
-                "lesson_count": lesson_counts.get(c.id, 0),
-                "assessment_count": assessment_counts.get(c.id, 0),
-                "lessons_completed": completed_lessons.get(c.id, 0),
-                "best_score_percent": best_scores.get(c.id),
+                "lesson_count": lesson_counts.get(str(c.id), 0),
+                "assessment_count": assessment_counts.get(str(c.id), 0),
+                "lessons_completed": completed_lessons.get(str(c.id), 0),
+                "best_score_percent": best_scores.get(str(c.id)),
             }
             for c in courses
         ]
@@ -159,91 +164,101 @@ async def get_course_detail(
     student: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
-    course = await _get_visible_course(db, student, course_id)
+    try:
+        course = await _get_visible_course(db, student, course_id)
 
-    lessons_result = await db.execute(
-        select(Lesson).where(Lesson.course_id == course.id).order_by(Lesson.order_index, Lesson.created_at)
-    )
-    lessons = lessons_result.scalars().all()
-
-    progress_result = await db.execute(
-        select(LessonProgress.lesson_id).where(LessonProgress.user_id == student.id, LessonProgress.course_id == course.id)
-    )
-    completed_lesson_ids = {row[0] for row in progress_result.all()}
-
-    assessments_result = await db.execute(
-        select(Assessment).where(Assessment.course_id == course.id).order_by(Assessment.created_at)
-    )
-    assessments = assessments_result.scalars().all()
-
-    question_counts = {}
-    latest_by_assessment = {}
-    grant_by_assessment = {}
-    if assessments:
-        assessment_ids = [a.id for a in assessments]
-        question_counts = {row[0]: row[1] for row in (await db.execute(
-            select(Question.assessment_id, func.count(Question.id))
-            .where(Question.assessment_id.in_(assessment_ids))
-            .group_by(Question.assessment_id)
-        )).all()}
-
-        attempts_result = await db.execute(
-            select(AssessmentAttempt)
-            .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id.in_(assessment_ids))
-            .order_by(AssessmentAttempt.started_at.desc())
+        lessons_result = await db.execute(
+            select(Lesson).where(Lesson.course_id == course.id).order_by(Lesson.order_index, Lesson.created_at)
         )
-        for attempt in attempts_result.scalars().all():
-            if attempt.assessment_id not in latest_by_assessment:
-                latest_by_assessment[attempt.assessment_id] = attempt
+        lessons = lessons_result.scalars().all()
 
-        grants_result = await db.execute(
-            select(AssessmentRetakeGrant.assessment_id).where(
-                AssessmentRetakeGrant.user_id == student.id,
-                AssessmentRetakeGrant.assessment_id.in_(assessment_ids),
-                AssessmentRetakeGrant.consumed.is_(False),
+        progress_result = await db.execute(
+            select(LessonProgress.lesson_id).where(LessonProgress.user_id == student.id, LessonProgress.course_id == course.id)
+        )
+        completed_lesson_ids = {str(row[0]) for row in progress_result.all() if row[0] is not None}
+
+        assessments_result = await db.execute(
+            select(Assessment).where(Assessment.course_id == course.id).order_by(Assessment.created_at)
+        )
+        assessments = assessments_result.scalars().all()
+
+        question_counts = {}
+        latest_by_assessment = {}
+        grant_by_assessment = {}
+        if assessments:
+            assessment_ids = [a.id for a in assessments]
+            question_counts = {
+                str(row[0]): row[1]
+                for row in (await db.execute(
+                    select(Question.assessment_id, func.count(Question.id))
+                    .where(Question.assessment_id.in_(assessment_ids))
+                    .group_by(Question.assessment_id)
+                )).all()
+                if row[0] is not None
+            }
+
+            attempts_result = await db.execute(
+                select(AssessmentAttempt)
+                .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.assessment_id.in_(assessment_ids))
+                .order_by(AssessmentAttempt.started_at.desc())
             )
-        )
-        grant_by_assessment = {row[0]: True for row in grants_result.all()}
+            for attempt in attempts_result.scalars().all():
+                att_key = str(attempt.assessment_id)
+                if att_key not in latest_by_assessment:
+                    latest_by_assessment[att_key] = attempt
 
-    return {
-        "id": str(course.id),
-        "title": course.title,
-        "description": course.description,
-        "lessons": [
-            {
-                "id": str(l.id),
-                "title": l.title,
-                "content": l.content,
-                "file_url": l.file_url,
-                "file_name": l.file_name,
-                "file_type": l.file_type,
-                "completed": l.id in completed_lesson_ids,
-            }
-            for l in lessons
-        ],
-        "assessments": [
-            {
-                "id": str(a.id),
-                "title": a.title,
-                "instructions": a.instructions,
-                "pass_score": a.pass_score,
-                "question_count": question_counts.get(a.id, 0),
-                "time_limit_seconds": question_counts.get(a.id, 0) * SECONDS_PER_QUESTION,
-                "last_attempt": (
-                    {
-                        "score_percent": latest_by_assessment[a.id].score_percent,
-                        "passed": latest_by_assessment[a.id].passed,
-                        "flagged": latest_by_assessment[a.id].flagged,
-                        "submitted_at": _iso(latest_by_assessment[a.id].started_at),
-                    }
-                    if a.id in latest_by_assessment else None
-                ),
-                # locked = attempted already and no admin-granted retake available
-                "locked": (a.id in latest_by_assessment) and not grant_by_assessment.get(a.id, False),
-            }
-            for a in assessments
-        ],
-    }
+            grants_result = await db.execute(
+                select(AssessmentRetakeGrant.assessment_id).where(
+                    AssessmentRetakeGrant.user_id == student.id,
+                    AssessmentRetakeGrant.assessment_id.in_(assessment_ids),
+                    AssessmentRetakeGrant.consumed.is_(False),
+                )
+            )
+            grant_by_assessment = {str(row[0]): True for row in grants_result.all() if row[0] is not None}
+
+        return {
+            "id": str(course.id),
+            "title": course.title,
+            "description": course.description,
+            "lessons": [
+                {
+                    "id": str(l.id),
+                    "title": l.title,
+                    "content": l.content,
+                    "file_url": l.file_url,
+                    "file_name": l.file_name,
+                    "file_type": l.file_type,
+                    "completed": str(l.id) in completed_lesson_ids,
+                }
+                for l in lessons
+            ],
+            "assessments": [
+                {
+                    "id": str(a.id),
+                    "title": a.title,
+                    "instructions": a.instructions,
+                    "pass_score": a.pass_score,
+                    "question_count": question_counts.get(str(a.id), 0),
+                    "time_limit_seconds": question_counts.get(str(a.id), 0) * SECONDS_PER_QUESTION,
+                    "last_attempt": (
+                        {
+                            "score_percent": latest_by_assessment[str(a.id)].score_percent,
+                            "passed": latest_by_assessment[str(a.id)].passed,
+                            "flagged": latest_by_assessment[str(a.id)].flagged,
+                            "submitted_at": _iso(latest_by_assessment[str(a.id)].started_at),
+                        }
+                        if str(a.id) in latest_by_assessment else None
+                    ),
+                    "locked": (str(a.id) in latest_by_assessment) and not grant_by_assessment.get(str(a.id), False),
+                }
+                for a in assessments
+            ],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error in get_course_detail for course_id={course_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load course details: {str(e)}")
 
 
 @router.post("/courses/{course_id}/lessons/{lesson_id}/complete")

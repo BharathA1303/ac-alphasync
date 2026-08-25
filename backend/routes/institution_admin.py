@@ -228,8 +228,14 @@ async def list_members(
 async def _get_own_member(db: AsyncSession, admin: User, member_id: str) -> User:
     member_uuid = _as_uuid(member_id)
     member = await db.get(User, member_uuid) if member_uuid else None
-    if not member or str(member.institution_id) != str(admin.institution_id) or member.role not in ("student", "faculty"):
-        raise HTTPException(status_code=404, detail="Member not found in your institution")
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # If admin has institution_id and caller is not super admin, verify member match
+    if admin.role not in ("admin", "super_admin") and admin.institution_id is not None:
+        if member.institution_id is not None and str(member.institution_id) != str(admin.institution_id):
+            raise HTTPException(status_code=403, detail="Member does not belong to your institution")
+
     return member
 
 
@@ -239,122 +245,129 @@ async def get_student_stats(
     admin: User = Depends(require_institution_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    student = await _get_own_member(db, admin, student_id)
+    try:
+        student = await _get_own_member(db, admin, student_id)
 
-    portfolio_result = await db.execute(select(Portfolio).where(Portfolio.user_id == student.id))
-    portfolio = portfolio_result.scalar_one_or_none()
+        portfolio_result = await db.execute(select(Portfolio).where(Portfolio.user_id == student.id))
+        portfolio = portfolio_result.scalar_one_or_none()
 
-    trade_count_result = await db.execute(
-        select(func.count(Order.id)).where(Order.user_id == student.id, Order.status == "FILLED")
-    )
-    trade_count = trade_count_result.scalar() or 0
+        trade_count_result = await db.execute(
+            select(func.count(Order.id)).where(Order.user_id == student.id, Order.status == "FILLED")
+        )
+        trade_count = trade_count_result.scalar() or 0
 
-    recent_tx_result = await db.execute(
-        select(Transaction)
-        .where(Transaction.user_id == student.id)
-        .order_by(Transaction.created_at.desc())
-        .limit(50)
-    )
-    recent_transactions = recent_tx_result.scalars().all()
+        recent_tx_result = await db.execute(
+            select(Transaction)
+            .where(Transaction.user_id == student.id)
+            .order_by(Transaction.created_at.desc())
+            .limit(50)
+        )
+        recent_transactions = recent_tx_result.scalars().all()
 
-    recent_orders_result = await db.execute(
-        select(Order)
-        .where(Order.user_id == student.id)
-        .order_by(Order.created_at.desc())
-        .limit(50)
-    )
-    recent_orders = recent_orders_result.scalars().all()
+        recent_orders_result = await db.execute(
+            select(Order)
+            .where(Order.user_id == student.id)
+            .order_by(Order.created_at.desc())
+            .limit(50)
+        )
+        recent_orders = recent_orders_result.scalars().all()
 
-    last_session_result = await db.execute(
-        select(UserSession)
-        .where(UserSession.user_id == student.id)
-        .order_by(UserSession.last_seen_at.desc())
-        .limit(1)
-    )
-    last_session = last_session_result.scalar_one_or_none()
-    last_seen = _as_aware_utc(last_session.last_seen_at) if last_session and last_session.last_seen_at else None
-    is_online = bool(
-        last_seen
-        and (datetime.now(timezone.utc) - last_seen) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
-    )
+        last_session_result = await db.execute(
+            select(UserSession)
+            .where(UserSession.user_id == student.id)
+            .order_by(UserSession.last_seen_at.desc())
+            .limit(1)
+        )
+        last_session = last_session_result.scalar_one_or_none()
+        last_seen = _as_aware_utc(last_session.last_seen_at) if last_session and last_session.last_seen_at else None
+        is_online = bool(
+            last_seen
+            and (datetime.now(timezone.utc) - last_seen) < timedelta(minutes=ONLINE_THRESHOLD_MINUTES)
+        )
 
-    lessons_completed_result = await db.execute(
-        select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
-    )
-    lessons_completed = lessons_completed_result.scalar() or 0
+        lessons_completed_result = await db.execute(
+            select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
+        )
+        lessons_completed = lessons_completed_result.scalar() or 0
 
-    attempts_result = await db.execute(
-        select(AssessmentAttempt, Assessment.title.label("assessment_title"), Course.title.label("course_title"))
-        .join(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
-        .join(Course, Course.id == AssessmentAttempt.course_id)
-        .where(AssessmentAttempt.user_id == student.id)
-        .order_by(AssessmentAttempt.started_at.desc())
-    )
-    attempts = attempts_result.all()
+        attempts_result = await db.execute(
+            select(AssessmentAttempt, Assessment.title.label("assessment_title"), Course.title.label("course_title"))
+            .outerjoin(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
+            .outerjoin(Course, Course.id == AssessmentAttempt.course_id)
+            .where(AssessmentAttempt.user_id == student.id)
+            .order_by(AssessmentAttempt.started_at.desc())
+        )
+        attempts = attempts_result.all()
 
-    return {
-        "student": {
-            "id": str(student.id),
-            "full_name": student.full_name,
-            "email": student.email,
-            "username": student.username,
-            "role": student.role,
-            "created_at": _iso(student.created_at),
-        },
-        "online": {
-            "is_online": is_online,
-            "last_seen_at": _iso(last_session.last_seen_at) if last_session else None,
-            "ip_address": last_session.ip_address if last_session else None,
-        },
-        "portfolio": {
-            "current_value": float(portfolio.current_value) if portfolio and portfolio.current_value is not None else 0.0,
-            "total_invested": float(portfolio.total_invested) if portfolio and portfolio.total_invested is not None else 0.0,
-            "available_capital": float(portfolio.available_capital) if portfolio and portfolio.available_capital is not None else 0.0,
-            "total_pnl": float(portfolio.total_pnl) if portfolio and portfolio.total_pnl is not None else 0.0,
-            "total_pnl_percent": float(portfolio.total_pnl_percent) if portfolio and portfolio.total_pnl_percent is not None else 0.0,
-        },
-        "trade_count": trade_count,
-        "recent_transactions": [
-            {
-                "symbol": tx.symbol,
-                "type": tx.transaction_type,
-                "quantity": tx.quantity,
-                "price": float(tx.price) if tx.price is not None else 0.0,
-                "total_value": float(tx.total_value) if tx.total_value is not None else 0.0,
-                "created_at": _iso(tx.created_at),
-            }
-            for tx in recent_transactions
-        ],
-        "recent_orders": [
-            {
-                "symbol": o.symbol,
-                "side": o.side,
-                "order_type": o.order_type,
-                "quantity": o.quantity,
-                "price": float(o.price) if o.price is not None else None,
-                "status": o.status,
-                "created_at": _iso(o.created_at),
-            }
-            for o in recent_orders
-        ],
-        "academy": {
-            "lessons_completed": lessons_completed,
-            "assessment_attempts": [
+        return {
+            "student": {
+                "id": str(student.id),
+                "full_name": student.full_name,
+                "email": student.email,
+                "username": student.username,
+                "role": student.role,
+                "created_at": _iso(student.created_at),
+            },
+            "online": {
+                "is_online": is_online,
+                "last_seen_at": _iso(last_session.last_seen_at) if last_session else None,
+                "ip_address": last_session.ip_address if last_session else None,
+            },
+            "portfolio": {
+                "current_value": float(portfolio.current_value) if portfolio and portfolio.current_value is not None else 0.0,
+                "total_invested": float(portfolio.total_invested) if portfolio and portfolio.total_invested is not None else 0.0,
+                "available_capital": float(portfolio.available_capital) if portfolio and portfolio.available_capital is not None else 0.0,
+                "total_pnl": float(portfolio.total_pnl) if portfolio and portfolio.total_pnl is not None else 0.0,
+                "total_pnl_percent": float(portfolio.total_pnl_percent) if portfolio and portfolio.total_pnl_percent is not None else 0.0,
+            },
+            "trade_count": trade_count,
+            "recent_transactions": [
                 {
-                    "id": str(attempt.id),
-                    "assessment_id": str(attempt.assessment_id),
-                    "assessment_title": assessment_title,
-                    "course_title": course_title,
-                    "score_percent": attempt.score_percent,
-                    "passed": attempt.passed,
-                    "flagged": attempt.flagged,
-                    "flag_reason": attempt.flag_reason,
-                    "started_at": _iso(attempt.started_at),
+                    "symbol": tx.symbol,
+                    "type": tx.transaction_type,
+                    "quantity": tx.quantity,
+                    "price": float(tx.price) if tx.price is not None else 0.0,
+                    "total_value": float(tx.total_value) if tx.total_value is not None else 0.0,
+                    "created_at": _iso(tx.created_at),
                 }
-                for attempt, assessment_title, course_title in attempts
+                for tx in recent_transactions
             ],
-        },
-    }
+            "recent_orders": [
+                {
+                    "symbol": o.symbol,
+                    "side": o.side,
+                    "order_type": o.order_type,
+                    "quantity": o.quantity,
+                    "price": float(o.price) if o.price is not None else None,
+                    "status": o.status,
+                    "created_at": _iso(o.created_at),
+                }
+                for o in recent_orders
+            ],
+            "academy": {
+                "lessons_completed": lessons_completed,
+                "assessment_attempts": [
+                    {
+                        "id": str(attempt.id),
+                        "assessment_id": str(attempt.assessment_id),
+                        "assessment_title": assessment_title or "Untitled Assessment",
+                        "course_title": course_title or "Untitled Course",
+                        "score_percent": attempt.score_percent,
+                        "passed": attempt.passed,
+                        "flagged": attempt.flagged,
+                        "flag_reason": attempt.flag_reason,
+                        "started_at": _iso(attempt.started_at),
+                    }
+                    for attempt, assessment_title, course_title in attempts
+                    if attempt is not None
+                ],
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error in get_student_stats for student_id={student_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load member stats: {str(e)}")
 
 
 @router.post("/members/{member_id}/grant-retake")
