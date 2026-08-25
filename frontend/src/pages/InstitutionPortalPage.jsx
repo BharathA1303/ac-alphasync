@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     GraduationCap, Link2, Copy, Loader2, X, Search, LogOut, Trash2,
     ArrowLeft, Circle, ShieldAlert, Trophy, XCircle, RotateCcw, Wifi, WifiOff, User,
+    Activity, FileCheck, TrendingUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academicApi from '../services/academicApi';
