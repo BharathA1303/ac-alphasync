@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.connection import get_db
 from models.user import User
-from models.course import Course, Lesson, Assessment, Question, Choice
+from models.course import Course, Lesson, LessonMaterial, Assessment, Question, Choice
 from dependencies.faculty import require_faculty
 from services.invite_service import _as_uuid
 from services import text_extraction
@@ -140,7 +140,7 @@ def _course_out(course: Course, lesson_count: int = 0, assessment_count: int = 0
     }
 
 
-def _lesson_out(lesson: Lesson) -> dict:
+def _lesson_out(lesson: Lesson, materials: list = None) -> dict:
     return {
         "id": str(lesson.id),
         "title": lesson.title,
@@ -150,6 +150,17 @@ def _lesson_out(lesson: Lesson) -> dict:
         "file_name": lesson.file_name,
         "file_type": lesson.file_type,
         "has_extracted_text": bool(lesson.extracted_text),
+        "materials": materials or (
+            [
+                {
+                    "id": f"primary-{lesson.id}",
+                    "file_url": lesson.file_url,
+                    "file_name": lesson.file_name,
+                    "file_type": lesson.file_type,
+                    "has_extracted_text": bool(lesson.extracted_text),
+                }
+            ] if lesson.file_url else []
+        ),
     }
 
 
@@ -320,11 +331,220 @@ async def get_course(
             .group_by(Question.assessment_id)
         )).all()}
 
+    lesson_ids = [l.id for l in lessons]
+    materials_by_lesson: dict = {}
+    if lesson_ids:
+        try:
+            mats_res = await db.execute(
+                select(LessonMaterial).where(LessonMaterial.lesson_id.in_(lesson_ids)).order_by(LessonMaterial.created_at)
+            )
+            for mat in mats_res.scalars().all():
+                materials_by_lesson.setdefault(str(mat.lesson_id), []).append({
+                    "id": str(mat.id),
+                    "file_url": mat.file_url,
+                    "file_name": mat.file_name,
+                    "file_type": mat.file_type,
+                    "has_extracted_text": bool(mat.extracted_text),
+                })
+        except Exception as mat_err:
+            logger.warning(f"LessonMaterial query warning: {mat_err}")
+
     return {
         **_course_out(course, len(lessons), len(assessments)),
-        "lessons": [_lesson_out(l) for l in lessons],
+        "lessons": [
+            _lesson_out(
+                l,
+                materials=materials_by_lesson.get(str(l.id)) or (
+                    [
+                        {
+                            "id": f"primary-{l.id}",
+                            "file_url": l.file_url,
+                            "file_name": l.file_name,
+                            "file_type": l.file_type,
+                            "has_extracted_text": bool(l.extracted_text),
+                        }
+                    ] if l.file_url else []
+                )
+            )
+            for l in lessons
+        ],
         "assessments": [_assessment_out(a, question_counts.get(a.id, 0)) for a in assessments],
     }
+
+
+@router.post("/courses/{course_id}/lessons/{lesson_id}/materials")
+async def upload_lesson_material(
+    course_id: str,
+    lesson_id: str,
+    file: UploadFile = File(...),
+    faculty: User = Depends(require_faculty),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_own_course(db, faculty, course_id)
+    _assert_editable(course)
+    lesson = await _get_own_lesson(db, course, lesson_id)
+
+    file_type = ALLOWED_FILE_TYPES.get(file.content_type)
+    if not file_type:
+        fn = file.filename.lower()
+        if fn.endswith(".pdf"):
+            file_type = "pdf"
+        elif fn.endswith(".docx"):
+            file_type = "docx"
+        elif fn.endswith(".pptx"):
+            file_type = "pptx"
+        elif fn.endswith(".md"):
+            file_type = "md"
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format")
+
+    content_bytes = await file.read()
+    if len(content_bytes) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File size exceeds 20MB limit")
+
+    mat_uuid = uuid.uuid4()
+    saved_name = f"{mat_uuid}.{file_type}"
+    file_path = os.path.join(UPLOAD_DIR, saved_name)
+    with open(file_path, "wb") as f:
+        f.write(content_bytes)
+
+    file_url = f"/uploads/lesson-materials/{saved_name}"
+    extracted_text = text_extraction.extract_text(file_path, file_type)
+
+    mat = LessonMaterial(
+        lesson_id=lesson.id,
+        file_url=file_url,
+        file_name=file.filename,
+        file_type=file_type,
+        extracted_text=extracted_text,
+    )
+    db.add(mat)
+
+    if not lesson.file_url:
+        lesson.file_url = file_url
+        lesson.file_name = file.filename
+        lesson.file_type = file_type
+        lesson.extracted_text = extracted_text
+
+    await db.commit()
+    await db.refresh(mat)
+
+    return {
+        "id": str(mat.id),
+        "file_url": mat.file_url,
+        "file_name": mat.file_name,
+        "file_type": mat.file_type,
+        "has_extracted_text": bool(mat.extracted_text),
+    }
+
+
+@router.delete("/courses/{course_id}/lessons/{lesson_id}/materials/{material_id}")
+async def delete_lesson_material(
+    course_id: str,
+    lesson_id: str,
+    material_id: str,
+    faculty: User = Depends(require_faculty),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_own_course(db, faculty, course_id)
+    _assert_editable(course)
+    lesson = await _get_own_lesson(db, course, lesson_id)
+
+    if material_id.startswith("primary-"):
+        lesson.file_url = None
+        lesson.file_name = None
+        lesson.file_type = None
+        lesson.extracted_text = None
+        await db.commit()
+        return {"success": True}
+
+    mat_uuid = _as_uuid(material_id)
+    mat = await db.get(LessonMaterial, mat_uuid) if mat_uuid else None
+    if not mat or mat.lesson_id != lesson.id:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    await db.delete(mat)
+    await db.commit()
+    return {"success": True}
+
+
+@router.post("/courses/{course_id}/assessments/{assessment_id}/regenerate-questions")
+async def regenerate_assessment_questions(
+    course_id: str,
+    assessment_id: str,
+    faculty: User = Depends(require_faculty),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_own_course(db, faculty, course_id)
+    _assert_editable(course)
+    assessment = await _get_own_assessment(db, course, assessment_id)
+
+    lessons_res = await db.execute(select(Lesson).where(Lesson.course_id == course.id))
+    lessons = lessons_res.scalars().all()
+    lesson_ids = [l.id for l in lessons]
+
+    texts = [l.extracted_text for l in lessons if l.extracted_text]
+    if lesson_ids:
+        mats_res = await db.execute(select(LessonMaterial.extracted_text).where(LessonMaterial.lesson_id.in_(lesson_ids)))
+        texts.extend([t[0] for t in mats_res.all() if t[0]])
+
+    context_text = "\n\n".join(texts).strip()
+    if not context_text:
+        raise HTTPException(status_code=400, detail="No lesson study materials found for AI question generation")
+
+    try:
+        mcqs = await generate_mcq_questions(
+            context_text=context_text,
+            count=assessment.question_count,
+            difficulty=assessment.difficulty,
+        )
+    except AssessmentAIError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    existing_qs = await db.execute(select(Question).where(Question.assessment_id == assessment.id))
+    for q in existing_qs.scalars().all():
+        await db.delete(q)
+    await db.commit()
+
+    created_questions = []
+    for idx, item in enumerate(mcqs):
+        q = Question(
+            assessment_id=assessment.id,
+            order_index=idx,
+            source="ai",
+            text=item["question"].strip(),
+        )
+        db.add(q)
+        await db.commit()
+        await db.refresh(q)
+
+        created_choices = []
+        for c_idx, c_text in enumerate(item["choices"]):
+            c = Choice(
+                question_id=q.id,
+                text=c_text.strip(),
+                is_correct=(c_idx == item["correct_choice_index"]),
+                order_index=c_idx,
+            )
+            db.add(c)
+            created_choices.append(c)
+
+        await db.commit()
+        created_questions.append(_question_out(q, created_choices))
+
+    return {"success": True, "questions": created_questions}
+
+
+@router.post("/courses/{course_id}/assessments/{assessment_id}/accept-questions")
+async def accept_assessment_questions(
+    course_id: str,
+    assessment_id: str,
+    faculty: User = Depends(require_faculty),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_own_course(db, faculty, course_id)
+    assessment = await _get_own_assessment(db, course, assessment_id)
+    return {"success": True, "message": "Questions accepted and saved successfully."}
 
 
 @router.patch("/courses/{course_id}")

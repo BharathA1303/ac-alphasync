@@ -56,11 +56,26 @@ class Lesson(Base):
     content = Column(Text, nullable=True)  # optional plain-text notes
     order_index = Column(Integer, default=0, nullable=False, server_default=text("0"))
 
-    # uploaded material (PDF/DOCX/PPT/MD) — one file per lesson
+    # primary/legacy material file
     file_url = Column(String(500), nullable=True)
     file_name = Column(String(255), nullable=True)
     file_type = Column(String(20), nullable=True)  # "pdf" | "docx" | "pptx" | "md"
-    # extracted plain text used as AI context for MCQ generation
+    extracted_text = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class LessonMaterial(Base):
+    """Multiple study materials/documents attached to a single lesson."""
+
+    __tablename__ = "lesson_materials"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lesson_id = Column(UUID(as_uuid=True), ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    file_url = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_type = Column(String(20), nullable=False)  # "pdf" | "docx" | "pptx" | "md"
     extracted_text = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))

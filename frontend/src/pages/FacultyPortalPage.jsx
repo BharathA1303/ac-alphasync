@@ -187,12 +187,16 @@ function LessonMaterialUpload({ courseId, lesson, locked, onChanged }) {
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
 
+    const materials = lesson.materials && lesson.materials.length > 0
+        ? lesson.materials
+        : (lesson.file_url ? [{ id: `primary-${lesson.id}`, file_url: lesson.file_url, file_name: lesson.file_name, file_type: lesson.file_type }] : []);
+
     const handleFile = async (file) => {
         if (!file) return;
         setUploading(true);
         try {
             await facultyApi.uploadLessonMaterial(courseId, lesson.id, file);
-            toast.success('Material uploaded');
+            toast.success('Study material attached');
             onChanged();
         } catch (err) {
             toast.error(parseApiError(err, 'Upload failed'));
@@ -201,63 +205,64 @@ function LessonMaterialUpload({ courseId, lesson, locked, onChanged }) {
         }
     };
 
-    const handleRemove = async () => {
+    const handleRemove = async (matId) => {
         try {
-            await facultyApi.deleteLessonMaterial(courseId, lesson.id);
+            await facultyApi.deleteLessonMaterial(courseId, lesson.id, matId);
+            toast.success('Material removed');
             onChanged();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to remove material'));
         }
     };
 
-    if (lesson.file_url) {
-        return (
-            <div className="flex items-center gap-2 px-2.5 py-2 rounded-md" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-                <FileText size={14} style={{ color: 'var(--brand)' }} className="flex-shrink-0" />
-                <span className="text-xs font-medium truncate flex-1">{lesson.file_name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
-                    {FILE_ICON_LABEL[lesson.file_type] || lesson.file_type}
-                </span>
-                {!locked && (
-                    <button className="flex-shrink-0" style={{ color: 'var(--text-muted)' }} onClick={handleRemove} title="Remove file">
-                        <Trash2 size={12} />
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    if (locked) {
-        return <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No material uploaded.</p>;
-    }
-
     return (
-        <div
-            className="flex flex-col items-center justify-center gap-1 py-4 rounded-md cursor-pointer transition-colors"
-            style={{
-                border: `1px dashed ${dragOver ? 'var(--brand)' : 'var(--border-strong)'}`,
-                background: dragOver ? 'var(--accent-soft, var(--bg-muted))' : 'var(--bg-surface)',
-            }}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files?.[0]); }}
-        >
-            {uploading ? (
-                <Loader2 size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
-            ) : (
-                <>
-                    <Upload size={16} style={{ color: 'var(--text-muted)' }} />
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Upload PDF, DOCX, PPTX, or MD</span>
-                </>
+        <div className="flex flex-col gap-2">
+            {materials.map((mat) => (
+                <div key={mat.id} className="flex items-center gap-2 px-3 py-2 rounded-md" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                    <FileText size={14} style={{ color: 'var(--brand)' }} className="flex-shrink-0" />
+                    <span className="text-xs font-medium truncate flex-1">{mat.file_name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0" style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}>
+                        {FILE_ICON_LABEL[mat.file_type] || mat.file_type}
+                    </span>
+                    {!locked && (
+                        <button className="flex-shrink-0 p-1 hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }} onClick={() => handleRemove(mat.id)} title="Remove file">
+                            <Trash2 size={12} />
+                        </button>
+                    )}
+                </div>
+            ))}
+
+            {!locked && (
+                <div
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-md cursor-pointer transition-all hover:bg-surface-800/60"
+                    style={{
+                        border: `1px dashed ${dragOver ? 'var(--brand)' : 'var(--border-strong)'}`,
+                        background: dragOver ? 'var(--accent-soft, var(--bg-muted))' : 'var(--bg-surface)',
+                    }}
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files?.[0]); }}
+                >
+                    {uploading ? (
+                        <Loader2 size={15} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+                    ) : (
+                        <>
+                            <Upload size={14} style={{ color: 'var(--brand)' }} />
+                            <span className="text-xs font-semibold" style={{ color: 'var(--brand)' }}>
+                                {materials.length > 0 ? '+ Upload another study material (PDF, DOCX, PPTX, MD)' : 'Upload Study Material (PDF, DOCX, PPTX, MD)'}
+                            </span>
+                        </>
+                    )}
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        accept=".pdf,.docx,.pptx,.md,.markdown,text/markdown,text/plain"
+                        className="hidden"
+                        onChange={(e) => handleFile(e.target.files?.[0])}
+                    />
+                </div>
             )}
-            <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf,.docx,.pptx,.md,.markdown,text/markdown,text/plain"
-                className="hidden"
-                onChange={(e) => handleFile(e.target.files?.[0])}
-            />
         </div>
     );
 }
@@ -655,6 +660,7 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
     const [loadingQuestions, setLoadingQuestions] = useState(true);
     const [showManualForm, setShowManualForm] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [accepting, setAccepting] = useState(false);
 
     const loadQuestions = useCallback(async () => {
         setLoadingQuestions(true);
@@ -670,36 +676,60 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
 
     useEffect(() => { loadQuestions(); }, [loadQuestions]);
 
-    const handleGenerate = async () => {
+    const handleRegenerate = async () => {
         setGenerating(true);
         try {
-            const { data } = await facultyApi.generateQuestionsWithAi(courseId, assessment.id);
-            toast.success(`Generated ${data.generated_count} question${data.generated_count === 1 ? '' : 's'}`);
+            const { data } = await facultyApi.regenerateQuestions(courseId, assessment.id);
+            toast.success(`Regenerated ${data.questions?.length || 0} questions by AI`);
             loadQuestions();
             onQuestionsChanged?.();
         } catch (err) {
-            toast.error(parseApiError(err, 'AI generation failed'));
+            toast.error(parseApiError(err, 'AI question regeneration failed'));
         } finally {
             setGenerating(false);
         }
     };
 
+    const handleAccept = async () => {
+        setAccepting(true);
+        try {
+            await facultyApi.acceptQuestions(courseId, assessment.id);
+            toast.success('Questions accepted and saved successfully!');
+            onQuestionsChanged?.();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to submit questions'));
+        } finally {
+            setAccepting(false);
+        }
+    };
+
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-edge/10">
             {!locked && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         className="admin-action-btn text-xs flex-1 justify-center"
                         style={{ background: 'var(--brand)', color: '#04121a', minHeight: 34 }}
                         disabled={generating || !aiAvailable}
-                        onClick={handleGenerate}
-                        title={aiAvailable ? `Generate ${assessment.question_count} ${assessment.difficulty} questions from lesson material` : 'AI question generation is not configured'}
+                        onClick={handleRegenerate}
+                        title={aiAvailable ? `Regenerate ${assessment.question_count} ${assessment.difficulty} questions from lesson material` : 'AI question generation is not configured'}
                     >
                         {generating ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
-                        Generate with AI ({assessment.question_count} questions)
+                        Regenerate Questions by AI ({assessment.question_count} Qs)
                     </button>
+
+                    <button
+                        className="admin-action-btn text-xs justify-center"
+                        style={{ background: '#10b981', color: '#ffffff', minHeight: 34 }}
+                        disabled={accepting || questions.length === 0}
+                        onClick={handleAccept}
+                    >
+                        {accepting ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                        Submit &amp; Accept Questions
+                    </button>
+
                     <button className="admin-action-btn admin-action-btn--secondary text-xs" style={{ minHeight: 34 }} onClick={() => setShowManualForm((v) => !v)}>
-                        <Plus size={13} /> Manual
+                        <Plus size={13} /> Add Manual Question
                     </button>
                 </div>
             )}
@@ -720,7 +750,7 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
                 {loadingQuestions ? (
                     <div className="flex items-center justify-center py-6"><Loader2 size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} /></div>
                 ) : questions.length === 0 ? (
-                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No questions yet.</p>
+                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No questions yet — click "Regenerate Questions by AI" or "Add Manual Question".</p>
                 ) : (
                     questions.map((q) => (
                         <QuestionCard key={q.id} courseId={courseId} assessmentId={assessment.id} question={q} locked={locked} onDeleted={() => { loadQuestions(); onQuestionsChanged?.(); }} />
@@ -731,26 +761,152 @@ function QuestionsSection({ courseId, assessment, locked, aiAvailable, onQuestio
     );
 }
 
+function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, onToggle, onChanged }) {
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDelete = async (e) => {
+        e.stopPropagation();
+        if (!window.confirm(`Delete assessment "${assessment.title}"?`)) return;
+        setDeleting(true);
+        try {
+            await facultyApi.deleteAssessment(courseId, assessment.id);
+            toast.success('Assessment deleted');
+            onChanged();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to delete assessment'));
+            setDeleting(false);
+        }
+    };
+
+    return (
+        <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
+            <div
+                className="flex items-center justify-between gap-3 p-4 cursor-pointer hover:brightness-105 transition-all"
+                onClick={onToggle}
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,188,212,0.12)', color: 'var(--brand)' }}>
+                        <ListChecks size={18} />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold truncate">{assessment.title}</h4>
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-surface)', color: 'var(--brand)' }}>
+                                {assessment.difficulty}
+                            </span>
+                        </div>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                            {assessment.question_count} questions · Pass at {assessment.pass_score}% · {assessment.question_count} min timer limit
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs font-semibold" style={{ color: 'var(--brand)' }}>
+                        {expanded ? 'Hide Questions' : 'View Questions & AI Config'}
+                    </span>
+                    {expanded ? <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />}
+                    {!locked && (
+                        <button
+                            className="w-7 h-7 rounded-md flex items-center justify-center"
+                            style={{ color: '#ef4444' }}
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            title="Delete assessment"
+                        >
+                            {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {expanded && (
+                <div className="p-4 border-t border-edge/10 bg-surface-900/40">
+                    <AssessmentConfigForm courseId={courseId} assessment={assessment} locked={locked} onSaved={onChanged} />
+                    <QuestionsSection
+                        courseId={courseId}
+                        assessment={assessment}
+                        locked={locked}
+                        aiAvailable={aiAvailable}
+                        onQuestionsChanged={onChanged}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function AssessmentsSection({ courseId, assessments, locked, aiAvailable, onChanged }) {
+    const [expandedId, setExpandedId] = useState(assessments?.[0]?.id || null);
+    const [showNewForm, setShowNewForm] = useState(false);
+
+    return (
+        <div className="flex flex-col gap-4">
+            {assessments.length === 0 && !showNewForm && (
+                <div className="text-center py-8">
+                    <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>No assessments configured for this course yet.</p>
+                    {!locked && (
+                        <button className="admin-action-btn admin-action-btn--primary text-xs" onClick={() => setShowNewForm(true)}>
+                            <Plus size={13} /> Create First Assessment
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {assessments.map((a) => (
+                <AssessmentCard
+                    key={a.id}
+                    courseId={courseId}
+                    assessment={a}
+                    locked={locked}
+                    aiAvailable={aiAvailable}
+                    expanded={expandedId === a.id}
+                    onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                    onChanged={onChanged}
+                />
+            ))}
+
+            {!locked && (showNewForm || assessments.length > 0) && (
+                <div className="mt-2">
+                    {showNewForm ? (
+                        <AssessmentConfigForm
+                            courseId={courseId}
+                            locked={locked}
+                            onSaved={() => { setShowNewForm(false); onChanged(); }}
+                        />
+                    ) : (
+                        <button
+                            className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl w-full justify-center"
+                            style={{ color: 'var(--brand)', background: 'var(--bg-muted)', border: '1px dashed var(--border-strong)' }}
+                            onClick={() => setShowNewForm(true)}
+                        >
+                            <Plus size={14} /> Add Another Assessment Card
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* ────────────────────────────────────────────────────────────────
- * Course builder panel — tabbed: Lessons / Assessment / Questions
+ * Course builder panel — tabbed: Lessons / Assessment (Questions embedded in cards)
  * ──────────────────────────────────────────────────────────────── */
 const BUILDER_TABS = [
-    { key: 'lessons', label: 'Lessons', icon: FileIcon },
-    { key: 'assessment', label: 'Assessment', icon: Settings2 },
-    { key: 'questions', label: 'Questions', icon: ListChecks },
+    { key: 'lessons', label: 'Lessons Uploading & Study Materials', icon: FileIcon },
+    { key: 'assessment', label: 'Assessments & Questions', icon: Settings2 },
 ];
 
-function BuilderTabs({ active, onChange, lessonCount }) {
+function BuilderTabs({ active, onChange, lessonCount, assessmentCount }) {
     return (
         <div className="flex items-center gap-1 p-1 rounded-xl mb-4" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
             {BUILDER_TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = active === tab.key;
-                const count = tab.key === 'lessons' ? lessonCount : null;
+                const count = tab.key === 'lessons' ? lessonCount : assessmentCount;
                 return (
                     <button
                         key={tab.key}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 justify-center"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors flex-1 justify-center"
                         style={{
                             background: isActive ? 'var(--bg-surface)' : 'transparent',
                             color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -758,8 +914,8 @@ function BuilderTabs({ active, onChange, lessonCount }) {
                         }}
                         onClick={() => onChange(tab.key)}
                     >
-                        <Icon size={13} /> {tab.label}
-                        {count !== null && <span className="opacity-60">({count})</span>}
+                        <Icon size={14} /> {tab.label}
+                        {count !== null && <span className="opacity-60 font-mono">({count})</span>}
                     </button>
                 );
             })}
@@ -787,7 +943,6 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
     useEffect(() => { loadCourse(); }, [loadCourse]);
 
     const locked = course?.status === 'approved';
-    const assessment = course?.assessments?.[0] || null;
 
     return (
         <div className="flex flex-col gap-4">
@@ -825,6 +980,7 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
                             active={activeTab}
                             onChange={setActiveTab}
                             lessonCount={course.lessons.length}
+                            assessmentCount={course.assessments.length}
                         />
 
                         {activeTab === 'lessons' && (
@@ -832,31 +988,13 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
                         )}
 
                         {activeTab === 'assessment' && (
-                            !assessment ? (
-                                locked ? (
-                                    <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>No assessment was configured for this course.</p>
-                                ) : (
-                                    <AssessmentConfigForm courseId={course.id} locked={locked} onSaved={loadCourse} />
-                                )
-                            ) : (
-                                <AssessmentConfigForm courseId={course.id} assessment={assessment} locked={locked} onSaved={loadCourse} />
-                            )
-                        )}
-
-                        {activeTab === 'questions' && (
-                            !assessment ? (
-                                <p className="text-sm text-center py-6" style={{ color: 'var(--text-muted)' }}>
-                                    Set up the assessment first in the Assessment tab.
-                                </p>
-                            ) : (
-                                <QuestionsSection
-                                    courseId={course.id}
-                                    assessment={assessment}
-                                    locked={locked}
-                                    aiAvailable={aiAvailable}
-                                    onQuestionsChanged={loadCourse}
-                                />
-                            )
+                            <AssessmentsSection
+                                courseId={course.id}
+                                assessments={course.assessments || []}
+                                locked={locked}
+                                aiAvailable={aiAvailable}
+                                onChanged={loadCourse}
+                            />
                         )}
                     </div>
                 </>

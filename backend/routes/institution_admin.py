@@ -303,6 +303,36 @@ async def get_student_stats(
         except Exception as att_err:
             logger.warning(f"Could not load member assessment attempts: {att_err}")
 
+        # Construct chronological member activity logs feed
+        activity_logs = []
+        if last_session and last_session.last_seen_at:
+            activity_logs.append({
+                "type": "session",
+                "title": "Logged In",
+                "details": f"Active session from IP: {last_session.ip_address or 'Unknown'}",
+                "timestamp": _iso(last_session.last_seen_at),
+            })
+
+        for tx in recent_transactions[:10]:
+            activity_logs.append({
+                "type": "trade",
+                "title": f"Trade Executed: {tx.transaction_type} {tx.quantity} {tx.symbol}",
+                "details": f"Price: ₹{float(tx.price or 0):.2f} | Total: ₹{float(tx.total_value or 0):.2f}",
+                "timestamp": _iso(tx.created_at),
+            })
+
+        for attempt, assessment_title, course_title in attempts:
+            if attempt:
+                status_str = "Passed" if attempt.passed else "Failed"
+                activity_logs.append({
+                    "type": "assessment",
+                    "title": f"Assessment Completed: {assessment_title or 'Quiz'}",
+                    "details": f"Course: {course_title or 'General'} | Score: {attempt.score_percent}% ({status_str})",
+                    "timestamp": _iso(attempt.started_at),
+                })
+
+        activity_logs.sort(key=lambda x: x.get("timestamp") or "", reverse=True)
+
         return {
             "student": {
                 "id": str(student.id),
@@ -317,6 +347,7 @@ async def get_student_stats(
                 "last_seen_at": _iso(last_session.last_seen_at) if last_session else None,
                 "ip_address": last_session.ip_address if last_session else None,
             },
+            "activity_logs": activity_logs,
             "portfolio": {
                 "current_value": float(portfolio.current_value) if portfolio and portfolio.current_value is not None else 0.0,
                 "total_invested": float(portfolio.total_invested) if portfolio and portfolio.total_invested is not None else 0.0,

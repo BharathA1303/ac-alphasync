@@ -125,6 +125,7 @@ async def init_db():
         from models import futures_order  # noqa  — futures paper trading tables
         from models import futures_watchlist  # noqa  — futures watchlist tables
         from models import institution, invite_link  # noqa  — academic multi-tenancy tables
+        from models import course as course_model  # noqa — academic course/lesson/assessment tables
         from models import password_reset_token  # noqa  — password reset tokens
         from strategies.zeroloss import models as zeroloss_models  # noqa
 

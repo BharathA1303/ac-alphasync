@@ -100,10 +100,7 @@ function SectionSummaryCard({ icon: Icon, title, subtitle, onOpen }) {
     );
 }
 
-/* ────────────────────────────────────────────────────────────────
- * Lessons sub-view
- * ──────────────────────────────────────────────────────────────── */
-function LessonReader({ courseId, lesson, onMarkedComplete }) {
+function LessonReader({ courseId, lesson, onMarkedComplete, onPreview }) {
     const [marking, setMarking] = useState(false);
 
     const handleComplete = async () => {
@@ -118,6 +115,10 @@ function LessonReader({ courseId, lesson, onMarkedComplete }) {
             setMarking(false);
         }
     };
+
+    const materials = lesson.materials && lesson.materials.length > 0
+        ? lesson.materials
+        : (lesson.file_url ? [{ id: `primary-${lesson.id}`, file_url: lesson.file_url, file_name: lesson.file_name, file_type: lesson.file_type }] : []);
 
     return (
         <div className="rounded-xl border border-edge/5 bg-surface-900/60 p-5">
@@ -142,16 +143,38 @@ function LessonReader({ courseId, lesson, onMarkedComplete }) {
                 <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap mb-3">{lesson.content}</p>
             )}
 
-            {lesson.file_url ? (
-                <a
-                    href={lesson.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-primary-600 transition-colors"
-                    style={{ background: 'rgba(0,188,212,0.08)', border: '1px solid rgba(0,188,212,0.2)' }}
-                >
-                    <FileText size={13} /> Open material — {lesson.file_name} ({FILE_LABEL[lesson.file_type] || lesson.file_type})
-                </a>
+            {materials.length > 0 ? (
+                <div className="flex flex-col gap-2 mt-3">
+                    <span className="text-[11px] font-semibold text-gray-400">Study Materials ({materials.length}):</span>
+                    {materials.map((mat) => (
+                        <div key={mat.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-edge/10 bg-surface-800/40">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <FileText size={14} className="text-primary-500 flex-shrink-0" />
+                                <span className="text-xs text-heading font-medium truncate">{mat.file_name}</span>
+                                <span className="text-[10px] uppercase font-bold text-gray-400 bg-surface-700/50 px-1.5 py-0.5 rounded">
+                                    {FILE_LABEL[mat.file_type] || mat.file_type}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                    onClick={() => onPreview(mat)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors"
+                                >
+                                    <Eye size={12} /> Preview
+                                </button>
+                                <a
+                                    href={mat.file_url}
+                                    download={mat.file_name}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                                >
+                                    <Download size={12} /> Download
+                                </a>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             ) : !lesson.content ? (
                 <p className="text-xs text-gray-600 italic">No material for this lesson yet.</p>
             ) : null}
@@ -160,10 +183,12 @@ function LessonReader({ courseId, lesson, onMarkedComplete }) {
 }
 
 function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
+    const [previewMat, setPreviewMat] = useState(null);
     const completedCount = lessons.filter((l) => l.completed).length;
 
     return (
         <div className="flex flex-col gap-4">
+            {previewMat && <MaterialPreviewModal material={previewMat} onClose={() => setPreviewMat(null)} />}
             <div className="flex items-center gap-3">
                 <button className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-500 hover:text-heading transition-colors" style={{ background: 'var(--bg-muted)' }} onClick={onBack}>
                     <ArrowLeft size={16} />
@@ -186,7 +211,7 @@ function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
             ) : (
                 <div className="flex flex-col gap-3">
                     {lessons.map((lesson) => (
-                        <LessonReader key={lesson.id} courseId={courseId} lesson={lesson} onMarkedComplete={onMarkedComplete} />
+                        <LessonReader key={lesson.id} courseId={courseId} lesson={lesson} onMarkedComplete={onMarkedComplete} onPreview={setPreviewMat} />
                     ))}
                 </div>
             )}

@@ -42,13 +42,13 @@ const facultyApi = {
     uploadLessonMaterial(courseId, lessonId, file) {
         const formData = new FormData();
         formData.append('file', file);
-        return api.post(`/faculty/courses/${courseId}/lessons/${lessonId}/material`, formData, {
+        return api.post(`/faculty/courses/${courseId}/lessons/${lessonId}/materials`, formData, {
             headers: { 'Content-Type': undefined },
         });
     },
 
-    deleteLessonMaterial(courseId, lessonId) {
-        return api.delete(`/faculty/courses/${courseId}/lessons/${lessonId}/material`);
+    deleteLessonMaterial(courseId, lessonId, materialId = 'primary') {
+        return api.delete(`/faculty/courses/${courseId}/lessons/${lessonId}/materials/${materialId}`);
     },
 
     deleteLesson(courseId, lessonId) {
@@ -82,6 +82,14 @@ const facultyApi = {
 
     generateQuestionsWithAi(courseId, assessmentId) {
         return api.post(`/faculty/courses/${courseId}/assessments/${assessmentId}/generate`);
+    },
+
+    regenerateQuestions(courseId, assessmentId) {
+        return api.post(`/faculty/courses/${courseId}/assessments/${assessmentId}/regenerate-questions`);
+    },
+
+    acceptQuestions(courseId, assessmentId) {
+        return api.post(`/faculty/courses/${courseId}/assessments/${assessmentId}/accept-questions`);
     },
 };
 

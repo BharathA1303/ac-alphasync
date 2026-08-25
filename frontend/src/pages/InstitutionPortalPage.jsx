@@ -324,6 +324,32 @@ function MemberDetailView({ member, onBack }) {
                     </section>
 
                     <section className="admin-card p-4">
+                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Activity Logs &amp; Member Works</h3>
+                        {!stats.activity_logs || stats.activity_logs.length === 0 ? (
+                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recent activity logged for this member.</p>
+                        ) : (
+                            <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
+                                {stats.activity_logs.map((log, idx) => (
+                                    <div key={idx} className="flex items-start justify-between gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                        <div className="flex items-start gap-2.5 min-w-0">
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5" style={{ background: 'rgba(0,188,212,0.15)', color: '#00bcd4' }}>
+                                                {log.type === 'session' ? '🔑' : log.type === 'trade' ? '📈' : '📝'}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className="text-xs font-semibold truncate">{log.title}</h4>
+                                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{log.details}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                            {timeAgoLabel(log.timestamp)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="admin-card p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Recent Orders</h3>
                         {stats.recent_orders.length === 0 ? (
                             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No orders placed yet.</p>

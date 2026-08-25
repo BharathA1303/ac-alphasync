@@ -222,6 +222,25 @@ async def get_course_detail(
             except Exception as grant_err:
                 logger.warning(f"Could not load assessment_retake_grants: {grant_err}")
 
+        lesson_ids = [l.id for l in lessons]
+        materials_by_lesson: dict = {}
+        if lesson_ids:
+            try:
+                materials_res = await db.execute(
+                    select(LessonMaterial)
+                    .where(LessonMaterial.lesson_id.in_(lesson_ids))
+                    .order_by(LessonMaterial.created_at)
+                )
+                for mat in materials_res.scalars().all():
+                    materials_by_lesson.setdefault(str(mat.lesson_id), []).append({
+                        "id": str(mat.id),
+                        "file_url": mat.file_url,
+                        "file_name": mat.file_name,
+                        "file_type": mat.file_type,
+                    })
+            except Exception as mat_err:
+                logger.warning(f"LessonMaterial query warning: {mat_err}")
+
         return {
             "id": str(course.id),
             "title": course.title,
@@ -234,6 +253,20 @@ async def get_course_detail(
                     "file_url": l.file_url,
                     "file_name": l.file_name,
                     "file_type": l.file_type,
+                    "materials": (
+                        materials_by_lesson.get(str(l.id))
+                        or (
+                            [
+                                {
+                                    "id": f"primary-{l.id}",
+                                    "file_url": l.file_url,
+                                    "file_name": l.file_name,
+                                    "file_type": l.file_type,
+                                }
+                            ]
+                            if l.file_url else []
+                        )
+                    ),
                     "completed": str(l.id) in completed_lesson_ids,
                 }
                 for l in lessons
@@ -299,72 +332,76 @@ async def start_assessment(
 ):
     """Starts (or resumes) a timed attempt. Returns questions WITHOUT
     is_correct flags, plus a server-computed expires_at deadline."""
-    course = await _get_visible_course(db, student, course_id)
-    assessment_uuid = _as_uuid(assessment_id)
-    assessment = await db.get(Assessment, assessment_uuid) if assessment_uuid else None
-    if not assessment or assessment.course_id != course.id:
-        raise HTTPException(status_code=404, detail="Assessment not found")
+    try:
+        course = await _get_visible_course(db, student, course_id)
+        assessment_uuid = _as_uuid(assessment_id)
+        assessment = await db.get(Assessment, assessment_uuid) if assessment_uuid else None
+        if not assessment or assessment.course_id != course.id:
+            raise HTTPException(status_code=404, detail="Assessment not found")
 
-    existing = await _get_own_attempt(db, student, assessment.id)
-    if existing:
-        has_grant = await _has_unconsumed_grant(db, student, assessment.id)
-        if not has_grant:
-            raise HTTPException(status_code=403, detail="You've already taken this assessment. Ask your Institution Admin for a retake.")
+        existing = await _get_own_attempt(db, student, assessment.id)
+        if existing:
+            has_grant = await _has_unconsumed_grant(db, student, assessment.id)
+            if not has_grant:
+                raise HTTPException(status_code=403, detail="You've already taken this assessment. Ask your Institution Admin for a retake.")
 
-    questions_result = await db.execute(
-        select(Question).where(Question.assessment_id == assessment.id).order_by(Question.order_index, Question.created_at)
-    )
-    questions = questions_result.scalars().all()
-    if not questions:
-        raise HTTPException(status_code=400, detail="This assessment has no questions yet")
+        questions_result = await db.execute(
+            select(Question).where(Question.assessment_id == assessment.id).order_by(Question.order_index, Question.created_at)
+        )
+        questions = questions_result.scalars().all()
+        if not questions:
+            raise HTTPException(status_code=400, detail="This assessment has no questions yet")
 
-    question_ids = [q.id for q in questions]
-    choices_result = await db.execute(select(Choice).where(Choice.question_id.in_(question_ids)))
-    choices_by_question: dict = {}
-    for c in choices_result.scalars().all():
-        choices_by_question.setdefault(c.question_id, []).append(c)
+        question_ids = [q.id for q in questions]
+        choices_result = await db.execute(select(Choice).where(Choice.question_id.in_(question_ids)))
+        choices_by_question: dict = {}
+        for c in choices_result.scalars().all():
+            choices_by_question.setdefault(c.question_id, []).append(c)
 
-    # Create the in-progress attempt row now so the deadline is anchored
-    # server-side and can't be reset by refreshing the page.
-    attempt = AssessmentAttempt(
-        user_id=student.id,
-        assessment_id=assessment.id,
-        course_id=course.id,
-        score_percent=0,
-        passed=False,
-        total_questions=len(questions),
-        correct_count=0,
-    )
-    db.add(attempt)
-    await db.commit()
-    await db.refresh(attempt)
+        attempt = AssessmentAttempt(
+            user_id=student.id,
+            assessment_id=assessment.id,
+            course_id=course.id,
+            score_percent=0,
+            passed=False,
+            total_questions=len(questions),
+            correct_count=0,
+        )
+        db.add(attempt)
+        await db.commit()
+        await db.refresh(attempt)
 
-    time_limit_seconds = len(questions) * SECONDS_PER_QUESTION
-    started_at = _as_aware_utc(attempt.started_at) or datetime.now(timezone.utc)
-    expires_at = started_at + timedelta(seconds=time_limit_seconds)
+        time_limit_seconds = len(questions) * SECONDS_PER_QUESTION
+        started_at = _as_aware_utc(attempt.started_at) or datetime.now(timezone.utc)
+        expires_at = started_at + timedelta(seconds=time_limit_seconds)
 
-    return {
-        "attempt_id": str(attempt.id),
-        "assessment": {
-            "id": str(assessment.id),
-            "title": assessment.title,
-            "instructions": assessment.instructions,
-            "pass_score": assessment.pass_score,
-        },
-        "time_limit_seconds": time_limit_seconds,
-        "expires_at": expires_at.isoformat(),
-        "questions": [
-            {
-                "id": str(q.id),
-                "text": q.text,
-                "choices": [
-                    {"id": str(c.id), "text": c.text}
-                    for c in sorted(choices_by_question.get(q.id, []), key=lambda c: c.order_index)
-                ],
-            }
-            for q in questions
-        ],
-    }
+        return {
+            "attempt_id": str(attempt.id),
+            "assessment": {
+                "id": str(assessment.id),
+                "title": assessment.title,
+                "instructions": assessment.instructions,
+                "pass_score": assessment.pass_score,
+            },
+            "time_limit_seconds": time_limit_seconds,
+            "expires_at": expires_at.isoformat(),
+            "questions": [
+                {
+                    "id": str(q.id),
+                    "text": q.text,
+                    "choices": [
+                        {"id": str(c.id), "text": c.text}
+                        for c in sorted(choices_by_question.get(q.id, []), key=lambda c: c.order_index)
+                    ],
+                }
+                for q in questions
+            ],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error in start_assessment: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start quiz: {str(e)}")
 
 
 @router.post("/courses/{course_id}/assessments/{assessment_id}/submit")
