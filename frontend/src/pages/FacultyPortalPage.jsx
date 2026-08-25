@@ -452,7 +452,6 @@ function AssessmentConfigForm({ courseId, lessons = [], assessment, locked, onSa
     const [difficulty, setDifficulty] = useState(assessment?.difficulty || 'medium');
     const [selectedLessonIds, setSelectedLessonIds] = useState(assessment?.lesson_ids || []);
     const [saving, setSaving] = useState(false);
-    const [editing, setEditing] = useState(isNew);
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -477,7 +476,6 @@ function AssessmentConfigForm({ courseId, lessons = [], assessment, locked, onSa
                 res = await facultyApi.updateAssessment(courseId, assessment.id, payload);
                 toast.success('Assessment updated');
             }
-            setEditing(false);
             onSaved(res?.data);
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to save assessment'));
@@ -486,37 +484,6 @@ function AssessmentConfigForm({ courseId, lessons = [], assessment, locked, onSa
         }
     };
 
-    if (!isNew && !editing) {
-        return (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-edge/10 bg-surface-800/40">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 rounded-md flex items-center justify-center text-primary-500 bg-primary-500/10 flex-shrink-0">
-                        <Settings2 size={15} />
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-heading truncate">{assessment.title}</span>
-                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-700 text-gray-400">
-                                {assessment.difficulty}
-                            </span>
-                        </div>
-                        <p className="text-[11px] text-gray-500 mt-0.5">
-                            {assessment.question_count} questions · Pass at {assessment.pass_score}% · {assessment.question_count} min limit
-                        </p>
-                    </div>
-                </div>
-                {!locked && (
-                    <button
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-surface-700 hover:bg-surface-600 text-heading transition-colors flex-shrink-0"
-                        onClick={() => setEditing(true)}
-                    >
-                        <Settings2 size={12} /> Edit Config
-                    </button>
-                )}
-            </div>
-        );
-    }
-
     return (
         <div className="p-3.5 rounded-xl border border-edge/10 bg-surface-800/40 flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -524,7 +491,7 @@ function AssessmentConfigForm({ courseId, lessons = [], assessment, locked, onSa
                     {isNew ? 'New Assessment Configuration' : 'Edit Assessment Configuration'}
                 </h4>
                 {!isNew && (
-                    <button className="text-xs text-gray-500 hover:text-heading" onClick={() => setEditing(false)}>
+                    <button className="text-xs text-gray-500 hover:text-heading" onClick={() => onSaved()}>
                         Cancel
                     </button>
                 )}
