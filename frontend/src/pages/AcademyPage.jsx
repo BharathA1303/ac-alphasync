@@ -100,84 +100,118 @@ function SectionSummaryCard({ icon: Icon, title, subtitle, onOpen }) {
     );
 }
 
-function LessonReader({ courseId, lesson, onMarkedComplete, onPreview }) {
+function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, onPreview }) {
     const [marking, setMarking] = useState(false);
-
-    const handleComplete = async () => {
+    const handleComplete = async (e) => {
+        e.stopPropagation();
         setMarking(true);
         try {
             await academyApi.markLessonComplete(courseId, lesson.id);
+            toast.success(`Completed "${lesson.title}"`);
             onMarkedComplete();
-            toast.success('Lesson marked complete');
         } catch (err) {
-            toast.error(parseApiError(err, 'Failed to update progress'));
+            toast.error(parseApiError(err, 'Failed to mark completed'));
         } finally {
             setMarking(false);
         }
     };
 
-    const materials = lesson.materials && lesson.materials.length > 0
+    const materials = Array.isArray(lesson.materials) && lesson.materials.length > 0
         ? lesson.materials
-        : (lesson.file_url ? [{ id: `primary-${lesson.id}`, file_url: lesson.file_url, file_name: lesson.file_name, file_type: lesson.file_type }] : []);
+        : (lesson.file_url ? [{ id: `primary-${lesson.id}`, file_url: lesson.file_url, file_name: lesson.file_name || 'Lesson Notes', file_type: lesson.file_type || 'pdf' }] : []);
 
     return (
-        <div className="rounded-xl border border-edge/5 bg-surface-900/60 p-5">
-            <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="text-sm font-display font-semibold text-heading">{lesson.title}</h3>
-                {lesson.completed ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 flex-shrink-0">
-                        <CheckCircle2 size={13} /> Completed
-                    </span>
-                ) : (
-                    <button
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:text-primary-500 transition-colors flex-shrink-0"
-                        onClick={handleComplete}
-                        disabled={marking}
-                    >
-                        {marking ? <Loader2 size={13} className="animate-spin" /> : <Circle size={13} />} Mark as read
+        <div className="rounded-xl border border-edge/10 bg-surface-900/60 overflow-hidden transition-all">
+            <div
+                className="flex items-center justify-between gap-3 p-4 cursor-pointer hover:bg-surface-800/40 transition-all"
+                onClick={onToggle}
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-primary-500 bg-primary-500/10">
+                        <BookOpen size={16} />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-heading truncate">{lesson.title}</h3>
+                            {materials.length > 0 && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-700 text-gray-400">
+                                    {materials.length} Material{materials.length > 1 ? 's' : ''}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                    {lesson.completed ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                            <CheckCircle2 size={12} /> Completed
+                        </span>
+                    ) : (
+                        <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-500 bg-primary-500/10 hover:bg-primary-500/20 px-2.5 py-1 rounded-full transition-colors"
+                            onClick={handleComplete}
+                            disabled={marking}
+                        >
+                            {marking ? <Loader2 size={12} className="animate-spin" /> : <Circle size={12} />} Mark as read
+                        </button>
+                    )}
+                    <button type="button" className="text-gray-400 hover:text-white">
+                        {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </button>
-                )}
+                </div>
             </div>
 
-            {lesson.content && (
-                <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap mb-3">{lesson.content}</p>
-            )}
+            {isOpen && (
+                <div className="p-4 border-t border-edge/10 bg-surface-950/40 flex flex-col gap-3">
+                    {lesson.content && (
+                        <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
+                    )}
 
-            {materials.length > 0 ? (
-                <div className="flex flex-col gap-2 mt-3">
-                    <span className="text-[11px] font-semibold text-gray-400">Study Materials ({materials.length}):</span>
-                    {materials.map((mat) => (
-                        <div key={mat.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-edge/10 bg-surface-800/40">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <FileText size={14} className="text-primary-500 flex-shrink-0" />
-                                <span className="text-xs text-heading font-medium truncate">{mat.file_name}</span>
-                                <span className="text-[10px] uppercase font-bold text-gray-400 bg-surface-700/50 px-1.5 py-0.5 rounded">
-                                    {FILE_LABEL[mat.file_type] || mat.file_type}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                    onClick={() => onPreview(mat)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors"
-                                >
-                                    <Eye size={12} /> Preview
-                                </button>
-                                <a
-                                    href={mat.file_url}
-                                    download={mat.file_name}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
-                                >
-                                    <Download size={12} /> Download
-                                </a>
+                    {materials.length > 0 ? (
+                        <div className="flex flex-col gap-2 mt-1">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                                Study Materials ({materials.length}):
+                            </span>
+                            <div className="flex flex-col gap-2">
+                                {materials.map((mat) => (
+                                    <div key={mat.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-edge/10 bg-surface-800/40">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <FileText size={15} className="text-primary-500 flex-shrink-0" />
+                                            <span className="text-xs font-semibold text-heading truncate">{mat.file_name}</span>
+                                            <span className="text-[10px] uppercase font-bold text-gray-400 bg-surface-700 px-1.5 py-0.5 rounded flex-shrink-0">
+                                                {FILE_LABEL[mat.file_type] || mat.file_type}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); onPreview(mat); }}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors"
+                                            >
+                                                <Eye size={12} /> Preview
+                                            </button>
+                                            <a
+                                                href={mat.file_url}
+                                                download={mat.file_name}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                                            >
+                                                <Download size={12} /> Download
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    ))}
+                    ) : !lesson.content ? (
+                        <p className="text-xs text-gray-500 italic">No material for this lesson yet.</p>
+                    ) : null}
                 </div>
-            ) : !lesson.content ? (
-                <p className="text-xs text-gray-600 italic">No material for this lesson yet.</p>
-            ) : null}
+            )}
         </div>
     );
 }
@@ -227,6 +261,7 @@ function MaterialPreviewModal({ material, onClose }) {
 
 function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
     const [previewMat, setPreviewMat] = useState(null);
+    const [openLessonId, setOpenLessonId] = useState(lessons?.[0]?.id || null);
     const completedCount = lessons.filter((l) => l.completed).length;
 
     return (
@@ -254,7 +289,15 @@ function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
             ) : (
                 <div className="flex flex-col gap-3">
                     {lessons.map((lesson) => (
-                        <LessonReader key={lesson.id} courseId={courseId} lesson={lesson} onMarkedComplete={onMarkedComplete} onPreview={setPreviewMat} />
+                        <LessonReader
+                            key={lesson.id}
+                            courseId={courseId}
+                            lesson={lesson}
+                            isOpen={openLessonId === lesson.id}
+                            onToggle={() => setOpenLessonId(openLessonId === lesson.id ? null : lesson.id)}
+                            onMarkedComplete={onMarkedComplete}
+                            onPreview={setPreviewMat}
+                        />
                     ))}
                 </div>
             )}

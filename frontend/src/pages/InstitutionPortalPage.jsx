@@ -215,7 +215,7 @@ function GrantRetakeRow({ memberId, attempt, onGranted }) {
     );
 }
 
-function MemberDetailModal({ member, onBack }) {
+function MemberDetailView({ member, onBack }) {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [removing, setRemoving] = useState(false);
@@ -459,38 +459,74 @@ function MemberDetailModal({ member, onBack }) {
 }
 
 function MemberRow({ member, onOpen }) {
+    const initials = (member.full_name || 'User')
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+
+    const isFaculty = member.role === 'faculty';
+
     return (
         <tr
             style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-            className="hover:brightness-110 transition-all"
+            className="hover:bg-surface-800/40 transition-all"
             onClick={() => onOpen(member)}
         >
-            <td className="py-2 px-2 font-medium">
-                <div className="flex items-center gap-2">
-                    <Circle size={7} fill="currentColor" style={{ color: 'var(--text-muted)' }} />
-                    {member.full_name}
+            <td className="py-3 px-3">
+                <div className="flex items-center gap-3">
+                    <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0"
+                        style={{
+                            background: isFaculty ? 'rgba(0,188,212,0.15)' : 'rgba(16,185,129,0.15)',
+                            color: isFaculty ? 'var(--brand)' : '#10b981',
+                        }}
+                    >
+                        {initials}
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-xs font-bold text-heading truncate">{member.full_name}</div>
+                        <div className="text-[11px] text-gray-500 truncate">{member.email}</div>
+                    </div>
                 </div>
             </td>
-            <td className="py-2 px-2 capitalize" style={{ color: 'var(--text-secondary)' }}>{member.role}</td>
-            <td className="py-2 px-2 text-right font-mono" style={{ color: member.pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                ₹{member.pnl.toLocaleString('en-IN')}
+            <td className="py-3 px-3">
+                <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold capitalize"
+                    style={{
+                        background: isFaculty ? 'rgba(0,188,212,0.12)' : 'rgba(16,185,129,0.12)',
+                        color: isFaculty ? 'var(--brand)' : '#10b981',
+                    }}
+                >
+                    {member.role}
+                </span>
+            </td>
+            <td className="py-3 px-3 text-right">
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-surface-700 hover:bg-surface-600 text-heading transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpen(member);
+                    }}
+                >
+                    <User size={12} /> View Activity &amp; Works
+                </button>
             </td>
         </tr>
     );
 }
 
 export default function InstitutionPortalPage() {
-    const user = useAuthStore((s) => s.user);
-    const logout = useAuthStore((s) => s.logout);
-
+    const { user, logout } = useAuthStore();
+    const [selectedMember, setSelectedMember] = useState(null);
+    const [showInviteModal, setShowInviteModal] = useState(false);
     const [members, setMembers] = useState([]);
     const [membersTotal, setMembersTotal] = useState(0);
-    const [membersLoading, setMembersLoading] = useState(false);
+    const [membersLoading, setMembersLoading] = useState(true);
     const [roleFilter, setRoleFilter] = useState('');
     const [search, setSearch] = useState('');
-
-    const [showInviteModal, setShowInviteModal] = useState(false);
-    const [selectedMember, setSelectedMember] = useState(null);
 
     const loadMembers = useCallback(async () => {
         setMembersLoading(true);
@@ -527,17 +563,20 @@ export default function InstitutionPortalPage() {
         );
     }
 
+    const facultyCount = members.filter((m) => m.role === 'faculty').length;
+    const studentCount = members.filter((m) => m.role === 'student').length;
+
     return (
-        <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6">
-            <header className="flex flex-wrap items-start sm:items-center justify-between gap-3 mb-4 sm:mb-5">
+        <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col gap-5">
+            <header className="flex flex-wrap items-start sm:items-center justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <GraduationCap size={14} style={{ color: 'var(--brand)' }} />
                         <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Institution Workspace</span>
                     </div>
                     <h1 className="text-xl sm:text-2xl font-bold">{user?.full_name ? `Welcome, ${user.full_name}` : 'Institution Portal'}</h1>
-                    <p className="text-xs sm:text-sm" style={{ color: 'var(--text-muted)' }}>
-                        Invite faculty and students to your institution.
+                    <p className="text-xs sm:text-sm text-gray-400">
+                        Manage members, audit member activity, and issue course retakes.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -550,22 +589,40 @@ export default function InstitutionPortalPage() {
                 </div>
             </header>
 
+            {/* Stat Counters KPI Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="admin-mini-stat">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Roster</div>
+                    <div className="text-lg font-bold font-mono text-heading">{membersTotal}</div>
+                </div>
+                <div className="admin-mini-stat">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Faculty Members</div>
+                    <div className="text-lg font-bold font-mono" style={{ color: 'var(--brand)' }}>{facultyCount}</div>
+                </div>
+                <div className="admin-mini-stat">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Enrolled Students</div>
+                    <div className="text-lg font-bold font-mono text-emerald-500">{studentCount}</div>
+                </div>
+            </div>
+
+            {/* Main Member Roster Card */}
             <section className="admin-card p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 className="text-lg font-bold admin-section-title">Members ({membersTotal})</h2>
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-heading">Institution Members Roster ({membersTotal})</h2>
                     <div className="flex flex-wrap gap-2 items-center">
                         <div className="relative">
-                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
-                                className="input-field text-sm pl-8"
-                                placeholder="Search name/email..."
+                                className="input-field text-xs pl-8"
+                                style={{ height: 32 }}
+                                placeholder="Search name or email..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
-                        <select className="input-field text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                        <select className="input-field text-xs" style={{ height: 32 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                             <option value="">All Roles</option>
-                            <option value="student">Student</option>
+                            <option value="student">Students</option>
                             <option value="faculty">Faculty</option>
                         </select>
                     </div>
@@ -575,27 +632,22 @@ export default function InstitutionPortalPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Name</th>
-                                <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Role</th>
-                                <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>P&amp;L</th>
+                                <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Member</th>
+                                <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Role</th>
+                                <th className="text-right py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {membersLoading ? (
-                                <tr><td colSpan={3} className="text-center py-6"><Loader2 size={18} className="animate-spin inline" style={{ color: 'var(--text-muted)' }} /></td></tr>
+                                <tr><td colSpan={3} className="text-center py-8"><Loader2 size={20} className="animate-spin inline text-primary-500" /></td></tr>
                             ) : members.length === 0 ? (
-                                <tr><td colSpan={3} className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>No members found</td></tr>
+                                <tr><td colSpan={3} className="text-center py-8 text-xs text-gray-500">No institution members found matching your search.</td></tr>
                             ) : (
                                 members.map((m) => <MemberRow key={m.id} member={m} onOpen={setSelectedMember} />)
                             )}
                         </tbody>
                     </table>
                 </div>
-                {members.length > 0 && (
-                    <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-                        Click a member to view their full activity, trades, and assessment history.
-                    </p>
-                )}
             </section>
 
             {showInviteModal && <GenerateInviteModal onClose={() => setShowInviteModal(false)} />}

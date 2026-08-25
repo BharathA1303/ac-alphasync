@@ -443,13 +443,14 @@ function LessonsSection({ courseId, lessons, locked, onChanged }) {
 
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
-function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
+function AssessmentConfigForm({ courseId, lessons = [], assessment, locked, onSaved }) {
     const isNew = !assessment;
     const [title, setTitle] = useState(assessment?.title || '');
     const [instructions, setInstructions] = useState(assessment?.instructions || '');
     const [passScore, setPassScore] = useState(assessment?.pass_score ?? 70);
     const [questionCount, setQuestionCount] = useState(assessment?.question_count ?? 5);
     const [difficulty, setDifficulty] = useState(assessment?.difficulty || 'medium');
+    const [selectedLessonIds, setSelectedLessonIds] = useState(assessment?.lesson_ids || []);
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(isNew);
 
@@ -465,17 +466,19 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
             pass_score: Number(passScore) || 70,
             question_count: Math.min(25, Math.max(1, Number(questionCount) || 5)),
             difficulty,
+            lesson_ids: selectedLessonIds,
         };
         try {
+            let res;
             if (isNew) {
-                await facultyApi.addAssessment(courseId, payload);
+                res = await facultyApi.addAssessment(courseId, payload);
                 toast.success('Assessment created');
             } else {
-                await facultyApi.updateAssessment(courseId, assessment.id, payload);
+                res = await facultyApi.updateAssessment(courseId, assessment.id, payload);
                 toast.success('Assessment updated');
             }
             setEditing(false);
-            onSaved();
+            onSaved(res?.data);
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to save assessment'));
         } finally {
@@ -539,6 +542,35 @@ function AssessmentConfigForm({ courseId, assessment, locked, onSaved }) {
                         placeholder="e.g. Module 1 Technical Analysis Check"
                     />
                 </div>
+                {lessons.length > 0 && (
+                    <div className="sm:col-span-2">
+                        <label className="text-[11px] font-semibold text-gray-400 block mb-1">Target Lessons (Choose 1 or more lessons)</label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {lessons.map((l) => {
+                                const isSelected = selectedLessonIds.includes(l.id);
+                                return (
+                                    <button
+                                        key={l.id}
+                                        type="button"
+                                        className="px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all"
+                                        style={{
+                                            background: isSelected ? 'rgba(0,188,212,0.15)' : 'var(--bg-muted)',
+                                            color: isSelected ? 'var(--brand)' : 'var(--text-muted)',
+                                            borderColor: isSelected ? 'var(--brand)' : 'var(--border)',
+                                        }}
+                                        onClick={() => {
+                                            setSelectedLessonIds((prev) =>
+                                                prev.includes(l.id) ? prev.filter((id) => id !== l.id) : [...prev, l.id]
+                                            );
+                                        }}
+                                    >
+                                        {isSelected ? '✓ ' : ''}{l.title}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <div className="sm:col-span-2">
                     <label className="text-[11px] font-semibold text-gray-400 block mb-1">Instructions (Optional)</label>
                     <input
@@ -938,9 +970,13 @@ function AssessmentCard({ courseId, assessment, locked, aiAvailable, expanded, o
     );
 }
 
-function AssessmentsSection({ courseId, assessments, locked, aiAvailable, onChanged }) {
-    const [expandedId, setExpandedId] = useState(assessments?.[0]?.id || null);
+function AssessmentsSection({ courseId, assessments, lessons = [], locked, aiAvailable, onChanged }) {
+    const [expandedId, setExpandedId] = useState(null);
     const [showNewForm, setShowNewForm] = useState(false);
+
+    const activeId = expandedId === 'none'
+        ? null
+        : (expandedId || assessments?.[assessments.length - 1]?.id || null);
 
     return (
         <div className="flex flex-col gap-4">
@@ -962,8 +998,8 @@ function AssessmentsSection({ courseId, assessments, locked, aiAvailable, onChan
                     assessment={a}
                     locked={locked}
                     aiAvailable={aiAvailable}
-                    expanded={expandedId === a.id}
-                    onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                    expanded={activeId === a.id}
+                    onToggle={() => setExpandedId(activeId === a.id ? 'none' : a.id)}
                     onChanged={onChanged}
                 />
             ))}
@@ -1089,6 +1125,7 @@ function CourseBuilderPanel({ courseId, onBack, aiAvailable }) {
                             <AssessmentsSection
                                 courseId={course.id}
                                 assessments={course.assessments || []}
+                                lessons={course.lessons || []}
                                 locked={locked}
                                 aiAvailable={aiAvailable}
                                 onChanged={loadCourse}
