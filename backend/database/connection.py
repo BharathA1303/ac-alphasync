@@ -125,6 +125,7 @@ async def init_db():
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS review_note TEXT;"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS reviewed_by_user_id UUID REFERENCES users(id);"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE;"))
+            await conn.execute(text("ALTER TABLE assessments ADD COLUMN IF NOT EXISTS lesson_ids JSONB DEFAULT '[]'::jsonb;"))
         from models import user, order, portfolio, watchlist, algo  # noqa
         from models import broker as broker_model  # noqa
         from models import futures_order  # noqa  — futures paper trading tables
