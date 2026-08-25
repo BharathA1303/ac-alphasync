@@ -37,6 +37,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/faculty", tags=["Faculty"])
 
+
+def _iso(val):
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
+
+
 # ── Lesson material upload config ───────────────────────────────
 UPLOAD_DIR = "uploads/lesson-materials"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -48,8 +59,10 @@ ALLOWED_FILE_TYPES = {
     "text/markdown": "md",
     "text/plain": "md",
 }
-MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024  # 15MB
+MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20MB
 
+
+# ── Pydantic models ───────────────────────────────────────────
 
 class CreateCourseRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -61,18 +74,38 @@ class UpdateCourseRequest(BaseModel):
     description: Optional[str] = None
 
 
-class LessonRequest(BaseModel):
+class CreateLessonRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: Optional[str] = None
     order_index: int = 0
 
 
-class AssessmentConfigRequest(BaseModel):
+LessonRequest = CreateLessonRequest
+
+
+class UpdateLessonRequest(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    content: Optional[str] = None
+    order_index: Optional[int] = None
+
+
+class CreateAssessmentRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     instructions: Optional[str] = None
     pass_score: int = Field(default=70, ge=0, le=100)
-    question_count: int = Field(default=5, ge=1, le=25)
+    question_count: int = Field(default=5, ge=1, le=50)
     difficulty: str = Field(default="medium")
+
+
+AssessmentConfigRequest = CreateAssessmentRequest
+
+
+class UpdateAssessmentRequest(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    instructions: Optional[str] = None
+    pass_score: Optional[int] = Field(default=None, ge=0, le=100)
+    question_count: Optional[int] = Field(default=None, ge=1, le=50)
+    difficulty: Optional[str] = None
 
 
 class ChoiceInput(BaseModel):
@@ -80,9 +113,12 @@ class ChoiceInput(BaseModel):
     is_correct: bool = False
 
 
-class ManualQuestionRequest(BaseModel):
+class CreateQuestionRequest(BaseModel):
     text: str = Field(min_length=1)
     choices: list[ChoiceInput] = Field(min_length=2, max_length=6)
+
+
+ManualQuestionRequest = CreateQuestionRequest
 
 
 class GenerateQuestionsRequest(BaseModel):
@@ -96,11 +132,11 @@ def _course_out(course: Course, lesson_count: int = 0, assessment_count: int = 0
         "description": course.description,
         "status": course.status,
         "review_note": course.review_note,
-        "reviewed_at": course.reviewed_at.isoformat() if course.reviewed_at else None,
+        "reviewed_at": _iso(course.reviewed_at),
         "lesson_count": lesson_count,
         "assessment_count": assessment_count,
-        "created_at": course.created_at.isoformat() if course.created_at else None,
-        "updated_at": course.updated_at.isoformat() if course.updated_at else None,
+        "created_at": _iso(course.created_at),
+        "updated_at": _iso(course.updated_at),
     }
 
 
@@ -145,7 +181,7 @@ def _assessment_out(assessment: Assessment, question_count: int = 0) -> dict:
 async def _get_own_course(db: AsyncSession, faculty: User, course_id: str) -> Course:
     course_uuid = _as_uuid(course_id)
     course = await db.get(Course, course_uuid) if course_uuid else None
-    if not course or course.created_by_user_id != faculty.id:
+    if not course or str(course.created_by_user_id) != str(faculty.id):
         raise HTTPException(status_code=404, detail="Course not found")
     return course
 
@@ -158,7 +194,7 @@ def _assert_editable(course: Course):
 async def _get_own_lesson(db: AsyncSession, course: Course, lesson_id: str) -> Lesson:
     lesson_uuid = _as_uuid(lesson_id)
     lesson = await db.get(Lesson, lesson_uuid) if lesson_uuid else None
-    if not lesson or lesson.course_id != course.id:
+    if not lesson or str(lesson.course_id) != str(course.id):
         raise HTTPException(status_code=404, detail="Lesson not found")
     return lesson
 
@@ -166,7 +202,7 @@ async def _get_own_lesson(db: AsyncSession, course: Course, lesson_id: str) -> L
 async def _get_own_assessment(db: AsyncSession, course: Course, assessment_id: str) -> Assessment:
     assessment_uuid = _as_uuid(assessment_id)
     assessment = await db.get(Assessment, assessment_uuid) if assessment_uuid else None
-    if not assessment or assessment.course_id != course.id:
+    if not assessment or str(assessment.course_id) != str(course.id):
         raise HTTPException(status_code=404, detail="Assessment not found")
     return assessment
 
@@ -223,12 +259,12 @@ async def list_my_courses(
         return {"courses": []}
 
     course_ids = [c.id for c in courses]
-    lesson_counts = dict((await db.execute(
+    lesson_counts = {row[0]: row[1] for row in (await db.execute(
         select(Lesson.course_id, func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids)).group_by(Lesson.course_id)
-    )).all())
-    assessment_counts = dict((await db.execute(
+    )).all()}
+    assessment_counts = {row[0]: row[1] for row in (await db.execute(
         select(Assessment.course_id, func.count(Assessment.id)).where(Assessment.course_id.in_(course_ids)).group_by(Assessment.course_id)
-    )).all())
+    )).all()}
 
     return {
         "courses": [
@@ -278,11 +314,11 @@ async def get_course(
     question_counts = {}
     if assessments:
         assessment_ids = [a.id for a in assessments]
-        question_counts = dict((await db.execute(
+        question_counts = {row[0]: row[1] for row in (await db.execute(
             select(Question.assessment_id, func.count(Question.id))
             .where(Question.assessment_id.in_(assessment_ids))
             .group_by(Question.assessment_id)
-        )).all())
+        )).all()}
 
     return {
         **_course_out(course, len(lessons), len(assessments)),

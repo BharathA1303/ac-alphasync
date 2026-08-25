@@ -191,3 +191,61 @@ async def test_get_student_stats_edge_cases(test_session: AsyncSession):
         assert data["recent_transactions"][0]["price"] == 2500.0
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_get_faculty_course_detail_edge_cases(test_session: AsyncSession):
+    inst_id = uuid.uuid4()
+    inst = Institution(id=inst_id, name="Faculty University", code="FACUNI")
+    test_session.add(inst)
+
+    faculty = User(
+        id=uuid.uuid4(),
+        email=f"faculty_{uuid.uuid4().hex[:6]}@test.com",
+        username=f"faculty_{uuid.uuid4().hex[:6]}",
+        full_name="Dr. Faculty",
+        role="faculty",
+        institution_id=inst_id,
+    )
+    test_session.add(faculty)
+
+    course = Course(
+        id=uuid.uuid4(),
+        institution_id=inst_id,
+        created_by_user_id=faculty.id,
+        title="Faculty Course",
+        description="Faculty Description",
+        status="approved",
+    )
+    test_session.add(course)
+
+    lesson = Lesson(
+        id=uuid.uuid4(),
+        course_id=course.id,
+        title="Lesson 1",
+    )
+    test_session.add(lesson)
+    await test_session.commit()
+
+    faculty_id_str = str(faculty.id)
+    course_id_str = str(course.id)
+
+    async def override_get_db():
+        yield test_session
+
+    async def override_require_faculty():
+        return faculty
+
+    from dependencies.faculty import require_faculty
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[require_faculty] = override_require_faculty
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get(f"/api/faculty/courses/{course_id_str}")
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["id"] == course_id_str
+        assert data["title"] == "Faculty Course"
+        assert len(data["lessons"]) == 1
+
+    app.dependency_overrides.clear()

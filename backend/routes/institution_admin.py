@@ -284,7 +284,7 @@ async def get_student_stats(
     lessons_completed = lessons_completed_result.scalar() or 0
 
     attempts_result = await db.execute(
-        select(AssessmentAttempt, Assessment.title, Course.title)
+        select(AssessmentAttempt, Assessment.title.label("assessment_title"), Course.title.label("course_title"))
         .join(Assessment, Assessment.id == AssessmentAttempt.assessment_id)
         .join(Course, Course.id == AssessmentAttempt.course_id)
         .where(AssessmentAttempt.user_id == student.id)
@@ -404,7 +404,7 @@ async def remove_member(
     return {"success": True}
 
 
-# ── Course approval — faculty-uploaded subjects for this institution only ──
+# ── Course approval — faculty-uploaded subjects for this institution ──
 
 def _course_out(course: Course, lesson_count: int = 0, assessment_count: int = 0, author_name: str = None) -> dict:
     return {
@@ -416,8 +416,8 @@ def _course_out(course: Course, lesson_count: int = 0, assessment_count: int = 0
         "author_name": author_name,
         "lesson_count": lesson_count,
         "assessment_count": assessment_count,
-        "created_at": course.created_at.isoformat() if course.created_at else None,
-        "reviewed_at": course.reviewed_at.isoformat() if course.reviewed_at else None,
+        "created_at": _iso(course.created_at),
+        "reviewed_at": _iso(course.reviewed_at),
     }
 
 
@@ -431,7 +431,7 @@ async def _get_institution_course(db: AsyncSession, admin: User, course_id: str)
 
 @router.get("/courses")
 async def list_institution_courses(
-    status: Optional[str] = Query(None),
+    status: Optional[str] = None,
     admin: User = Depends(require_institution_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -452,12 +452,12 @@ async def list_institution_courses(
         return {"courses": []}
 
     course_ids = [c.id for c, _ in rows]
-    lesson_counts = dict((await db.execute(
+    lesson_counts = {row[0]: row[1] for row in (await db.execute(
         select(Lesson.course_id, func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids)).group_by(Lesson.course_id)
-    )).all())
-    assessment_counts = dict((await db.execute(
+    )).all()}
+    assessment_counts = {row[0]: row[1] for row in (await db.execute(
         select(Assessment.course_id, func.count(Assessment.id)).where(Assessment.course_id.in_(course_ids)).group_by(Assessment.course_id)
-    )).all())
+    )).all()}
 
     return {
         "courses": [

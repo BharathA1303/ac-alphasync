@@ -74,8 +74,9 @@ async def _get_visible_course(db: AsyncSession, student: User, course_id: str) -
 
     # Match student's institution, or default platform-wide course
     is_match = (
-        (course.institution_id is not None and str(course.institution_id) == str(student.institution_id))
-        or (course.is_default and course.institution_id is None)
+        course.is_default
+        or course.institution_id is None
+        or (student.institution_id is not None and str(course.institution_id) == str(student.institution_id))
     )
     if not is_match:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -117,24 +118,24 @@ async def list_available_courses(
         return {"courses": []}
 
     course_ids = [c.id for c in courses]
-    lesson_counts = dict((await db.execute(
+    lesson_counts = {row[0]: row[1] for row in (await db.execute(
         select(Lesson.course_id, func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids)).group_by(Lesson.course_id)
-    )).all())
-    assessment_counts = dict((await db.execute(
+    )).all()}
+    assessment_counts = {row[0]: row[1] for row in (await db.execute(
         select(Assessment.course_id, func.count(Assessment.id)).where(Assessment.course_id.in_(course_ids)).group_by(Assessment.course_id)
-    )).all())
+    )).all()}
 
-    completed_lessons = dict((await db.execute(
+    completed_lessons = {row[0]: row[1] for row in (await db.execute(
         select(LessonProgress.course_id, func.count(LessonProgress.id))
         .where(LessonProgress.user_id == student.id, LessonProgress.course_id.in_(course_ids))
         .group_by(LessonProgress.course_id)
-    )).all())
+    )).all()}
 
-    best_scores = dict((await db.execute(
+    best_scores = {row[0]: row[1] for row in (await db.execute(
         select(AssessmentAttempt.course_id, func.max(AssessmentAttempt.score_percent))
         .where(AssessmentAttempt.user_id == student.id, AssessmentAttempt.course_id.in_(course_ids))
         .group_by(AssessmentAttempt.course_id)
-    )).all())
+    )).all()}
 
     return {
         "courses": [
@@ -180,11 +181,11 @@ async def get_course_detail(
     grant_by_assessment = {}
     if assessments:
         assessment_ids = [a.id for a in assessments]
-        question_counts = dict((await db.execute(
+        question_counts = {row[0]: row[1] for row in (await db.execute(
             select(Question.assessment_id, func.count(Question.id))
             .where(Question.assessment_id.in_(assessment_ids))
             .group_by(Question.assessment_id)
-        )).all())
+        )).all()}
 
         attempts_result = await db.execute(
             select(AssessmentAttempt)
