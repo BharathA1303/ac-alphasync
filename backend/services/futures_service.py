@@ -1122,6 +1122,36 @@ async def get_snapshot_history(
     return []
 
 
+def _extract_underlying_from_tsym(tsym: str) -> str:
+    """
+    Extract underlying name from contract trading symbol.
+    Examples:
+    'MIDCPNIFTY29SEP26F' -> 'MIDCPNIFTY'
+    'NIFTYNXT5029SEP26F' -> 'NIFTYNXT50'
+    'BANKNIFTY29SEP26F'  -> 'BANKNIFTY'
+    'FINNIFTY29SEP26F'   -> 'FINNIFTY'
+    'NIFTY29SEP26F'      -> 'NIFTY'
+    'SENSEX26AUGFUT'     -> 'SENSEX'
+    'RELIANCE29SEP26F'   -> 'RELIANCE'
+    """
+    s = str(tsym or "").strip().upper()
+    for known in [
+        "MIDCPNIFTY",
+        "NIFTYNXT50",
+        "BANKNIFTY",
+        "FINNIFTY",
+        "NIFTY50",
+        "NIFTY",
+        "SENSEX50",
+        "SENSEX",
+    ]:
+        if s.startswith(known):
+            return known
+    import re
+    m = re.match(r"^([A-Z]+)", s)
+    return m.group(1) if m else s
+
+
 async def derive_futures_quote(contract_symbol: str) -> dict:
     """
     Derive accurate Cost of Carry futures quote with all micro-information
