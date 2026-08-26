@@ -876,10 +876,38 @@ export default function AcademyPage() {
                             {/* Right Rail Analytics (4 cols on lg/xl) */}
                             <div className="lg:col-span-4 space-y-6">
                                 <MasteryRightRail
-                                    overallMastery={overviewData?.overall_mastery_pct || 30}
-                                    pointsDelta={overviewData?.points_delta_this_week || '+8 pts this week'}
-                                    completedCount={overviewData?.completed_modules_count || 4}
-                                    totalCount={overviewData?.total_modules_count || 16}
+                                    overallMastery={
+                                        isFacultyMode
+                                            ? (facultyCourses.length > 0
+                                                ? Math.round(
+                                                    (facultyCourses.filter(
+                                                        (c) => c.lesson_count > 0 && c.lessons_completed >= c.lesson_count
+                                                    ).length /
+                                                        facultyCourses.length) *
+                                                        100
+                                                )
+                                                : 0)
+                                            : (defaultModules.length > 0
+                                                ? Math.round(
+                                                    (defaultModules.filter((m) => m.state === 'done').length /
+                                                        defaultModules.length) *
+                                                        100
+                                                )
+                                                : 0)
+                                    }
+                                    pointsDelta={overviewData?.points_delta_this_week || '0 activity this week'}
+                                    completedCount={
+                                        isFacultyMode
+                                            ? facultyCourses.filter(
+                                                (c) => c.lesson_count > 0 && c.lessons_completed >= c.lesson_count
+                                            ).length
+                                            : defaultModules.filter((m) => m.state === 'done').length
+                                    }
+                                    totalCount={
+                                        isFacultyMode
+                                            ? facultyCourses.length
+                                            : (defaultModules.length || 16)
+                                    }
                                     weakConcepts={overviewData?.weak_concepts || []}
                                     behaviourSummary={overviewData?.behaviour_summary}
                                 />
