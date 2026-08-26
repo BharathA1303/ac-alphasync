@@ -252,31 +252,33 @@ class ConnectionManager:
             self.disconnect(d)
 
     async def broadcast_price(self, symbol: str, price_data: dict):
-        """Broadcast price update to all subscribers of a symbol."""
-        subscribers = self.subscriptions.get(symbol, set())
-        dead = []
-        # Send as "quote" type with symbol at top level for frontend compat
-        msg = {
-            "type": "quote",
-            "channel": "prices",
-            "symbol": symbol,
-            **price_data,
-        }
-        if not subscribers:
-            logger.debug(f"Price update for {symbol} ignored — no subscribers")
+        """Broadcast price update to all subscribers of a symbol (with NSE/BSE cross-delivery)."""
+        target_symbols = [symbol]
+        if symbol.endswith(".NS"):
+            target_symbols.append(symbol[:-3] + ".BO")
+        elif symbol.endswith(".BO"):
+            target_symbols.append(symbol[:-3] + ".NS")
 
-        for conn_id in list(subscribers):
-            ws = self.active_connections.get(conn_id)
-            if ws:
-                try:
-                    await ws.send_json(msg)
-                except Exception:
-                    dead.append(conn_id)
-        for d in dead:
-            self.disconnect(d)
-        logger.debug(
-            f"Broadcasted price for {symbol} to {len(subscribers) - len(dead)} connections (dead={len(dead)})"
-        )
+        for sym in target_symbols:
+            subscribers = self.subscriptions.get(sym, set())
+            if not subscribers:
+                continue
+            dead = []
+            msg = {
+                "type": "quote",
+                "channel": "prices",
+                "symbol": sym,
+                **price_data,
+            }
+            for conn_id in list(subscribers):
+                ws = self.active_connections.get(conn_id)
+                if ws:
+                    try:
+                        await ws.send_json(msg)
+                    except Exception:
+                        dead.append(conn_id)
+            for d in dead:
+                self.disconnect(d)
 
     async def broadcast_futures_quote(self, contract_symbol: str, quote_data: dict):
         """Broadcast futures quote to all subscribers of a contract."""

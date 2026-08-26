@@ -563,6 +563,18 @@ async def _subscribe_near_expiry_futures() -> None:
 
 
 # Standard Indian Index/Stock lot size registry
+_KNOWN_INDEX_UNDERLYINGS = {
+    "NIFTY",
+    "BANKNIFTY",
+    "FINNIFTY",
+    "MIDCPNIFTY",
+    "NIFTYNXT50",
+    "SENSEX",
+    "BANKEX",
+    "NIFTY50",
+    "NIFTYBANK",
+}
+
 _FUTURES_LOT_SIZES = {
     "NIFTY": 65,
     "BANKNIFTY": 30,

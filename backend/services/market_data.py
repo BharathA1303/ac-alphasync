@@ -765,6 +765,12 @@ def _format_symbol(symbol: str) -> str:
     if clean in INDEX_ALIAS_MAP:
         return INDEX_ALIAS_MAP[clean]
 
+    # Handle exchange-prefixed symbols (e.g. BSE:RELIANCE -> RELIANCE.BO, NSE:RELIANCE -> RELIANCE.NS)
+    if clean.startswith("BSE:"):
+        return f"{clean[4:]}.BO"
+    if clean.startswith("NSE:"):
+        return f"{clean[4:]}.NS"
+
     # Keep canonical non-equity symbols unchanged.
     if clean.startswith("^") or clean.endswith(("=F", ".NS", ".BO")):
         return clean

@@ -237,9 +237,17 @@ class HistoricalReplayEngine:
                 self._by_trading_symbol[track.trading_symbol] = key
                 self._by_canonical[track.canonical_symbol] = key
                 if track.canonical_symbol.endswith(".NS"):
-                    self._by_canonical[track.canonical_symbol.replace(".NS", "")] = key
-                if track.canonical_symbol.endswith(".BO"):
-                    self._by_canonical[track.canonical_symbol.replace(".BO", "")] = key
+                    bare_sym = track.canonical_symbol.replace(".NS", "")
+                    self._by_canonical[bare_sym] = key
+                    self._by_canonical[f"{bare_sym}.BO"] = key
+                    self._by_canonical[f"BSE:{bare_sym}"] = key
+                    self._by_canonical[f"NSE:{bare_sym}"] = key
+                elif track.canonical_symbol.endswith(".BO"):
+                    bare_sym = track.canonical_symbol.replace(".BO", "")
+                    self._by_canonical[bare_sym] = key
+                    self._by_canonical[f"{bare_sym}.NS"] = key
+                    self._by_canonical[f"BSE:{bare_sym}"] = key
+                    self._by_canonical[f"NSE:{bare_sym}"] = key
                 if track.trading_symbol.endswith("-EQ"):
                     self._by_canonical[track.trading_symbol.replace("-EQ", "")] = key
                 if track.token:
@@ -505,10 +513,9 @@ class HistoricalReplayEngine:
         if itype == "EQUITY":
             from services.market_data import _format_symbol
 
-            # trading_symbol carries Zebu's "-EQ" suffix (e.g.
-            # "RELIANCE-EQ"); strip it before handing to _format_symbol,
-            # which expects a bare symbol and appends ".NS" itself.
             bare = tsym[:-3] if tsym.endswith("-EQ") else tsym
+            if str(instrument.exchange).upper() == "BSE" or bare.endswith(".BO"):
+                return f"{bare.replace('.BO', '')}.BO"
             return _format_symbol(bare)
 
         if itype == "INDEX":
@@ -690,9 +697,16 @@ class HistoricalReplayEngine:
             self._state[track.key] = quote
             from market.quote_coordinator import quote_coordinator
 
+            mirrors = []
+            if track.canonical_symbol.endswith(".NS"):
+                mirrors.append(track.canonical_symbol[:-3] + ".BO")
+            elif track.canonical_symbol.endswith(".BO"):
+                mirrors.append(track.canonical_symbol[:-3] + ".NS")
+
             await quote_coordinator.ingest_equity_quote(
                 track.canonical_symbol,
                 quote,
+                mirror_symbols=mirrors,
                 source=REPLAY_SOURCE,
                 changed=True,
                 emit_event=True,
