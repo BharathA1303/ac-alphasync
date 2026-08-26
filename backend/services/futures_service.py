@@ -1153,13 +1153,50 @@ async def derive_futures_quote(contract_symbol: str) -> dict:
     except Exception:
         spot_quote = None
 
-    if not spot_quote:
+    if not spot_quote or not spot_quote.get("price"):
         try:
             from services.historical_replay import historical_replay_engine
 
-            spot_quote = historical_replay_engine.get_state(spot_sym) or {}
+            for candidate in [spot_sym, underlying, f"NSE:{spot_sym}", f"BSE:{spot_sym}"]:
+                q = historical_replay_engine.get_state(candidate) or historical_replay_engine.get_current_quote(candidate)
+                if q and (q.get("price") or q.get("ltp")):
+                    spot_quote = q
+                    break
         except Exception:
             spot_quote = {}
+
+    # If still not found, check proxy indices (e.g. ^NSEI for MIDCPNIFTY/NIFTYNXT50, ^NSEBANK for FINNIFTY)
+    if not spot_quote or not (spot_quote.get("price") or spot_quote.get("ltp")):
+        try:
+            from services.historical_replay import historical_replay_engine
+
+            proxy_key = "^NSEBANK" if "BANK" in underlying or "FIN" in underlying else ("^BSESN" if "SENSEX" in underlying else "^NSEI")
+            proxy_q = historical_replay_engine.get_state(proxy_key) or historical_replay_engine.get_current_quote(proxy_key) or {}
+            if proxy_q and (proxy_q.get("price") or proxy_q.get("ltp")):
+                base_p = float(proxy_q.get("price") or proxy_q.get("ltp"))
+                scale = 1.0
+                if "MIDCP" in underlying:
+                    scale = 0.54
+                elif "NXT50" in underlying or "NEXT50" in underlying:
+                    scale = 2.92
+                elif "FIN" in underlying and "BANK" not in underlying:
+                    scale = 0.42
+
+                p_price = round(base_p * scale, 2)
+                p_open = float(proxy_q.get("open") or base_p) * scale
+                p_high = float(proxy_q.get("high") or base_p) * scale
+                p_low = float(proxy_q.get("low") or base_p) * scale
+                p_prev = float(proxy_q.get("prev_close") or proxy_q.get("close") or base_p) * scale
+                spot_quote = {
+                    "price": p_price,
+                    "open": round(p_open, 2),
+                    "high": round(p_high, 2),
+                    "low": round(p_low, 2),
+                    "prev_close": round(p_prev, 2),
+                    "volume": proxy_q.get("volume") or 1000000,
+                }
+        except Exception:
+            pass
 
     spot_price = float(
         spot_quote.get("price") or spot_quote.get("ltp") or spot_quote.get("lp") or 0.0
@@ -1357,6 +1394,7 @@ async def get_history(
     except Exception:
         spot_candles = []
 
+    scale = 1.0
     if not spot_candles:
         try:
             from services.market_data import get_historical_data
@@ -1364,6 +1402,28 @@ async def get_history(
             spot_candles = await get_historical_data(
                 spot_sym, period="5d", interval=interval
             )
+        except Exception:
+            spot_candles = []
+
+    if not spot_candles:
+        try:
+            from services.historical_replay import historical_replay_engine
+
+            proxy_key = (
+                "^NSEBANK"
+                if "BANK" in underlying or "FIN" in underlying
+                else ("^BSESN" if "SENSEX" in underlying else "^NSEI")
+            )
+            if historical_replay_engine.is_running:
+                spot_candles = historical_replay_engine.get_candles_up_to(
+                    proxy_key, period="5d", interval=interval
+                )
+                if "MIDCP" in underlying:
+                    scale = 0.54
+                elif "NXT50" in underlying or "NEXT50" in underlying:
+                    scale = 2.92
+                elif "FIN" in underlying and "BANK" not in underlying:
+                    scale = 0.42
         except Exception:
             spot_candles = []
 
@@ -1390,7 +1450,7 @@ async def get_history(
         premium_rate = 0.0175
         vol_ratio = 0.04
 
-    mult = 1.0 + premium_rate
+    mult = (1.0 + premium_rate) * scale
     results = []
 
     last_close = None
