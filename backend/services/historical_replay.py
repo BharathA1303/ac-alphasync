@@ -266,6 +266,40 @@ class HistoricalReplayEngine:
             track.cursor = -1
             track.last_emitted_price = None
 
+        # Populate composite constituent volume for index instruments if volume is 0
+        from collections import defaultdict
+        epoch_equity_volume: dict[int, int] = defaultdict(int)
+        for t in self._instruments.values():
+            if t.instrument_type == "EQUITY":
+                for c in t.candles:
+                    epoch_equity_volume[c["epoch"]] += int(c.get("volume") or 0)
+
+        for t in self._instruments.values():
+            if (
+                t.instrument_type == "INDEX"
+                or t.canonical_symbol.startswith("^")
+                or t.trading_symbol.startswith("NIFTY")
+                or t.trading_symbol in ("SENSEX", "BANKNIFTY")
+            ):
+                sym = t.canonical_symbol.upper()
+                multiplier = 1.0
+                if "BANK" in sym or "FIN" in sym:
+                    multiplier = 0.35
+                elif "IT" in sym or "TECH" in sym:
+                    multiplier = 0.25
+                elif "BSESN" in sym or "SENSEX" in sym:
+                    multiplier = 0.70
+                elif "PHARMA" in sym or "AUTO" in sym or "METAL" in sym:
+                    multiplier = 0.20
+
+                for c in t.candles:
+                    if not c.get("volume"):
+                        eq_vol = epoch_equity_volume.get(c["epoch"], 0)
+                        if eq_vol > 0:
+                            c["volume"] = max(1000, int(eq_vol * multiplier))
+                        else:
+                            c["volume"] = int(1500000 * multiplier)
+
         if sync_clock:
             now_ist = datetime.now(IST)
             cur_time = now_ist.time()
