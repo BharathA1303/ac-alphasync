@@ -366,6 +366,25 @@ async def get_history(
     is_intraday = interval in intraday_intervals
 
     cache_key = f"hist:{fmt_symbol}:{period}:{interval}"
+    if not is_commodity:
+        try:
+            from core.market_data_mode import market_data_mode
+            from services.historical_replay import historical_replay_engine
+
+            if market_data_mode.is_simulation() and historical_replay_engine.is_running:
+                sim_candles = historical_replay_engine.get_candles_up_to(
+                    fmt_symbol, period=period, interval=interval
+                )
+                if sim_candles:
+                    return {
+                        "symbol": fmt_symbol,
+                        "candles": sim_candles,
+                        "count": len(sim_candles),
+                        "source": "historical_replay",
+                    }
+        except Exception as e:
+            logger.debug(f"Direct replay history fetch failed for {fmt_symbol}: {e}")
+
     try:
         if is_commodity:
             data = await market_data.get_historical_data_live_only(
