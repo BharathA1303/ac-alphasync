@@ -24,6 +24,7 @@ import {
   Lightbulb,
   GraduationCap,
   ClipboardCheck,
+  Target,
 } from "lucide-react";
 
 /* ─── Avatar helpers ─────────────────────────────────────── */
@@ -329,22 +330,40 @@ export default function Sidebar({ collapsed, onToggle }) {
                 />
               )}
               {user?.role === 'faculty' && (
-                <SidebarItem
-                  to="/faculty/portal"
-                  icon={GraduationCap}
-                  label="Course Builder"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
+                <>
+                  <SidebarItem
+                    to="/faculty/portal"
+                    icon={GraduationCap}
+                    label="Course Builder"
+                    collapsed={collapsed}
+                    onNavigate={closeMobileDrawer}
+                  />
+                  <SidebarItem
+                    to="/faculty/assignments"
+                    icon={Target}
+                    label="Trading Tasks"
+                    collapsed={collapsed}
+                    onNavigate={closeMobileDrawer}
+                  />
+                </>
               )}
               {user?.role === 'student' && (
-                <SidebarItem
-                  to="/academy"
-                  icon={GraduationCap}
-                  label="Academy"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
+                <>
+                  <SidebarItem
+                    to="/academy"
+                    icon={GraduationCap}
+                    label="Academy"
+                    collapsed={collapsed}
+                    onNavigate={closeMobileDrawer}
+                  />
+                  <SidebarItem
+                    to="/student/assignments"
+                    icon={Target}
+                    label="Trading Tasks"
+                    collapsed={collapsed}
+                    onNavigate={closeMobileDrawer}
+                  />
+                </>
               )}
             </div>
           ) : (
@@ -420,6 +439,13 @@ export default function Sidebar({ collapsed, onToggle }) {
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
                     />
+                    <SidebarItem
+                      to="/faculty/assignments"
+                      icon={Target}
+                      label="Trading Tasks"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
                   </div>
                 </div>
               )}
@@ -431,6 +457,13 @@ export default function Sidebar({ collapsed, onToggle }) {
                       to="/academy"
                       icon={GraduationCap}
                       label="Academy"
+                      collapsed={collapsed}
+                      onNavigate={closeMobileDrawer}
+                    />
+                    <SidebarItem
+                      to="/student/assignments"
+                      icon={Target}
+                      label="Trading Tasks"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
                     />

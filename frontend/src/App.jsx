@@ -48,7 +48,9 @@ import AdminInstitutionDetailPage from './pages/AdminInstitutionDetailPage';
 import InstitutionPortalPage from './pages/InstitutionPortalPage';
 import InstitutionCoursesPage from './pages/InstitutionCoursesPage';
 import FacultyPortalPage from './pages/FacultyPortalPage';
+import FacultyAssignmentsPage from './pages/FacultyAssignmentsPage';
 import AcademyPage from './pages/AcademyPage';
+import StudentAssignmentsPage from './pages/StudentAssignmentsPage';
 
 export default function App() {
     useEffect(() => {
@@ -142,13 +144,19 @@ export default function App() {
                             <Route path="/institution/courses" element={
                                 <InstitutionRoute><InstitutionCoursesPage /></InstitutionRoute>
                             } />
-                            {/* ── Faculty portal ── */}
+                            {/* ── Faculty portal & assignments ── */}
                             <Route path="/faculty/portal" element={
                                 <FacultyRoute><FacultyPortalPage /></FacultyRoute>
                             } />
-                            {/* ── Student Academy ── */}
+                            <Route path="/faculty/assignments" element={
+                                <FacultyRoute><FacultyAssignmentsPage /></FacultyRoute>
+                            } />
+                            {/* ── Student Academy & assignments ── */}
                             <Route path="/academy" element={
                                 <StudentRoute><AcademyPage /></StudentRoute>
+                            } />
+                            <Route path="/student/assignments" element={
+                                <StudentRoute><StudentAssignmentsPage /></StudentRoute>
                             } />
                         </Route>
 
