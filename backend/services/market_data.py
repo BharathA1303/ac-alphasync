@@ -1962,13 +1962,22 @@ async def get_quote_safe(symbol: str, user_id: str) -> Optional[dict]:
         return await _get_closed_session_quote(fmt)
 
     # ── SIMULATION mode guard ──────────────────────────────────────
-    # In SIMULATION mode the only legitimate quote source is replayed
-    # historical state (published into Redis by HistoricalReplayEngine and
-    # already read above). If nothing was found there, the honest answer is
-    # "no data for this instrument" — falling through to the live provider
-    # REST call would silently serve REAL market prices inside a simulated
-    # session. Never fall back to live.
     if _simulation_data_mode_active():
+        try:
+            from services.historical_replay import historical_replay_engine
+
+            if historical_replay_engine.is_running:
+                replayed = historical_replay_engine.get_state(fmt)
+                if not replayed and fmt.endswith(".BO"):
+                    replayed = historical_replay_engine.get_state(fmt[:-3] + ".NS")
+                elif not replayed and fmt.endswith(".NS"):
+                    replayed = historical_replay_engine.get_state(fmt[:-3] + ".BO")
+                if replayed:
+                    out = dict(replayed)
+                    out["symbol"] = fmt
+                    return _adjust_for_market_state(out)
+        except Exception:
+            pass
         logger.debug(
             f"SIMULATION mode: no replayed quote for {fmt}; "
             f"refusing live provider fallback"
@@ -2067,9 +2076,23 @@ async def get_system_quote_safe(symbol: str) -> Optional[dict]:
     except Exception as e:
         logger.debug(f"Redis system quote read failed for {fmt}: {e}")
 
-    # SIMULATION mode: never fall back to the live provider — see
-    # _simulation_data_mode_active(). No replayed data means no data.
+    # SIMULATION mode:
     if _simulation_data_mode_active():
+        try:
+            from services.historical_replay import historical_replay_engine
+
+            if historical_replay_engine.is_running:
+                replayed = historical_replay_engine.get_state(fmt)
+                if not replayed and fmt.endswith(".BO"):
+                    replayed = historical_replay_engine.get_state(fmt[:-3] + ".NS")
+                elif not replayed and fmt.endswith(".NS"):
+                    replayed = historical_replay_engine.get_state(fmt[:-3] + ".BO")
+                if replayed:
+                    out = dict(replayed)
+                    out["symbol"] = fmt
+                    return _adjust_for_market_state(out)
+        except Exception:
+            pass
         logger.debug(
             f"SIMULATION mode: no replayed quote for {fmt}; "
             f"refusing live provider fallback"
