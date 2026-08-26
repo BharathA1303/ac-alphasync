@@ -1334,42 +1334,41 @@ async def get_quote(contract_symbol: str) -> dict:
     if not sym:
         return {}
 
-    market_frozen = market_session.get_current_state() != MarketState.OPEN
+    # 1. Try historical replay engine if running in simulation
+    try:
+        from services.historical_replay import historical_replay_engine
 
-    if market_frozen:
-        snap = await get_snapshot_quote(sym)
-        if snap and (snap.get("ltp") or snap.get("price")):
-            return snap
+        if historical_replay_engine.is_running:
+            q = historical_replay_engine.get_current_quote(sym) or historical_replay_engine.get_state(sym)
+            if q and (q.get("ltp") or q.get("price")):
+                return q
+    except Exception:
+        pass
 
+    # 2. Try live broker system quote
     try:
         from services.market_data import get_system_quote_live_only
 
         quote = await get_system_quote_live_only(sym, allow_recover=True)
         if quote and (quote.get("ltp") or quote.get("price") or quote.get("lp")):
-            try:
-                await set_cache_quote(sym, quote)
-            except Exception as e:
-                logger.debug(f"Cache set failed for {sym}: {e}")
             return quote
+    except Exception:
+        pass
 
-        cached = await get_cache_quote(sym)
-        if cached and (cached.get("ltp") or cached.get("price")):
-            return cached
+    # 3. Derive accurate Cost of Carry quote from spot
+    derived = await derive_futures_quote(sym)
+    if derived and (derived.get("ltp") or derived.get("price")):
+        return derived
 
+    # 4. Fall back to snapshot
+    try:
         snap = await get_snapshot_quote(sym)
         if snap and (snap.get("ltp") or snap.get("price")):
             return snap
-
-    except Exception as e:
-        logger.error(f"Live quote fetch error for {sym}: {e}", exc_info=True)
-
-    # Derive accurate Cost of Carry quote
-    derived = await derive_futures_quote(sym)
-    try:
-        await set_cache_quote(sym, derived)
     except Exception:
         pass
-    return derived
+
+    return {}
 
 
 async def get_history(
