@@ -961,7 +961,7 @@ export default function FuturesPage() {
               onPeriodChange={handleIntervalChange}
               livePrice={livePrice}
               liveVolume={liveVolume}
-              isolateLivePrice
+              liveQuote={liveQuote}
               onPriceUpdate={handleChartPriceUpdate}
             />
           ) : (

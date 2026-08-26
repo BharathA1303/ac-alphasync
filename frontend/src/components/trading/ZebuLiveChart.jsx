@@ -1394,8 +1394,18 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
             pendingLiveQuoteRef.current = null;
             if (!pending) return;
 
-            const quoteSec = pending.quoteTs;
+            let quoteSec = pending.quoteTs;
             if (!Number.isFinite(quoteSec)) return;
+
+            let lastCandle = candlesRef.current[candlesRef.current.length - 1];
+            if (lastCandle) {
+                const lastMidnight = Number(lastCandle.time) - ((Number(lastCandle.time) + IST_OFFSET_SECONDS) % 86400);
+                const quoteMidnight = quoteSec - ((quoteSec + IST_OFFSET_SECONDS) % 86400);
+                if (lastMidnight !== quoteMidnight) {
+                    const quoteTimeOfDay = (quoteSec + IST_OFFSET_SECONDS) % 86400;
+                    quoteSec = lastMidnight + quoteTimeOfDay;
+                }
+            }
             const displayTs = quoteSec;
 
             if (candlesRef.current.length === 0) {
@@ -1413,7 +1423,6 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
                 return;
             }
 
-            let lastCandle = candlesRef.current[candlesRef.current.length - 1];
             if (!lastCandle) return;
 
             const bucketTime = alignBucketTime(
@@ -1436,8 +1445,6 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
                 }
             } else {
                 if (bucketTime < lastCandle.time) return;
-                const maxForwardGap = Math.max(pending.intervalSeconds * 12, 30 * 60);
-                if ((bucketTime - lastCandle.time) > maxForwardGap) return;
             }
 
             // Guard against cross-symbol/stale-source jumps creating extreme spikes.
