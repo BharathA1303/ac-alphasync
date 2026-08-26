@@ -2273,7 +2273,7 @@ async def get_historical_data(
     """
     symbol = _format_symbol(symbol)
 
-    if _is_simulation_mode():
+    if _simulation_data_mode_active():
         try:
             from services.historical_replay import historical_replay_engine
             if historical_replay_engine.is_running:
