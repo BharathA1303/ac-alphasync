@@ -24,30 +24,76 @@ import {
   ListCheck,
 } from "lucide-react";
 
-/* ─── Section definitions ────────────────────────────────── */
-const NAV_SECTIONS = [
-  {
-    label: "Main",
+/* ─── Role-Based Section definitions (Academic Campus Priority) ─── */
+function getNavigationSections(role) {
+  // 1. Priority 1: Academic Campus Suite
+  let academicSection = {
+    label: "Academic Campus",
+    items: [
+      { to: "/academy", icon: GraduationCap, label: "Academy" },
+      { to: "/student/assignments", icon: ListCheck, label: "Trading Tasks" },
+      { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
+      { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
+    ],
+  };
+
+  if (role === "faculty") {
+    academicSection = {
+      label: "Faculty Academic",
+      items: [
+        { to: "/faculty/portal", icon: GraduationCap, label: "Course Builder" },
+        { to: "/faculty/assignments", icon: ListCheck, label: "Trading Tasks" },
+        { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
+        { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
+      ],
+    };
+  } else if (role === "institution_admin") {
+    academicSection = {
+      label: "Institution Suite",
+      items: [
+        { to: "/institution/portal", icon: GraduationCap, label: "Campus Portal" },
+        { to: "/institution/courses", icon: ClipboardCheck, label: "Course Approvals" },
+        { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
+        { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
+      ],
+    };
+  } else if (role === "admin") {
+    academicSection = {
+      label: "Super Admin",
+      items: [
+        { to: "/admin/panel", icon: Shield, label: "Admin Panel" },
+        { to: "/admin/academic", icon: GraduationCap, label: "Institutions" },
+        { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
+        { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
+      ],
+    };
+  }
+
+  // 2. Priority 2: Trading Lab
+  const tradingLabSection = {
+    label: "Trading Lab",
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { to: "/leaderboard", icon: Trophy, label: "Leaderboard" },
       { to: "/terminal", icon: ChartCandlestick, label: "Terminal" },
       { to: "/market", icon: Globe, label: "Market" },
-    ],
-  },
-  {
-    label: "Trading",
-    items: [
       { to: "/orders", icon: ClipboardList, label: "Orders" },
       { to: "/portfolio", icon: Briefcase, label: "Portfolio" },
+    ],
+  };
+
+  // 3. Priority 3: Derivatives & Algo Lab
+  const derivativesSection = {
+    label: "Derivatives & Algo",
+    items: [
       { to: "/futures", icon: Landmark, label: "Futures" },
       { to: "/options", icon: FlipHorizontal2, label: "Options" },
       { to: "/algo", icon: Bot, label: "Algo Trading" },
       { to: "/auto-alpha", icon: Shield, label: "Alpha Auto" },
-      { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
     ],
-  },
-];
+  };
+
+  return [academicSection, tradingLabSection, derivativesSection];
+}
 
 /* ─── Reusable nav item ──────────────────────────────────── */
 function SidebarItem({ to, icon: Icon, label, collapsed, onNavigate }) {
@@ -115,6 +161,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const collapsedLogoSrc = theme === "dark" ? "/white-logo.png" : "/dark-logo.png";
+  const sections = getNavigationSections(user?.role);
 
   const closeMobileDrawer = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024 && !collapsed) {
@@ -220,191 +267,24 @@ export default function Sidebar({ collapsed, onToggle }) {
         <div className="mx-3 h-px bg-edge/8" />
 
         {/* ── Navigation ── */}
-        <nav className={cn("flex-1 px-2 overflow-y-auto overflow-x-hidden", collapsed && "pt-1.5")}>
+        <nav className={cn("flex-1 px-2 overflow-y-auto overflow-x-hidden space-y-3", collapsed && "pt-1.5 space-y-2")}>
           {collapsed ? (
             <div className="space-y-1">
-              {NAV_SECTIONS.flatMap((section) => section.items).map((item) => (
+              {sections.flatMap((section) => section.items).map((item) => (
                 <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
               ))}
-              {/* Admin Panel — collapsed icon only */}
-              {user?.role === 'admin' && (
-                <SidebarItem
-                  to="/admin/panel"
-                  icon={Shield}
-                  label="Admin Panel"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
-              )}
-              {user?.role === 'admin' && (
-                <SidebarItem
-                  to="/admin/academic"
-                  icon={GraduationCap}
-                  label="Inst. Manage"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
-              )}
-              {user?.role === 'institution_admin' && (
-                <SidebarItem
-                  to="/institution/portal"
-                  icon={GraduationCap}
-                  label="Institution Portal"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
-              )}
-              {user?.role === 'institution_admin' && (
-                <SidebarItem
-                  to="/institution/courses"
-                  icon={ClipboardCheck}
-                  label="Course Approvals"
-                  collapsed={collapsed}
-                  onNavigate={closeMobileDrawer}
-                />
-              )}
-              {user?.role === 'faculty' && (
-                <>
-                  <SidebarItem
-                    to="/faculty/portal"
-                    icon={GraduationCap}
-                    label="Course Builder"
-                    collapsed={collapsed}
-                    onNavigate={closeMobileDrawer}
-                  />
-                  <SidebarItem
-                    to="/faculty/assignments"
-                    icon={ListCheck}
-                    label="Trading Tasks"
-                    collapsed={collapsed}
-                    onNavigate={closeMobileDrawer}
-                  />
-                </>
-              )}
-              {user?.role === 'student' && (
-                <>
-                  <SidebarItem
-                    to="/academy"
-                    icon={GraduationCap}
-                    label="Academy"
-                    collapsed={collapsed}
-                    onNavigate={closeMobileDrawer}
-                  />
-                  <SidebarItem
-                    to="/student/assignments"
-                    icon={ListCheck}
-                    label="Trading Tasks"
-                    collapsed={collapsed}
-                    onNavigate={closeMobileDrawer}
-                  />
-                </>
-              )}
             </div>
           ) : (
-            <>
-              {NAV_SECTIONS.map((section) => (
-                <div key={section.label}>
-                  <SectionLabel label={section.label} collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    {section.items.map((item) => (
-                      <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
-                    ))}
-                  </div>
+            sections.map((section) => (
+              <div key={section.label}>
+                <SectionLabel label={section.label} collapsed={collapsed} />
+                <div className="space-y-0.5 mt-0.5">
+                  {section.items.map((item) => (
+                    <SidebarItem key={item.to} {...item} collapsed={collapsed} onNavigate={closeMobileDrawer} />
+                  ))}
                 </div>
-              ))}
-              {/* Admin Panel — expanded label + item */}
-              {user?.role === 'admin' && (
-                <div>
-                  <SectionLabel label="Admin" collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    <SidebarItem
-                      to="/admin/panel"
-                      icon={Shield}
-                      label="Admin Panel"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                  </div>
-                </div>
-              )}
-              {user?.role === 'admin' && (
-                <div>
-                  <SectionLabel label="Academic" collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    <SidebarItem
-                      to="/admin/academic"
-                      icon={GraduationCap}
-                      label="Inst. Manage"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                  </div>
-                </div>
-              )}
-              {user?.role === 'institution_admin' && (
-                <div>
-                  <SectionLabel label="Institution" collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    <SidebarItem
-                      to="/institution/portal"
-                      icon={GraduationCap}
-                      label="Institution Portal"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                    <SidebarItem
-                      to="/institution/courses"
-                      icon={ClipboardCheck}
-                      label="Course Approvals"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                  </div>
-                </div>
-              )}
-              {user?.role === 'faculty' && (
-                <div>
-                  <SectionLabel label="Academic" collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    <SidebarItem
-                      to="/faculty/portal"
-                      icon={GraduationCap}
-                      label="Course Builder"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                    <SidebarItem
-                      to="/faculty/assignments"
-                      icon={ListCheck}
-                      label="Trading Tasks"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                  </div>
-                </div>
-              )}
-              {user?.role === 'student' && (
-                <div>
-                  <SectionLabel label="Academic" collapsed={collapsed} />
-                  <div className="space-y-0.5">
-                    <SidebarItem
-                      to="/academy"
-                      icon={GraduationCap}
-                      label="Academy"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                    <SidebarItem
-                      to="/student/assignments"
-                      icon={ListCheck}
-                      label="Trading Tasks"
-                      collapsed={collapsed}
-                      onNavigate={closeMobileDrawer}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
+              </div>
+            ))
           )}
         </nav>
       </aside>
