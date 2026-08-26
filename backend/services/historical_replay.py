@@ -559,10 +559,16 @@ class HistoricalReplayEngine:
         if key is None:
             key = self._by_trading_symbol.get(raw)
         if key is None:
+            key = self._by_canonical.get(raw)
+        if key is None:
             key = self._by_token.get(str(instrument_key).strip())
         if key is None or key not in self._state:
             return None
         return dict(self._state[key])
+
+    def get_state(self, instrument_key: str) -> Optional[dict]:
+        """Alias for get_current_quote for cross-service state lookups."""
+        return self.get_current_quote(instrument_key)
 
     def get_option_quote(
         self, trading_symbol: str = "", token: str = ""
