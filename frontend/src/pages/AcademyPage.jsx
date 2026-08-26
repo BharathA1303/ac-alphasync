@@ -821,8 +821,8 @@ export default function AcademyPage() {
                             </h1>
                             <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
                                 {isFacultyMode
-                                    ? `Institution Faculty Syllabus · ${facultyCourses.length} assigned courses`
-                                    : 'Module 5 of 16 · 2 hrs due this week · NISM Capital Markets Track'}
+                                    ? `Faculty Assigned Pathway · ${facultyCourses.length} course${facultyCourses.length === 1 ? '' : 's'} · ${overviewData?.due_items?.length || 0} task${overviewData?.due_items?.length === 1 ? '' : 's'} pending`
+                                    : `Core Capital Markets Track · ${defaultModules.length || 16} modules · ${overviewData?.completed_modules_count || 0} completed · ${overviewData?.due_items?.length || 0} task${overviewData?.due_items?.length === 1 ? '' : 's'} pending`}
                             </p>
                         </div>
 

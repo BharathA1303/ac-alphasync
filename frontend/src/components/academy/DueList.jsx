@@ -21,13 +21,15 @@ export default function DueList({ dueItems = [] }) {
                     </h3>
                 </div>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400">
-                    {dueItems.length} items
+                    {dueItems.length} {dueItems.length === 1 ? 'item' : 'items'}
                 </span>
             </div>
 
             {dueItems.length === 0 ? (
-                <div className="text-center py-6 text-slate-400 text-xs">
-                    All assigned tasks completed for this week!
+                <div className="py-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                    <CheckCircle2 size={24} className="text-emerald-500 opacity-60" />
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">All caught up!</span>
+                    <span>No pending assignments or quizzes due this week.</span>
                 </div>
             ) : (
                 <div className="space-y-2.5">

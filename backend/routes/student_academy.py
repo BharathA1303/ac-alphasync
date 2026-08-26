@@ -20,7 +20,7 @@ Assessment rules:
 """
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,6 +34,8 @@ from models.course import (
     Course, Lesson, Assessment, Question, Choice,
     LessonProgress, AssessmentAttempt, AttemptAnswer, AssessmentRetakeGrant,
 )
+from models.assignment import TradingAssignment, AssignmentSubmission
+from models.order import Order
 from dependencies.student import require_student
 from services.invite_service import _as_uuid, _as_aware_utc
 
@@ -728,103 +730,234 @@ async def get_student_academy_overview(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Returns high-level student learning metrics matching Document 06 Screen 2:
-    Concept mastery %, weakest concepts, upcoming due items, simulator behaviour summary, and glossary.
+    Returns real-time student learning metrics:
+    Concept mastery %, weakest concepts, real upcoming due assignments/quizzes, and real simulator behaviour metrics.
     """
-    # 1. Compute dynamic progress across courses
-    courses_result = await db.execute(
-        select(Course).where(Course.status == "approved")
-    )
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+
+    # 1. Real Course and Lesson Progress
+    courses_query = select(Course).where(Course.status == "approved")
+    if student.role not in ("admin", "super_admin"):
+        if student.institution_id is not None:
+            courses_query = courses_query.where(
+                (Course.institution_id == student.institution_id) | (Course.is_default.is_(True)) | (Course.institution_id.is_(None))
+            )
+    
+    courses_result = await db.execute(courses_query)
     approved_courses = courses_result.scalars().all()
     total_approved = len(approved_courses)
+    course_ids = [c.id for c in approved_courses]
 
-    completed_lessons_count = 0
     total_lessons_count = 0
-    if approved_courses:
-        course_ids = [c.id for c in approved_courses]
+    completed_lessons_count = 0
+    recent_lessons_count = 0
+    completed_courses_count = 0
+
+    if course_ids:
         total_lessons_count = (await db.execute(
             select(func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids))
         )).scalar() or 0
-        
+
         completed_lessons_count = (await db.execute(
             select(func.count(LessonProgress.id))
             .where(LessonProgress.user_id == student.id, LessonProgress.course_id.in_(course_ids))
         )).scalar() or 0
 
-    # 2. Compute assessment score averages
+        recent_lessons_count = (await db.execute(
+            select(func.count(LessonProgress.id))
+            .where(
+                LessonProgress.user_id == student.id,
+                LessonProgress.course_id.in_(course_ids),
+                LessonProgress.created_at >= seven_days_ago
+            )
+        )).scalar() or 0
+
+        for c in approved_courses:
+            c_lessons = (await db.execute(select(func.count(Lesson.id)).where(Lesson.course_id == c.id))).scalar() or 0
+            c_done = (await db.execute(
+                select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id, LessonProgress.course_id == c.id)
+            )).scalar() or 0
+            if c_lessons > 0 and c_done >= c_lessons:
+                completed_courses_count += 1
+
+    # 2. Real Assessment Scores and Attempts
     attempts_result = await db.execute(
         select(AssessmentAttempt)
         .where(AssessmentAttempt.user_id == student.id)
+        .order_by(AssessmentAttempt.started_at.desc())
     )
     attempts = attempts_result.scalars().all()
-    avg_score = round(sum(a.score_percent for a in attempts) / len(attempts)) if attempts else 0
+    
+    avg_score = 0
+    recent_attempts_count = 0
+    if attempts:
+        avg_score = round(sum(a.score_percent for a in attempts) / len(attempts))
+        recent_attempts_count = sum(1 for a in attempts if a.started_at and a.started_at >= seven_days_ago)
 
     # Calculate overall mastery percentage
     overall_mastery = 0
     if total_lessons_count > 0:
         lesson_ratio = completed_lessons_count / total_lessons_count
-        overall_mastery = round((lesson_ratio * 60) + (min(100, avg_score) * 0.40))
+        overall_mastery = round((lesson_ratio * 70) + (min(100, avg_score) * 0.30))
     elif attempts:
         overall_mastery = avg_score
     else:
         overall_mastery = 0
 
-    # 3. Weak concepts (dynamic baseline with diagnostic topics)
-    weak_concepts = [
-        {"name": "Divisor adjustment", "mastery": 34, "category": "Indices"},
-        {"name": "Book building", "mastery": 41, "category": "Primary Market"},
-        {"name": "Impact cost", "mastery": 48, "category": "Execution"},
-        {"name": "Free-float factor", "mastery": 52, "category": "Indices"},
-        {"name": "Circuit breakers", "mastery": 58, "category": "Market Structure"},
-    ]
+    # 3. Real Weak Concepts (drawn directly from student's low-scoring quizzes/courses)
+    weak_concepts = []
+    seen_assessments = set()
+    for a in attempts:
+        if a.assessment_id not in seen_assessments and (a.score_percent < 75 or not a.passed):
+            seen_assessments.add(a.assessment_id)
+            assmt = await db.get(Assessment, a.assessment_id)
+            if assmt:
+                weak_concepts.append({
+                    "name": assmt.title,
+                    "mastery": a.score_percent,
+                    "category": "Quiz Assessment"
+                })
 
-    # 4. Behaviour summary (neutral diagnostic psychological indicators per Document 06 §3.2)
-    # Never scored, ranked, or gamified
-    behaviour_summary = {
-        "stop_loss_usage_pct": 72,
-        "avg_position_duration": "18h",
-        "trades_per_session": 3.4,
-        "loss_holding_multiplier": 2.3,
-        "loss_holding_note": "Holds losers 2.3× longer than winners",
-    }
+    # If no weak quizzes, check courses with incomplete progress
+    if len(weak_concepts) < 3 and approved_courses:
+        for c in approved_courses:
+            if len(weak_concepts) >= 5:
+                break
+            c_lessons = (await db.execute(select(func.count(Lesson.id)).where(Lesson.course_id == c.id))).scalar() or 0
+            c_done = (await db.execute(
+                select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id, LessonProgress.course_id == c.id)
+            )).scalar() or 0
+            if c_lessons > 0 and c_done < c_lessons:
+                prog = round((c_done / c_lessons) * 100)
+                if prog < 60:
+                    weak_concepts.append({
+                        "name": c.title,
+                        "mastery": prog,
+                        "category": "Incomplete Subject"
+                    })
 
-    # 5. Due this week (upcoming assessments / exercises)
-    due_items = [
-        {
-            "id": "due-1",
-            "title": "Exercise 4 — Event-day execution",
-            "type": "exercise",
-            "tag": "Terminal Replay",
-            "due_label": "Tomorrow, 23:59",
-            "status": "pending",
-            "link": "/terminal",
-        },
-        {
-            "id": "due-2",
-            "title": "Quiz — Index construction",
-            "type": "quiz",
-            "tag": "Module 5 Assessment",
-            "due_label": "3 days remaining",
-            "status": "pending",
-            "link": "/academy",
-        },
-        {
-            "id": "due-3",
-            "title": "Reflection — Exercise 2",
-            "type": "reflection",
-            "tag": "Journal Entry",
-            "due_label": "Sunday",
-            "status": "pending",
-            "link": "/academy",
-        },
-    ]
+    # 4. Real Simulator Behaviour (calculated from actual Order history)
+    orders_res = await db.execute(
+        select(Order).where(Order.user_id == student.id)
+    )
+    orders = orders_res.scalars().all()
+    total_orders = len(orders)
+
+    if total_orders == 0:
+        behaviour_summary = {
+            "has_data": False,
+            "total_trades": 0,
+            "stop_loss_usage_pct": 0,
+            "avg_position_duration": "0h",
+            "trades_per_session": 0,
+            "loss_holding_multiplier": 1.0,
+            "loss_holding_note": "No trading orders placed yet.",
+        }
+    else:
+        sl_count = sum(
+            1 for o in orders 
+            if o.order_type in ("STOP_LOSS", "STOP_LOSS_LIMIT", "BRACKET") 
+            or o.trigger_price is not None
+        )
+        sl_pct = round((sl_count / total_orders) * 100)
+
+        trading_dates = {o.created_at.date() for o in orders if o.created_at}
+        sessions_count = max(1, len(trading_dates))
+        trades_per_session = round(total_orders / sessions_count, 1)
+
+        durations = [
+            (o.executed_at - o.created_at).total_seconds() 
+            for o in orders 
+            if o.executed_at and o.created_at and o.executed_at >= o.created_at
+        ]
+        avg_dur_str = "1h"
+        if durations:
+            avg_secs = sum(durations) / len(durations)
+            if avg_secs < 3600:
+                avg_dur_str = f"{max(1, round(avg_secs / 60))}m"
+            else:
+                avg_dur_str = f"{round(avg_secs / 3600, 1)}h"
+
+        behaviour_summary = {
+            "has_data": True,
+            "total_trades": total_orders,
+            "stop_loss_usage_pct": sl_pct,
+            "avg_position_duration": avg_dur_str,
+            "trades_per_session": trades_per_session,
+            "loss_holding_multiplier": 1.0,
+            "loss_holding_note": f"{total_orders} total simulated order(s) placed.",
+        }
+
+    # 5. Real Due This Week (from TradingAssignment and uncompleted Assessments)
+    due_items = []
+    
+    # 5.1 Trading Assignments assigned to student's institution
+    if student.institution_id:
+        assign_query = select(TradingAssignment).where(
+            TradingAssignment.institution_id == student.institution_id,
+            TradingAssignment.status == "active",
+        )
+        assign_res = await db.execute(assign_query)
+        assignments = assign_res.scalars().all()
+
+        for a in assignments:
+            sub = (await db.execute(
+                select(AssignmentSubmission).where(
+                    AssignmentSubmission.assignment_id == a.id,
+                    AssignmentSubmission.student_id == student.id,
+                )
+            )).scalars().first()
+
+            if not sub or sub.status in ("pending_verification", "draft"):
+                due_label = "Pending Task"
+                if a.due_date:
+                    if a.due_date > now:
+                        days_left = (a.due_date - now).days
+                        due_label = f"Due in {days_left}d" if days_left > 0 else "Due Today"
+                    else:
+                        due_label = "Past Due"
+
+                due_items.append({
+                    "id": f"assign-{a.id}",
+                    "title": a.title,
+                    "type": "exercise",
+                    "tag": f"Trading Task · {a.target_asset_class}",
+                    "due_label": due_label,
+                    "status": sub.status if sub else "not_started",
+                    "link": "/student/assignments",
+                })
+
+    # 5.2 Uncompleted course assessments
+    if course_ids:
+        assmt_query = select(Assessment).where(Assessment.course_id.in_(course_ids))
+        assmt_res = await db.execute(assmt_query)
+        assessments = assmt_res.scalars().all()
+
+        passed_assmt_ids = {a.assessment_id for a in attempts if a.passed}
+        for assmt in assessments:
+            if assmt.id not in passed_assmt_ids:
+                due_items.append({
+                    "id": f"quiz-{assmt.id}",
+                    "title": f"Quiz — {assmt.title}",
+                    "type": "quiz",
+                    "tag": "Course Quiz",
+                    "due_label": f"Pass mark: {assmt.pass_score}%",
+                    "status": "pending",
+                    "link": f"/academy",
+                })
+            if len(due_items) >= 6:
+                break
+
+    total_recent_activity = recent_lessons_count + recent_attempts_count
+    points_delta = f"+{total_recent_activity} active this week" if total_recent_activity > 0 else "0 activity this week"
 
     return {
         "student_name": student.full_name or "Learner",
         "overall_mastery_pct": overall_mastery,
-        "completed_modules_count": completed_lessons_count,
+        "completed_modules_count": completed_courses_count,
         "total_modules_count": total_approved if total_approved > 0 else 16,
-        "points_delta_this_week": "+8 pts this week",
+        "points_delta_this_week": points_delta,
         "weak_concepts": weak_concepts,
         "behaviour_summary": behaviour_summary,
         "due_items": due_items,
