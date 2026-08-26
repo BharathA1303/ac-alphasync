@@ -2,11 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     GraduationCap, BookOpen, ClipboardCheck, ArrowLeft, Loader2, FileText,
     CheckCircle2, Circle, Sparkles, Trophy, XCircle, ChevronRight, ChevronDown, Lock,
-    AlertTriangle, Clock, Eye, Download, X,
+    AlertTriangle, Clock, Eye, Download, X, Layers, School, ExternalLink, Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import academyApi from '../services/academyApi';
 import { useAuthStore } from '../stores/useAuthStore';
+
+// Academy custom components
+import MasteryRing from '../components/academy/MasteryRing';
+import CurriculumMap from '../components/academy/CurriculumMap';
+import ContinueCard from '../components/academy/ContinueCard';
+import DueList from '../components/academy/DueList';
+import GlossaryPanel from '../components/academy/GlossaryPanel';
+import MasteryRightRail from '../components/academy/MasteryRightRail';
 
 function parseApiError(error, fallback = 'Request failed') {
     return error?.response?.data?.detail || error?.message || fallback;
@@ -16,11 +25,11 @@ const FILE_LABEL = { pdf: 'PDF', docx: 'DOCX', pptx: 'PPTX', md: 'Markdown' };
 const MAX_VIOLATIONS = 3;
 
 /* ────────────────────────────────────────────────────────────────
- * Course grid — student-facing card style, not the admin table look
+ * Progress Bar Component
  * ──────────────────────────────────────────────────────────────── */
-function ProgressBar({ pct, color = 'var(--brand, #00bcd4)' }) {
+function ProgressBar({ pct, color = '#00bcd4' }) {
     return (
-        <div className="w-full h-1.5 rounded-full overflow-hidden bg-surface-800">
+        <div className="w-full h-1.5 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
             <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }}
@@ -29,78 +38,9 @@ function ProgressBar({ pct, color = 'var(--brand, #00bcd4)' }) {
     );
 }
 
-function CourseCard({ course, onOpen }) {
-    const lessonPct = course.lesson_count > 0 ? (course.lessons_completed / course.lesson_count) * 100 : 0;
-    const hasScore = course.best_score_percent !== null && course.best_score_percent !== undefined;
-
-    return (
-        <button
-            type="button"
-            onClick={() => onOpen(course.id)}
-            className="text-left rounded-xl border border-edge/5 bg-surface-900/60 p-5 section-card card-hover-glow transition-all hover:-translate-y-0.5"
-        >
-            <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,188,212,0.12)' }}>
-                    <BookOpen size={16} className="text-primary-600" />
-                </div>
-                {hasScore && (
-                    <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold flex-shrink-0"
-                        style={{
-                            background: course.best_score_percent >= 70 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
-                            color: course.best_score_percent >= 70 ? '#10b981' : '#ef4444',
-                        }}
-                    >
-                        {course.best_score_percent}%
-                    </span>
-                )}
-            </div>
-
-            <h3 className="text-base font-display font-semibold text-heading mb-1 line-clamp-2">{course.title}</h3>
-            {course.description && (
-                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{course.description}</p>
-            )}
-
-            <div className="flex items-center gap-3 text-[11px] text-gray-500 mb-3">
-                <span className="flex items-center gap-1"><FileText size={11} /> {course.lesson_count} lesson{course.lesson_count === 1 ? '' : 's'}</span>
-                <span className="flex items-center gap-1"><ClipboardCheck size={11} /> {course.assessment_count} quiz{course.assessment_count === 1 ? '' : 'zes'}</span>
-            </div>
-
-            {course.lesson_count > 0 && (
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-gray-500">Progress</span>
-                        <span className="font-price tabular-nums text-primary-600">{course.lessons_completed}/{course.lesson_count}</span>
-                    </div>
-                    <ProgressBar pct={lessonPct} />
-                </div>
-            )}
-        </button>
-    );
-}
-
 /* ────────────────────────────────────────────────────────────────
- * Course overview — two clickable summary cards, not everything open
+ * Lesson Reader & Material Viewer
  * ──────────────────────────────────────────────────────────────── */
-function SectionSummaryCard({ icon: Icon, title, subtitle, onOpen }) {
-    return (
-        <button
-            type="button"
-            onClick={onOpen}
-            className="w-full flex items-center gap-4 rounded-xl border border-edge/5 bg-surface-900/60 p-5 section-card card-hover-glow transition-all text-left"
-        >
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,188,212,0.12)' }}>
-                <Icon size={20} className="text-primary-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <h3 className="text-base font-display font-semibold text-heading">{title}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-            </div>
-            <ChevronRight size={18} className="text-gray-600 flex-shrink-0" />
-        </button>
-    );
-}
-
 function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, onPreview }) {
     const [marking, setMarking] = useState(false);
     const handleComplete = async (e) => {
@@ -122,20 +62,20 @@ function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, on
         : (lesson.file_url ? [{ id: `primary-${lesson.id}`, file_url: lesson.file_url, file_name: lesson.file_name || 'Lesson Notes', file_type: lesson.file_type || 'pdf' }] : []);
 
     return (
-        <div className="rounded-xl border border-edge/10 bg-surface-900/60 overflow-hidden transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] overflow-hidden transition-all">
             <div
-                className="flex items-center justify-between gap-3 p-4 cursor-pointer hover:bg-surface-800/40 transition-all"
+                className="flex items-center justify-between gap-3 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all"
                 onClick={onToggle}
             >
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-primary-500 bg-primary-500/10">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-primary-600 bg-primary-500/10">
                         <BookOpen size={16} />
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-heading truncate">{lesson.title}</h3>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{lesson.title}</h3>
                             {materials.length > 0 && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-700 text-gray-400">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
                                     {materials.length} Material{materials.length > 1 ? 's' : ''}
                                 </span>
                             )}
@@ -145,43 +85,43 @@ function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, on
 
                 <div className="flex items-center gap-3 flex-shrink-0">
                     {lesson.completed ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">
                             <CheckCircle2 size={12} /> Completed
                         </span>
                     ) : (
                         <button
                             type="button"
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-500 bg-primary-500/10 hover:bg-primary-500/20 px-2.5 py-1 rounded-full transition-colors"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 bg-primary-500/10 hover:bg-primary-500/20 px-2.5 py-1 rounded-full transition-colors"
                             onClick={handleComplete}
                             disabled={marking}
                         >
                             {marking ? <Loader2 size={12} className="animate-spin" /> : <Circle size={12} />} Mark as read
                         </button>
                     )}
-                    <button type="button" className="text-gray-400 hover:text-white">
+                    <button type="button" className="text-slate-400 hover:text-slate-900 dark:hover:text-white">
                         {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </button>
                 </div>
             </div>
 
             {isOpen && (
-                <div className="p-4 border-t border-edge/10 bg-surface-950/40 flex flex-col gap-3">
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col gap-3">
                     {lesson.content && (
-                        <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
                     )}
 
                     {materials.length > 0 ? (
                         <div className="flex flex-col gap-2 mt-1">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                                 Study Materials ({materials.length}):
                             </span>
                             <div className="flex flex-col gap-2">
                                 {materials.map((mat) => (
-                                    <div key={mat.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-edge/10 bg-surface-800/40">
+                                    <div key={mat.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <FileText size={15} className="text-primary-500 flex-shrink-0" />
-                                            <span className="text-xs font-semibold text-heading truncate">{mat.file_name}</span>
-                                            <span className="text-[10px] uppercase font-bold text-gray-400 bg-surface-700 px-1.5 py-0.5 rounded flex-shrink-0">
+                                            <FileText size={15} className="text-primary-600 flex-shrink-0" />
+                                            <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">{mat.file_name}</span>
+                                            <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded flex-shrink-0">
                                                 {FILE_LABEL[mat.file_type] || mat.file_type}
                                             </span>
                                         </div>
@@ -189,7 +129,7 @@ function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, on
                                             <button
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); onPreview(mat); }}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-500/10 text-primary-600 hover:bg-primary-500/20 transition-colors"
                                             >
                                                 <Eye size={12} /> Preview
                                             </button>
@@ -199,7 +139,7 @@ function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, on
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
                                             >
                                                 <Download size={12} /> Download
                                             </a>
@@ -209,7 +149,7 @@ function LessonReader({ courseId, lesson, isOpen, onToggle, onMarkedComplete, on
                             </div>
                         </div>
                     ) : !lesson.content ? (
-                        <p className="text-xs text-gray-500 italic">No material for this lesson yet.</p>
+                        <p className="text-xs text-slate-400 italic">No material for this lesson yet.</p>
                     ) : null}
                 </div>
             )}
@@ -221,12 +161,12 @@ function MaterialPreviewModal({ material, onClose }) {
     if (!material) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
-            <div className="w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col overflow-hidden bg-surface-900 border border-edge/10 shadow-2xl animate-scale-up">
-                <div className="flex items-center justify-between p-4 border-b border-edge/10 bg-surface-800/60">
+            <div className="w-full max-w-4xl h-[85vh] rounded-3xl flex flex-col overflow-hidden bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up">
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
                     <div className="flex items-center gap-2.5 min-w-0">
-                        <FileText size={18} className="text-primary-500 flex-shrink-0" />
-                        <h3 className="text-sm font-semibold text-heading truncate">{material.file_name}</h3>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary-500/10 text-primary-500">
+                        <FileText size={18} className="text-primary-600 flex-shrink-0" />
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{material.file_name}</h3>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary-500/10 text-primary-600">
                             {material.file_type}
                         </span>
                     </div>
@@ -236,23 +176,23 @@ function MaterialPreviewModal({ material, onClose }) {
                             download={material.file_name}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
                         >
                             <Download size={13} /> Download
                         </a>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white bg-surface-700/50 hover:bg-surface-700 transition-colors"
+                            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-200/60 dark:bg-slate-800 transition-colors"
                         >
                             <X size={16} />
                         </button>
                     </div>
                 </div>
-                <div className="flex-1 w-full bg-black/50 overflow-auto p-2">
+                <div className="flex-1 w-full bg-slate-900/10 dark:bg-black/50 overflow-auto p-2">
                     <iframe
                         src={material.file_url}
                         title={material.file_name}
-                        className="w-full h-full rounded border-0"
+                        className="w-full h-full rounded-2xl border-0"
                     />
                 </div>
             </div>
@@ -269,24 +209,24 @@ function LessonsView({ courseId, lessons, onBack, onMarkedComplete }) {
         <div className="flex flex-col gap-4">
             {previewMat && <MaterialPreviewModal material={previewMat} onClose={() => setPreviewMat(null)} />}
             <div className="flex items-center gap-3">
-                <button className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-500 hover:text-heading transition-colors" style={{ background: 'var(--bg-muted)' }} onClick={onBack}>
+                <button className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-slate-500 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors" onClick={onBack}>
                     <ArrowLeft size={16} />
                 </button>
-                <h2 className="text-lg font-display font-bold text-heading">Lessons</h2>
+                <h2 className="text-lg font-display font-bold text-slate-900 dark:text-white">Course Lessons</h2>
             </div>
 
             {lessons.length > 0 && (
-                <div className="rounded-xl border border-edge/5 bg-surface-900/60 p-4">
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] p-4">
                     <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-gray-500">Progress</span>
-                        <span className="font-price tabular-nums text-primary-600">{completedCount}/{lessons.length} lessons</span>
+                        <span className="text-slate-500">Progress</span>
+                        <span className="font-mono tabular-nums text-primary-600 font-bold">{completedCount}/{lessons.length} lessons</span>
                     </div>
                     <ProgressBar pct={(completedCount / lessons.length) * 100} />
                 </div>
             )}
 
             {lessons.length === 0 ? (
-                <p className="text-sm text-gray-500">No lessons in this course yet.</p>
+                <p className="text-sm text-slate-500">No lessons in this course yet.</p>
             ) : (
                 <div className="flex flex-col gap-3">
                     {lessons.map((lesson) => (
@@ -314,17 +254,17 @@ function AssessmentRow({ assessment, onStart, onViewResult }) {
     const attempt = assessment.last_attempt;
 
     return (
-        <div className="rounded-xl border border-edge/5 bg-surface-900/60 p-4 flex items-center justify-between gap-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] p-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-heading">{assessment.title}</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{assessment.title}</h3>
                     {attempt?.flagged && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500">
                             <AlertTriangle size={10} /> Flagged
                         </span>
                     )}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                     {assessment.question_count} question{assessment.question_count === 1 ? '' : 's'} · pass at {assessment.pass_score}% · {Math.round((assessment.time_limit_seconds || 300) / 60)} min limit
                     {attempt && (
                         <span className={attempt.passed ? 'text-emerald-500 font-semibold' : 'text-red-500 font-semibold'}>
@@ -336,14 +276,14 @@ function AssessmentRow({ assessment, onStart, onViewResult }) {
             {locked ? (
                 <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 bg-surface-800 hover:bg-surface-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors flex-shrink-0"
                     onClick={() => onViewResult(assessment)}
                 >
                     <CheckCircle2 size={13} className="text-emerald-500" /> View Result
                 </button>
             ) : (
                 <button
-                    className="admin-action-btn admin-action-btn--primary text-xs flex-shrink-0"
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-500 disabled:opacity-40 flex-shrink-0 transition-colors"
                     disabled={assessment.question_count === 0}
                     onClick={() => onStart(assessment)}
                     title={assessment.question_count === 0 ? 'No questions yet' : undefined}
@@ -359,14 +299,14 @@ function AssessmentsView({ assessments, onBack, onStart, onViewResult }) {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
-                <button className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-500 hover:text-heading transition-colors" style={{ background: 'var(--bg-muted)' }} onClick={onBack}>
+                <button className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-slate-500 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors" onClick={onBack}>
                     <ArrowLeft size={16} />
                 </button>
-                <h2 className="text-lg font-display font-bold text-heading">Assessments</h2>
+                <h2 className="text-lg font-display font-bold text-slate-900 dark:text-white">Assessments</h2>
             </div>
 
             {assessments.length === 0 ? (
-                <p className="text-sm text-gray-500">No assessment for this course yet.</p>
+                <p className="text-sm text-slate-500">No assessment for this course yet.</p>
             ) : (
                 <div className="flex flex-col gap-3">
                     {assessments.map((a) => (
@@ -379,7 +319,7 @@ function AssessmentsView({ assessments, onBack, onStart, onViewResult }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Quiz flow — timed, proctored, one attempt
+ * Quiz Result & Modal Flow
  * ──────────────────────────────────────────────────────────────── */
 function QuizResult({ result, onClose }) {
     const passed = result.passed;
@@ -392,21 +332,21 @@ function QuizResult({ result, onClose }) {
             >
                 {flagged ? <AlertTriangle size={28} className="text-red-500" /> : passed ? <Trophy size={28} className="text-emerald-500" /> : <XCircle size={28} className="text-red-500" />}
             </div>
-            <h3 className="text-xl font-display font-bold text-heading mb-1">
-                {flagged ? 'Attempt flagged' : passed ? 'Passed!' : 'Not quite'}
+            <h3 className="text-xl font-display font-bold text-slate-900 dark:text-white mb-1">
+                {flagged ? 'Attempt Flagged' : passed ? 'Passed!' : 'Not quite'}
             </h3>
-            <p className="text-sm text-gray-500 mb-5">
+            <p className="text-sm text-slate-500 mb-5">
                 {flagged
                     ? 'This attempt was auto-submitted for suspicious activity and cannot count as a pass. Ask your Institution Admin for a retake.'
-                    : <>You scored <span className="font-price font-bold text-heading">{result.score_percent}%</span> ({result.correct_count}/{result.total_questions} correct) — pass mark is {result.pass_score}%.</>}
+                    : <>You scored <span className="font-mono font-bold text-slate-900 dark:text-white">{result.score_percent}%</span> ({result.correct_count}/{result.total_questions} correct) — pass mark is {result.pass_score}%.</>}
             </p>
             {!flagged && (
                 <div className="w-full max-w-xs mb-6">
                     <ProgressBar pct={result.score_percent} color={passed ? '#10b981' : '#ef4444'} />
                 </div>
             )}
-            <p className="text-xs text-gray-600 mb-4">This assessment only allows one attempt and is now locked.</p>
-            <button className="admin-action-btn admin-action-btn--primary text-sm" onClick={onClose}>
+            <p className="text-xs text-slate-500 mb-4">This assessment only allows one attempt and is now recorded.</p>
+            <button className="px-6 py-2.5 rounded-xl font-bold text-sm text-white bg-primary-600 hover:bg-primary-500 transition-colors" onClick={onClose}>
                 Done
             </button>
         </div>
@@ -505,7 +445,6 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
 
     useEffect(() => { loadQuestions(); }, [loadQuestions]);
 
-    // Countdown timer — auto-submit when time runs out.
     useEffect(() => {
         if (!attemptId || result) return undefined;
         const interval = setInterval(() => {
@@ -519,8 +458,6 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
         return () => clearInterval(interval);
     }, [attemptId, result, submitAttempt]);
 
-    // Proctoring: tab switch / window blur, right-click, and common
-    // screenshot/dev-tools key combos.
     useEffect(() => {
         if (!attemptId || result) return undefined;
 
@@ -536,7 +473,7 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
             const key = (e.key || '').toLowerCase();
             const isScreenshotCombo =
                 key === 'printscreen' ||
-                (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(key)) || // macOS screenshot
+                (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(key)) ||
                 ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 's') ||
                 (e.key === 'F12') ||
                 ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'i');
@@ -570,39 +507,39 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
     const handleManualSubmit = () => submitAttempt(false, null);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}>
-            <div className="w-full max-w-lg rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
-                <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--border)' }}>
-                    <h2 className="text-base font-display font-bold text-heading">{assessment.title}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+            <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up overflow-hidden">
+                <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+                    <h2 className="text-base font-display font-bold text-slate-900 dark:text-white">{assessment.title}</h2>
                     {!result && !loading && (
                         <span
-                            className="inline-flex items-center gap-1.5 text-sm font-bold font-price tabular-nums px-2.5 py-1 rounded-lg"
-                            style={{ color: timeCritical ? '#ef4444' : 'var(--text-primary)', background: timeCritical ? 'rgba(239,68,68,0.1)' : 'var(--bg-muted)' }}
+                            className="inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-xl"
+                            style={{ color: timeCritical ? '#ef4444' : '#00bcd4', background: timeCritical ? 'rgba(239,68,68,0.1)' : 'rgba(0,188,212,0.1)' }}
                         >
                             <Clock size={13} /> {formatClock(secondsLeft)}
                         </span>
                     )}
                     {result && (
-                        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500" onClick={onClose}>✕</button>
+                        <button className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white" onClick={onClose}>✕</button>
                     )}
                 </div>
 
                 {warning && !result && (
-                    <div className="mx-5 mt-4 px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                    <div className="mx-5 mt-4 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-500/10 text-amber-500 border border-amber-500/30">
                         <AlertTriangle size={13} className="flex-shrink-0" /> {warning}
                     </div>
                 )}
 
                 <div className="p-5">
                     {loading ? (
-                        <div className="flex items-center justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
+                        <div className="flex items-center justify-center py-10"><Loader2 size={24} className="animate-spin text-primary-500" /></div>
                     ) : result ? (
                         <QuizResult result={result} onClose={onClose} />
                     ) : question ? (
                         <div className="flex flex-col gap-5">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500">Question {current + 1} of {questions.length}</span>
-                                <span className="text-xs font-price text-primary-600">{answeredCount}/{questions.length} answered</span>
+                                <span className="text-xs text-slate-400">Question {current + 1} of {questions.length}</span>
+                                <span className="text-xs font-mono font-bold text-primary-600">{answeredCount}/{questions.length} answered</span>
                             </div>
                             <ProgressBar pct={((current + 1) / questions.length) * 100} />
 
@@ -610,7 +547,7 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
                                 <div className="w-6 h-6 rounded-full bg-primary-600 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                                     {current + 1}
                                 </div>
-                                <p className="text-sm font-medium text-heading leading-relaxed">{question.text}</p>
+                                <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">{question.text}</p>
                             </div>
 
                             <div className="flex flex-col gap-2 pl-9">
@@ -621,41 +558,40 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
                                             key={c.id}
                                             type="button"
                                             onClick={() => selectChoice(c.id)}
-                                            className="text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2.5"
-                                            style={{
-                                                background: selected ? 'rgba(0,188,212,0.1)' : 'var(--bg-muted)',
-                                                border: `1px solid ${selected ? 'var(--brand, #00bcd4)' : 'var(--border)'}`,
-                                                color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                            }}
+                                            className={`text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all flex items-center gap-2.5 ${
+                                                selected
+                                                    ? 'bg-primary-500/10 border-2 border-primary-500 text-slate-900 dark:text-white font-semibold'
+                                                    : 'bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                                            }`}
                                         >
-                                            {selected ? <CheckCircle2 size={15} className="text-primary-600 flex-shrink-0" /> : <Circle size={15} className="text-gray-600 flex-shrink-0" />}
+                                            {selected ? <CheckCircle2 size={15} className="text-primary-600 flex-shrink-0" /> : <Circle size={15} className="text-slate-400 flex-shrink-0" />}
                                             {c.text}
                                         </button>
                                     );
                                 })}
                             </div>
 
-                            <div className="flex items-center justify-between pt-1">
+                            <div className="flex items-center justify-between pt-2">
                                 <button
-                                    className="admin-action-btn admin-action-btn--secondary text-sm"
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors"
                                     disabled={current === 0}
                                     onClick={() => setCurrent((v) => v - 1)}
                                 >
                                     Back
                                 </button>
                                 {current < questions.length - 1 ? (
-                                    <button className="admin-action-btn admin-action-btn--primary text-sm" onClick={() => setCurrent((v) => v + 1)}>
+                                    <button className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-600 hover:bg-primary-500 transition-colors flex items-center gap-1" onClick={() => setCurrent((v) => v + 1)}>
                                         Next <ChevronRight size={14} />
                                     </button>
                                 ) : (
-                                    <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={submitting} onClick={handleManualSubmit}>
+                                    <button className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors flex items-center gap-1.5" disabled={submitting} onClick={handleManualSubmit}>
                                         {submitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Submit Quiz
                                     </button>
                                 )}
                             </div>
                         </div>
                     ) : (
-                        <p className="text-sm text-gray-500 text-center py-6">No questions available.</p>
+                        <p className="text-sm text-slate-500 text-center py-6">No questions available.</p>
                     )}
                 </div>
             </div>
@@ -664,125 +600,12 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Pathway Circular Progress Gauge Component — High Contrast
- * ──────────────────────────────────────────────────────────────── */
-function CircularGauge({ pct = 0, size = 52, strokeWidth = 4.5, color = '#00bcd4' }) {
-    const radius = (size - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const cleanPct = Math.max(0, Math.min(100, Math.round(pct)));
-    const offset = circumference - (cleanPct / 100) * circumference;
-
-    return (
-        <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
-            <svg width={size} height={size} className="transform -rotate-90">
-                <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke="currentColor"
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    className="text-slate-200 dark:text-slate-800"
-                />
-                <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={cleanPct >= 100 ? '#10b981' : color}
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    strokeLinecap="round"
-                    fill="none"
-                    className="transition-all duration-700 ease-out"
-                />
-            </svg>
-            <span
-                className={`absolute text-xs font-extrabold font-mono tabular-nums ${
-                    cleanPct >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200'
-                }`}
-            >
-                {cleanPct >= 100 ? '100%' : `${cleanPct}%`}
-            </span>
-        </div>
-    );
-}
-
-/* ────────────────────────────────────────────────────────────────
- * Pathway Course Card (Step 1, 2, 3, 4, 5... Fixed Sequence)
- * ──────────────────────────────────────────────────────────────── */
-function PathwayCourseCard({ stepNumber, course, isActive, onSelect, onOpenDetail }) {
-    const lessonPct = course.lesson_count > 0 ? (course.lessons_completed / course.lesson_count) * 100 : 0;
-    const isCompleted = lessonPct >= 100 && course.lesson_count > 0;
-    const isInProgress = lessonPct > 0 && lessonPct < 100;
-
-    return (
-        <div
-            onClick={() => onSelect(course)}
-            onDoubleClick={() => onOpenDetail(course.id)}
-            className={`group relative flex flex-col justify-between p-4 rounded-2xl border cursor-pointer transition-all duration-200 ${
-                isActive
-                    ? 'border-primary-500 bg-primary-500/10 shadow-lg ring-2 ring-primary-500/40 -translate-y-1'
-                    : isCompleted
-                    ? 'border-emerald-500/30 bg-emerald-500/[0.04] dark:bg-emerald-950/10 hover:border-emerald-500/60 hover:-translate-y-0.5 shadow-sm'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5'
-            }`}
-            style={{ minHeight: 175 }}
-        >
-            {/* Top row: Step Number & Status Indicator */}
-            <div className="w-full flex items-center justify-between mb-2">
-                <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-mono font-extrabold shadow-sm ${
-                        isCompleted
-                            ? 'bg-emerald-500 text-white'
-                            : isActive
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                    }`}
-                >
-                    {isCompleted ? '✓' : stepNumber}
-                </span>
-
-                {isCompleted ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30" title="Completed">
-                        <CheckCircle2 size={11} className="flex-shrink-0" /> Done
-                    </span>
-                ) : isInProgress ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wide px-2 py-0.5 rounded-md text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
-                        In Progress
-                    </span>
-                ) : (
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        Module {stepNumber}
-                    </span>
-                )}
-            </div>
-
-            {/* Middle: Progress Gauge */}
-            <div className="my-1.5 flex justify-center">
-                <CircularGauge pct={lessonPct} size={52} strokeWidth={4.5} />
-            </div>
-
-            {/* Bottom: Title & Info */}
-            <div className="w-full text-center mt-2">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate transition-colors group-hover:text-primary-600 dark:group-hover:text-primary-400" title={course.title}>
-                    {course.title}
-                </h4>
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                    {course.lesson_count} lesson{course.lesson_count === 1 ? '' : 's'} · {course.assessment_count} quiz{course.assessment_count === 1 ? '' : 'zes'}
-                </p>
-            </div>
-        </div>
-    );
-}
-
-/* ────────────────────────────────────────────────────────────────
- * Course detail — Overview with two clickable summary cards
+ * Course Detail View (When opening a faculty course or module)
  * ──────────────────────────────────────────────────────────────── */
 function CourseDetail({ courseId, onBack }) {
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [subView, setSubView] = useState(null); // null | 'lessons' | 'assessments'
+    const [subView, setSubView] = useState(null);
     const [activeQuiz, setActiveQuiz] = useState(null);
 
     const loadCourse = useCallback(async () => {
@@ -826,7 +649,7 @@ function CourseDetail({ courseId, onBack }) {
         <div className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
                 <button
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 hover:border-primary-500 transition-colors shadow-sm"
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 hover:border-primary-500 transition-colors shadow-sm"
                     onClick={onBack}
                     title="Back to Pathway"
                 >
@@ -846,18 +669,39 @@ function CourseDetail({ courseId, onBack }) {
                 <p className="text-sm text-slate-500">Course not found.</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <SectionSummaryCard
-                        icon={BookOpen}
-                        title="Lessons"
-                        subtitle={totalLessons === 0 ? 'No lessons yet' : `${completedCount}/${totalLessons} completed`}
-                        onOpen={() => setSubView('lessons')}
-                    />
-                    <SectionSummaryCard
-                        icon={ClipboardCheck}
-                        title="Assessments"
-                        subtitle={totalAssessments === 0 ? 'No assessment yet' : `${totalAssessments} assessment${totalAssessments === 1 ? '' : 's'}`}
-                        onOpen={() => setSubView('assessments')}
-                    />
+                    <button
+                        type="button"
+                        onClick={() => setSubView('lessons')}
+                        className="w-full flex items-center gap-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] p-6 text-left hover:border-primary-500/50 hover:shadow-lg transition-all"
+                    >
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-primary-500/10 text-primary-600">
+                            <BookOpen size={22} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">Lessons</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {totalLessons === 0 ? 'No lessons yet' : `${completedCount}/${totalLessons} completed`}
+                            </p>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setSubView('assessments')}
+                        className="w-full flex items-center gap-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] p-6 text-left hover:border-primary-500/50 hover:shadow-lg transition-all"
+                    >
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-emerald-500/10 text-emerald-600">
+                            <ClipboardCheck size={22} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">Assessments</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {totalAssessments === 0 ? 'No assessment yet' : `${totalAssessments} assessment${totalAssessments === 1 ? '' : 's'}`}
+                            </p>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
+                    </button>
                 </div>
             )}
         </div>
@@ -865,240 +709,181 @@ function CourseDetail({ courseId, onBack }) {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Root page — Upgraded High-Contrast Pathway Layout
+ * Root Student Learning Home — Document 06 Screen 2 Implementation
  * ──────────────────────────────────────────────────────────────── */
 export default function AcademyPage() {
+    const navigate = useNavigate();
     const user = useAuthStore((s) => s.user);
-    const [courses, setCourses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [activeCourseId, setActiveCourseId] = useState(null);
-    const [selectedCourse, setSelectedCourse] = useState(null);
 
-    const loadCourses = useCallback(async () => {
+    // Mode: false = Core Pathway (16 Modules), true = Faculty Courses
+    const [isFacultyMode, setIsFacultyMode] = useState(false);
+
+    // Data states
+    const [loading, setLoading] = useState(true);
+    const [overviewData, setOverviewData] = useState(null);
+    const [defaultModules, setDefaultModules] = useState([]);
+    const [facultyCourses, setFacultyCourses] = useState([]);
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [activeCourseId, setActiveCourseId] = useState(null);
+
+    // Initial data loader
+    const loadAllAcademyData = useCallback(async () => {
         setLoading(true);
         try {
-            const { data } = await academyApi.listCourses();
-            const fetched = data?.courses || [];
-            
-            // Sort courses by chronological faculty order (created_at) so Step 1 is the 1st course, Step 2 is 2nd, etc.
-            const sorted = [...fetched].sort((a, b) => {
-                if (a.created_at && b.created_at) {
-                    return new Date(a.created_at) - new Date(b.created_at);
-                }
-                return a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
-            });
-            setCourses(sorted);
+            const [overviewRes, defaultRes, facultyRes] = await Promise.allSettled([
+                academyApi.getOverview(),
+                academyApi.getDefaultCurriculum(),
+                academyApi.listCourses(),
+            ]);
 
-            // Auto-select first incomplete module, or first module if none/all complete
-            if (sorted.length > 0) {
-                const firstIncomplete = sorted.find((c) => c.lesson_count > 0 && c.lessons_completed < c.lesson_count);
-                setSelectedCourse((prev) => {
-                    if (prev) {
-                        const updated = sorted.find((c) => c.id === prev.id);
-                        if (updated) return updated;
-                    }
-                    return firstIncomplete || sorted[0];
-                });
+            if (overviewRes.status === 'fulfilled') {
+                setOverviewData(overviewRes.value.data);
+            }
+
+            let loadedDefaultMods = [];
+            if (defaultRes.status === 'fulfilled') {
+                loadedDefaultMods = defaultRes.value.data?.modules || [];
+                setDefaultModules(loadedDefaultMods);
+            }
+
+            let loadedFacultyCourses = [];
+            if (facultyRes.status === 'fulfilled') {
+                loadedFacultyCourses = facultyRes.value.data?.courses || [];
+                setFacultyCourses(loadedFacultyCourses);
+            }
+
+            // Set initial selected item
+            if (!isFacultyMode && loadedDefaultMods.length > 0) {
+                const activeMod = loadedDefaultMods.find((m) => m.state === 'active') || loadedDefaultMods[0];
+                setSelectedItem(activeMod);
+            } else if (isFacultyMode && loadedFacultyCourses.length > 0) {
+                setSelectedItem(loadedFacultyCourses[0]);
             }
         } catch (err) {
-            toast.error(parseApiError(err, 'Failed to load courses'));
+            toast.error(parseApiError(err, 'Failed to load academy data'));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [isFacultyMode]);
 
-    useEffect(() => { loadCourses(); }, [loadCourses]);
+    useEffect(() => {
+        loadAllAcademyData();
+    }, [loadAllAcademyData]);
 
-    const totalCourses = courses.length;
-    const completedCoursesCount = courses.filter((c) => c.lesson_count > 0 && c.lessons_completed >= c.lesson_count).length;
-    const overallProgressPct = totalCourses > 0 ? Math.round((completedCoursesCount / totalCourses) * 100) : 0;
+    // Handle toggle switch between Core and Faculty
+    const handleToggleMode = (facultyMode) => {
+        setIsFacultyMode(facultyMode);
+        if (facultyMode) {
+            if (facultyCourses.length > 0) setSelectedItem(facultyCourses[0]);
+        } else {
+            if (defaultModules.length > 0) {
+                const activeMod = defaultModules.find((m) => m.state === 'active') || defaultModules[0];
+                setSelectedItem(activeMod);
+            }
+        }
+    };
 
-    const currentActiveCourse = selectedCourse || courses[0];
-    const currentActiveIndex = courses.findIndex((c) => c.id === currentActiveCourse?.id);
-    const activeLessonPct = currentActiveCourse?.lesson_count > 0
-        ? Math.round((currentActiveCourse.lessons_completed / currentActiveCourse.lesson_count) * 100)
-        : 0;
-    const isActiveCompleted = activeLessonPct >= 100 && currentActiveCourse?.lesson_count > 0;
+    // Open item for detail view
+    const handleOpenItem = (item) => {
+        if (isFacultyMode && item?.id) {
+            setActiveCourseId(item.id);
+        } else {
+            // Core module selection
+            setSelectedItem(item);
+            toast.success(`Active topic: ${item.title}`);
+        }
+    };
+
+    const studentFirstName = user?.full_name?.split(' ')[0] || overviewData?.student_name?.split(' ')[0] || 'Learner';
 
     return (
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
             {activeCourseId ? (
-                <CourseDetail courseId={activeCourseId} onBack={() => { setActiveCourseId(null); loadCourses(); }} />
+                <CourseDetail
+                    courseId={activeCourseId}
+                    onBack={() => {
+                        setActiveCourseId(null);
+                        loadAllAcademyData();
+                    }}
+                />
             ) : (
                 <>
-                    {/* Top Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+                    {/* Top Header Region — Document 06 Screen 2 */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <GraduationCap size={20} className="text-primary-600 dark:text-primary-400" />
-                                <span className="text-xs font-extrabold uppercase tracking-widest text-primary-600 dark:text-primary-400">
-                                    Academy Pathway
+                                <span className="text-[11px] font-mono font-extrabold uppercase tracking-widest text-primary-600 dark:text-primary-400">
+                                    LEARN · FIN-511 INDIAN CAPITAL MARKETS
                                 </span>
                             </div>
                             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 dark:text-white">
-                                {user?.full_name ? `Good day, ${user.full_name.split(' ')[0]}` : 'Your Academy Pathway'}
+                                Good day, {studentFirstName}
                             </h1>
                             <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-                                Complete pathway modules in order from 1 to {totalCourses} to build your professional trading knowledge.
+                                {isFacultyMode
+                                    ? `Institution Faculty Syllabus · ${facultyCourses.length} assigned courses`
+                                    : 'Module 5 of 16 · 2 hrs due this week · NISM Capital Markets Track'}
                             </p>
                         </div>
 
-                        {/* Overall Completion Badge */}
-                        <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm self-start sm:self-auto">
-                            <Sparkles size={18} className="text-amber-500" />
-                            <div>
-                                <div className="text-xs font-bold text-slate-900 dark:text-white font-mono">
-                                    {completedCoursesCount} / {totalCourses} Modules Completed
-                                </div>
-                                <div className="w-32 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1.5">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full transition-all duration-500"
-                                        style={{ width: `${overallProgressPct}%` }}
-                                    />
-                                </div>
-                            </div>
+                        {/* Quick CTA to Open Terminal */}
+                        <div className="flex items-center gap-3 self-start md:self-auto">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/terminal')}
+                                className="px-5 py-2.5 rounded-2xl font-extrabold text-xs sm:text-sm text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 hover:shadow-md transition-all flex items-center gap-2"
+                            >
+                                <span>Open Terminal</span>
+                                <ExternalLink size={14} />
+                            </button>
                         </div>
                     </div>
 
                     {loading ? (
-                        <div className="flex items-center justify-center py-24"><Loader2 size={28} className="animate-spin text-primary-500" /></div>
-                    ) : courses.length === 0 ? (
-                        <div className="text-center py-24 bg-white dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-slate-800 p-8">
-                            <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-40" />
-                            <p className="text-base font-bold text-slate-900 dark:text-white">No courses available yet.</p>
-                            <p className="text-xs text-slate-500 mt-1">Check back once your institution approves faculty courses.</p>
+                        <div className="flex items-center justify-center py-32">
+                            <Loader2 size={32} className="animate-spin text-primary-500" />
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            
-                            {/* 1. Curriculum Pathway Map (Modules 1, 2, 3, 4, 5...) */}
-                            <div className="p-6 rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                    <div>
-                                        <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                            Curriculum Pathway Map
-                                        </h2>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                            Structured in faculty sequence — completed modules remain checked in place.
-                                        </p>
-                                    </div>
-                                    <span className="text-xs font-mono font-semibold text-slate-400 dark:text-slate-500">
-                                        Click any step to preview · Double click to open
-                                    </span>
-                                </div>
+                        /* Main 2-Column Responsive Layout (Document 06 §6.4: xl 3-col/right rail, lg stacks rail below, md 3-col grid, sm 2-col) */
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            {/* Left / Center Main Area (8 cols on lg/xl) */}
+                            <div className="lg:col-span-8 space-y-6">
+                                {/* 1. Curriculum Pathway Map */}
+                                <CurriculumMap
+                                    isFacultyMode={isFacultyMode}
+                                    onToggleMode={handleToggleMode}
+                                    modules={defaultModules}
+                                    facultyCourses={facultyCourses}
+                                    selectedItem={selectedItem}
+                                    onSelectItem={(item) => setSelectedItem(item)}
+                                    onOpenItem={handleOpenItem}
+                                />
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                    {courses.map((c, idx) => (
-                                        <PathwayCourseCard
-                                            key={c.id}
-                                            stepNumber={idx + 1}
-                                            course={c}
-                                            isActive={currentActiveCourse?.id === c.id}
-                                            onSelect={(selected) => setSelectedCourse(selected)}
-                                            onOpenDetail={(id) => setActiveCourseId(id)}
-                                        />
-                                    ))}
+                                {/* 2. Continue Learning Hero Card with Evidence Beat */}
+                                <ContinueCard
+                                    item={selectedItem || (isFacultyMode ? facultyCourses[0] : defaultModules[0])}
+                                    isFacultyMode={isFacultyMode}
+                                    onStartOrResume={handleOpenItem}
+                                />
+
+                                {/* 3. Lower Grid: Due this week + Glossary */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <DueList dueItems={overviewData?.due_items || []} />
+                                    <GlossaryPanel glossaryTerms={overviewData?.recent_glossary || []} />
                                 </div>
                             </div>
 
-                            {/* 2. Active Selected Course Hero Banner */}
-                            {currentActiveCourse && (
-                                <div
-                                    className="p-6 rounded-3xl bg-white dark:bg-[#111827] border-2 border-primary-500/50 shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 transition-all"
-                                >
-                                    <div className="flex items-start gap-4 min-w-0 flex-1">
-                                        <div
-                                            className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30 shadow-md"
-                                        >
-                                            <BookOpen size={26} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold px-2.5 py-0.5 rounded-md bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30">
-                                                    CURRENT MODULE · STEP {currentActiveIndex + 1}
-                                                </span>
-                                                {isActiveCompleted && (
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                                        ✓ Completed
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white truncate">
-                                                {currentActiveCourse.title}
-                                            </h3>
-                                            <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                                                {currentActiveCourse.description || `${currentActiveCourse.lesson_count} lesson(s) · ${currentActiveCourse.assessment_count} quiz(zes)`}
-                                            </p>
-                                            
-                                            <div className="flex items-center gap-4 mt-4 flex-wrap">
-                                                <div className="w-48 sm:w-64 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-primary-500 rounded-full transition-all duration-500"
-                                                        style={{ width: `${activeLessonPct}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                                                    {activeLessonPct}% ({currentActiveCourse.lessons_completed}/{currentActiveCourse.lesson_count} lessons)
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveCourseId(currentActiveCourse.id)}
-                                        className="w-full lg:w-auto px-8 py-3.5 rounded-2xl font-extrabold text-sm text-white bg-primary-600 hover:bg-primary-500 active:scale-95 transition-all shadow-lg hover:shadow-primary-500/25 flex items-center justify-center gap-2 flex-shrink-0"
-                                    >
-                                        {isActiveCompleted ? 'Review Course' : activeLessonPct > 0 ? 'Resume Course' : 'Start Course'} <ChevronRight size={18} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* 3. Quizzes & Assessments Section */}
-                            <div className="p-6 rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <ClipboardCheck size={18} className="text-primary-600 dark:text-primary-400" />
-                                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Quizzes &amp; Assessments
-                                    </h3>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                    {courses.map((c, idx) => {
-                                        const hasScore = c.best_score_percent !== null && c.best_score_percent !== undefined;
-                                        return (
-                                            <div
-                                                key={c.id}
-                                                onClick={() => setActiveCourseId(c.id)}
-                                                className="flex flex-col justify-between p-4 rounded-2xl transition-all cursor-pointer bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 hover:border-primary-500/50 hover:shadow-md group"
-                                                style={{ minHeight: 110 }}
-                                            >
-                                                <div>
-                                                    <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 inline-block mb-1">
-                                                        Step {idx + 1}
-                                                    </span>
-                                                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                                        {c.title} Quiz
-                                                    </p>
-                                                </div>
-
-                                                <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
-                                                    {hasScore ? (
-                                                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30">
-                                                            Score: {c.best_score_percent}%
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs font-bold flex items-center gap-1 text-primary-600 dark:text-primary-400 group-hover:translate-x-1 transition-transform">
-                                                            Start <ChevronRight size={13} />
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            {/* Right Rail Analytics (4 cols on lg/xl) */}
+                            <div className="lg:col-span-4 space-y-6">
+                                <MasteryRightRail
+                                    overallMastery={overviewData?.overall_mastery_pct || 30}
+                                    pointsDelta={overviewData?.points_delta_this_week || '+8 pts this week'}
+                                    completedCount={overviewData?.completed_modules_count || 4}
+                                    totalCount={overviewData?.total_modules_count || 16}
+                                    weakConcepts={overviewData?.weak_concepts || []}
+                                    behaviourSummary={overviewData?.behaviour_summary}
+                                />
                             </div>
-
                         </div>
                     )}
                 </>

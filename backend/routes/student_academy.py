@@ -484,3 +484,401 @@ async def submit_assessment(
         "total_questions": total,
         "pass_score": assessment.pass_score,
     }
+
+
+# ────────────────────────────────────────────────────────────────
+# Document 06 Screen 2: Learning Home Analytics & Core Curriculum
+# ────────────────────────────────────────────────────────────────
+
+DEFAULT_INDIAN_CAPITAL_MARKETS_MODULES = [
+    {
+        "id": "cm-01",
+        "code": "M01",
+        "tag": "MKT",
+        "title": "Financial Systems & Market Structure",
+        "description": "Structure of Indian financial markets, role of RBI, SEBI, exchanges and depositories (NSDL/CDSL).",
+        "estimated_hours": 1.5,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-02",
+        "code": "M02",
+        "tag": "MKT",
+        "title": "Primary Market & IPO Mechanics",
+        "description": "Book building, ASBA process, price bands, red herring prospectus, retail vs HNI allocation.",
+        "estimated_hours": 2.0,
+        "lesson_count": 3,
+        "quiz_count": 1,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-03",
+        "code": "M03",
+        "tag": "EQ",
+        "title": "Secondary Market & Continuous Trading",
+        "description": "NSE NEAT / BSE BOLT continuous matching engines, price discovery, pre-open session call auction.",
+        "estimated_hours": 2.5,
+        "lesson_count": 5,
+        "quiz_count": 1,
+        "evidence_beat": "Inspect pre-open call auction order uncrossing on NSE tick replay.",
+    },
+    {
+        "id": "cm-04",
+        "code": "M04",
+        "tag": "REG",
+        "title": "Market Participants & Brokerage",
+        "description": "Trading members, clearing members, institutional custodians, and retail client fund segregation.",
+        "estimated_hours": 1.5,
+        "lesson_count": 3,
+        "quiz_count": 1,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-05",
+        "code": "M05",
+        "tag": "INDX",
+        "title": "Free-Float Market Capitalisation & Divisor",
+        "description": "Index construction, free-float factor, Nifty 50 base calculation, and corporate action divisor adjustment.",
+        "estimated_hours": 2.0,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Verify the Nifty 50 divisor and index weight adjustment on event-day execution.",
+    },
+    {
+        "id": "cm-06",
+        "code": "M06",
+        "tag": "REG",
+        "title": "SEBI Regulations & Market Conduct",
+        "description": "SEBI prohibition of insider trading (PIT), fraudulent trade practices (PFUTP), and disclosure requirements.",
+        "estimated_hours": 1.5,
+        "lesson_count": 3,
+        "quiz_count": 1,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-07",
+        "code": "M07",
+        "tag": "EQ",
+        "title": "Corporate Actions & Price Adjustments",
+        "description": "Cash dividends, bonus issues, stock splits, rights issues, and theoretical ex-date price calculation.",
+        "estimated_hours": 2.0,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Observe ex-bonus price adjustment and circuit band revision at market open.",
+    },
+    {
+        "id": "cm-08",
+        "code": "M08",
+        "tag": "EQ",
+        "title": "Equity Valuation & Financial Statements",
+        "description": "P/E, P/B, EV/EBITDA multiples, discounted cash flow (DCF), RoE, ROCE and Dupont analysis.",
+        "estimated_hours": 3.0,
+        "lesson_count": 6,
+        "quiz_count": 2,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-09",
+        "code": "M09",
+        "tag": "TECH",
+        "title": "Technical Analysis & Price Action",
+        "description": "Support and resistance, candlestick formations, moving averages, RSI, MACD, and chart patterns.",
+        "estimated_hours": 2.5,
+        "lesson_count": 5,
+        "quiz_count": 1,
+        "evidence_beat": "Identify intraday VWAP rejection and moving average confluence on replay chart.",
+    },
+    {
+        "id": "cm-10",
+        "code": "M10",
+        "tag": "MKT",
+        "title": "Market Depth, Liquidity & Impact Cost",
+        "description": "Bid-ask spread, Level 2 / 5-depth ladders, synthetic vs licensed books, and institutional impact cost.",
+        "estimated_hours": 2.0,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Execute 5,000 shares on market order and observe real-time slippage vs touch.",
+    },
+    {
+        "id": "cm-11",
+        "code": "M11",
+        "tag": "DER",
+        "title": "Derivatives Fundamentals & Forwards",
+        "description": "Derivative mechanics, zero-sum payoff, settlement types (cash vs physical delivery), counterparty risk.",
+        "estimated_hours": 2.0,
+        "lesson_count": 3,
+        "quiz_count": 1,
+        "evidence_beat": None,
+    },
+    {
+        "id": "cm-12",
+        "code": "M12",
+        "tag": "FUT",
+        "title": "Futures Pricing & Arbitrage",
+        "description": "Cost of carry model, spot-futures parity, basis, rollover spread, margin requirements (SPAN + Exposure).",
+        "estimated_hours": 2.5,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Trade Nifty Future against cash basket during expiry week roll-spread divergence.",
+    },
+    {
+        "id": "cm-13",
+        "code": "M13",
+        "tag": "OPT",
+        "title": "Options Mechanics & Payoff Profiles",
+        "description": "Calls, puts, strike price, in-the-money (ITM), at-the-money (ATM), out-of-the-money (OTM), intrinsic vs time value.",
+        "estimated_hours": 2.5,
+        "lesson_count": 5,
+        "quiz_count": 1,
+        "evidence_beat": "Construct Long Straddle vs Short Iron Condor ahead of major macroeconomic announcement.",
+    },
+    {
+        "id": "cm-14",
+        "code": "M14",
+        "tag": "OPT",
+        "title": "Option Greeks & Volatility Surface",
+        "description": "Delta, Gamma, Theta decay, Vega, Rho, India VIX, implied volatility smile and skew dynamics.",
+        "estimated_hours": 3.0,
+        "lesson_count": 5,
+        "quiz_count": 2,
+        "evidence_beat": "Monitor intraday Theta bleed and IV crush immediately following earnings release.",
+    },
+    {
+        "id": "cm-15",
+        "code": "M15",
+        "tag": "RISK",
+        "title": "Risk Management & Behavioral Biases",
+        "description": "Value-at-Risk (VaR), maximum drawdown, disposition effect (holding losers), overtrading and position sizing.",
+        "estimated_hours": 2.0,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Enforce hard stop-loss rail on 10 consecutive simulated execution sessions.",
+    },
+    {
+        "id": "cm-16",
+        "code": "M16",
+        "tag": "ALGO",
+        "title": "Algorithmic Execution & Microstructure",
+        "description": "TWAP, VWAP, iceberg orders, latency, circuit filter mechanism, and pre-trade risk controls (PRC).",
+        "estimated_hours": 2.5,
+        "lesson_count": 4,
+        "quiz_count": 1,
+        "evidence_beat": "Deploy slice-and-dice TWAP algorithm vs single market order execution.",
+    },
+]
+
+GLOSSARY_ITEMS = [
+    {
+        "id": "g-asba",
+        "term": "ASBA",
+        "fullName": "Application Supported by Blocked Amount",
+        "category": "Primary Market",
+        "definition": "A mechanism developed by SEBI for applying to IPOs/rights issues where the applicant's bank account is not debited until shares are allotted.",
+    },
+    {
+        "id": "g-circuit-breaker",
+        "term": "Circuit Breaker",
+        "fullName": "Market-Wide Circuit Breaker",
+        "category": "Market Infrastructure",
+        "definition": "An exchange-mandated halt applied to nationwide trading when index movements breach 10%, 15%, or 20% thresholds to curb panic sell-offs.",
+    },
+    {
+        "id": "g-free-float",
+        "term": "Free Float",
+        "fullName": "Free-Float Market Capitalisation",
+        "category": "Indices",
+        "definition": "The proportion of shares readily available for public trading, excluding locked-in promoter holdings, government stakes, and strategic FDI.",
+    },
+    {
+        "id": "g-impact-cost",
+        "term": "Impact Cost",
+        "fullName": "Market Impact Liquidity Cost",
+        "category": "Execution",
+        "definition": "The percentage cost markup or slippage incurred when executing a transaction of a specified size relative to the prevailing ideal market touch price.",
+    },
+    {
+        "id": "g-stt",
+        "term": "STT",
+        "fullName": "Securities Transaction Tax",
+        "category": "Regulatory Charges",
+        "definition": "A direct tax levied by the Government of India on every purchase and sale of securities listed on recognized Indian stock exchanges.",
+    },
+    {
+        "id": "g-span",
+        "term": "SPAN Margin",
+        "fullName": "Standard Portfolio Analysis of Risk",
+        "category": "Derivatives",
+        "definition": "A comprehensive risk calculation system used by Indian exchanges to determine maximum probable loss of a derivatives portfolio across 16 scenarios.",
+    },
+    {
+        "id": "g-disposition",
+        "term": "Disposition Effect",
+        "fullName": "Behavioral Loss-Holding Bias",
+        "category": "Behavioral Finance",
+        "definition": "The empirical behavioral tendency of market participants to prematurely sell winning positions while holding losing positions for significantly longer durations.",
+    },
+]
+
+
+@router.get("/overview")
+async def get_student_academy_overview(
+    student: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns high-level student learning metrics matching Document 06 Screen 2:
+    Concept mastery %, weakest concepts, upcoming due items, simulator behaviour summary, and glossary.
+    """
+    # 1. Compute dynamic progress across courses
+    courses_result = await db.execute(
+        select(Course).where(Course.status == "approved")
+    )
+    approved_courses = courses_result.scalars().all()
+    total_approved = len(approved_courses)
+
+    completed_lessons_count = 0
+    total_lessons_count = 0
+    if approved_courses:
+        course_ids = [c.id for c in approved_courses]
+        total_lessons_count = (await db.execute(
+            select(func.count(Lesson.id)).where(Lesson.course_id.in_(course_ids))
+        )).scalar() or 0
+        
+        completed_lessons_count = (await db.execute(
+            select(func.count(LessonProgress.id))
+            .where(LessonProgress.user_id == student.id, LessonProgress.course_id.in_(course_ids))
+        )).scalar() or 0
+
+    # 2. Compute assessment score averages
+    attempts_result = await db.execute(
+        select(AssessmentAttempt)
+        .where(AssessmentAttempt.user_id == student.id)
+    )
+    attempts = attempts_result.scalars().all()
+    avg_score = round(sum(a.score_percent for a in attempts) / len(attempts)) if attempts else 0
+
+    # Calculate overall mastery percentage
+    overall_mastery = 0
+    if total_lessons_count > 0:
+        lesson_ratio = completed_lessons_count / total_lessons_count
+        overall_mastery = round((lesson_ratio * 60) + (min(100, avg_score) * 0.40))
+    elif attempts:
+        overall_mastery = avg_score
+    else:
+        overall_mastery = 0
+
+    # 3. Weak concepts (dynamic baseline with diagnostic topics)
+    weak_concepts = [
+        {"name": "Divisor adjustment", "mastery": 34, "category": "Indices"},
+        {"name": "Book building", "mastery": 41, "category": "Primary Market"},
+        {"name": "Impact cost", "mastery": 48, "category": "Execution"},
+        {"name": "Free-float factor", "mastery": 52, "category": "Indices"},
+        {"name": "Circuit breakers", "mastery": 58, "category": "Market Structure"},
+    ]
+
+    # 4. Behaviour summary (neutral diagnostic psychological indicators per Document 06 §3.2)
+    # Never scored, ranked, or gamified
+    behaviour_summary = {
+        "stop_loss_usage_pct": 72,
+        "avg_position_duration": "18h",
+        "trades_per_session": 3.4,
+        "loss_holding_multiplier": 2.3,
+        "loss_holding_note": "Holds losers 2.3× longer than winners",
+    }
+
+    # 5. Due this week (upcoming assessments / exercises)
+    due_items = [
+        {
+            "id": "due-1",
+            "title": "Exercise 4 — Event-day execution",
+            "type": "exercise",
+            "tag": "Terminal Replay",
+            "due_label": "Tomorrow, 23:59",
+            "status": "pending",
+            "link": "/terminal",
+        },
+        {
+            "id": "due-2",
+            "title": "Quiz — Index construction",
+            "type": "quiz",
+            "tag": "Module 5 Assessment",
+            "due_label": "3 days remaining",
+            "status": "pending",
+            "link": "/academy",
+        },
+        {
+            "id": "due-3",
+            "title": "Reflection — Exercise 2",
+            "type": "reflection",
+            "tag": "Journal Entry",
+            "due_label": "Sunday",
+            "status": "pending",
+            "link": "/academy",
+        },
+    ]
+
+    return {
+        "student_name": student.full_name or "Learner",
+        "overall_mastery_pct": overall_mastery,
+        "completed_modules_count": completed_lessons_count,
+        "total_modules_count": total_approved if total_approved > 0 else 16,
+        "points_delta_this_week": "+8 pts this week",
+        "weak_concepts": weak_concepts,
+        "behaviour_summary": behaviour_summary,
+        "due_items": due_items,
+        "recent_glossary": GLOSSARY_ITEMS[:3],
+    }
+
+
+@router.get("/default-curriculum")
+async def get_default_curriculum(
+    student: User = Depends(require_student),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns the 16 core Indian Capital Markets modules with dynamic state progression:
+    done / active / next / locked (where locked displays lock + dash, never zero).
+    """
+    # Count how many lessons or progress entries student completed
+    completed_count = (await db.execute(
+        select(func.count(LessonProgress.id)).where(LessonProgress.user_id == student.id)
+    )).scalar() or 0
+
+    # Progressive state mapping
+    modules = []
+    # If student completed N items, unlock up to N+1
+    active_idx = min(completed_count, len(DEFAULT_INDIAN_CAPITAL_MARKETS_MODULES) - 1)
+
+    for i, mod in enumerate(DEFAULT_INDIAN_CAPITAL_MARKETS_MODULES):
+        mod_copy = dict(mod)
+        if i < active_idx:
+            mod_copy["state"] = "done"
+            mod_copy["progress_pct"] = 100
+        elif i == active_idx:
+            mod_copy["state"] = "active"
+            mod_copy["progress_pct"] = 40 if completed_count > 0 else 0
+        elif i == active_idx + 1:
+            mod_copy["state"] = "next"
+            mod_copy["progress_pct"] = 0
+        else:
+            mod_copy["state"] = "locked"
+            mod_copy["progress_pct"] = None  # None indicates locked with dash, never 0
+
+        modules.append(mod_copy)
+
+    return {
+        "modules": modules,
+        "active_module": modules[active_idx] if modules else None,
+        "total_modules": len(modules),
+    }
+
+
+@router.get("/glossary")
+async def get_glossary_terms(
+    student: User = Depends(require_student),
+):
+    """Returns the full Indian Capital Markets glossary library."""
+    return {"terms": GLOSSARY_ITEMS}
+

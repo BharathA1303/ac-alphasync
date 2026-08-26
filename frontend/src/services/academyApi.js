@@ -21,6 +21,18 @@ const academyApi = {
     submitAssessment(courseId, assessmentId, payload) {
         return api.post(`/academy/courses/${courseId}/assessments/${assessmentId}/submit`, payload);
     },
+
+    getOverview() {
+        return api.get('/academy/overview');
+    },
+
+    getDefaultCurriculum() {
+        return api.get('/academy/default-curriculum');
+    },
+
+    getGlossary() {
+        return api.get('/academy/glossary');
+    },
 };
 
 export default academyApi;
