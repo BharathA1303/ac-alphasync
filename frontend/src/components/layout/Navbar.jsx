@@ -29,6 +29,10 @@ import {
     GraduationCap,
     BookOpen,
     LineChart,
+    Settings,
+    Bug,
+    LogOut,
+    User,
 } from 'lucide-react';
 
 /**
@@ -109,10 +113,185 @@ function NotificationPanel({ notifications, onClear, onDismiss }) {
     );
 }
 
+// ── Profile Dropdown Helpers ──────────────────────────────────────────────────
+function nameToColor(str = '') {
+    const COLORS = [
+        '#00bcd4', '#0097a7', '#10b981', '#3b82f6',
+        '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6',
+    ];
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return COLORS[Math.abs(hash) % COLORS.length];
+}
+
+function getInitials(user) {
+    if (user?.full_name?.trim()) {
+        const parts = user.full_name.trim().split(/\s+/);
+        return parts.length >= 2
+            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+            : parts[0].slice(0, 2).toUpperCase();
+    }
+    if (user?.username?.trim()) return user.username.slice(0, 2).toUpperCase();
+    if (user?.email) return user.email[0].toUpperCase();
+    return 'U';
+}
+
+function ProfileDropdown({ user, onLogout }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+    const navigate = useNavigate();
+
+    const initials = getInitials(user);
+    const bg = nameToColor(user?.email || user?.username || '');
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const handleNavigate = (path) => {
+        setIsOpen(false);
+        navigate(path);
+    };
+
+    const roleBadges = {
+        admin: { label: 'Super Admin', color: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
+        institution_admin: { label: 'Institution Admin', color: 'bg-blue-500/15 text-blue-500 border-blue-500/30' },
+        faculty: { label: 'Faculty', color: 'bg-purple-500/15 text-purple-500 border-purple-500/30' },
+        student: { label: 'Student', color: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
+    };
+    const roleConfig = roleBadges[user?.role] || { label: 'Trader', color: 'bg-cyan-500/15 text-cyan-500 border-cyan-500/30' };
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-1 p-1 rounded-xl transition-all duration-200 hover:bg-overlay/5 focus:outline-none focus:ring-2 focus:ring-primary-500/40 ml-1"
+                aria-label="User profile menu"
+                title={user?.full_name || user?.username || user?.email || 'Profile'}
+            >
+                {user?.avatar_url ? (
+                    <img
+                        src={user.avatar_url}
+                        alt={initials}
+                        className="w-8 h-8 rounded-full object-cover ring-2 ring-primary-500/30 shadow-sm"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                ) : (
+                    <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-extrabold text-xs select-none ring-2 ring-primary-500/30 shadow-sm"
+                        style={{ background: `linear-gradient(135deg, ${bg}cc, ${bg})` }}
+                    >
+                        {initials}
+                    </div>
+                )}
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full right-0 mt-2.5 w-72 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-slide-in text-slate-800 dark:text-slate-200">
+                    {/* User Profile Header Card */}
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/70">
+                        <div className="flex items-center gap-3">
+                            {user?.avatar_url ? (
+                                <img
+                                    src={user.avatar_url}
+                                    alt={initials}
+                                    className="w-11 h-11 rounded-full object-cover ring-2 ring-primary-500/40 flex-shrink-0"
+                                />
+                            ) : (
+                                <div
+                                    className="w-11 h-11 rounded-full flex items-center justify-center text-white font-extrabold text-sm select-none ring-2 ring-primary-500/40 flex-shrink-0 shadow-md"
+                                    style={{ background: `linear-gradient(135deg, ${bg}cc, ${bg})` }}
+                                >
+                                    {initials}
+                                </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                                <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                    {user?.full_name || user?.username || 'User Profile'}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate font-mono mt-0.5">
+                                    {user?.email}
+                                </div>
+                                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                    <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border', roleConfig.color)}>
+                                        {roleConfig.label}
+                                    </span>
+                                    {user?.institution_name && (
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 truncate max-w-[120px]" title={user.institution_name}>
+                                            {user.institution_name}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Menu Actions */}
+                    <div className="p-2 space-y-1">
+                        <button
+                            onClick={() => handleNavigate('/settings?tab=profile')}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors text-left group"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-primary-500 group-hover:bg-primary-500/10 flex items-center justify-center transition-colors">
+                                <Settings className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-900 dark:text-white">Settings</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">Account, profile &amp; security</div>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => handleNavigate('/bug-report')}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors text-left group"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:text-amber-500 group-hover:bg-amber-500/10 flex items-center justify-center transition-colors">
+                                <Bug className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-900 dark:text-white">Bug Report</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">Report an issue or suggestion</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Divider & Logout */}
+                    <div className="p-2 pt-1 border-t border-slate-200 dark:border-slate-800">
+                        <button
+                            onClick={() => {
+                                setIsOpen(false);
+                                onLogout();
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors text-left group"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 group-hover:bg-red-500/20 flex items-center justify-center transition-colors">
+                                <LogOut className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold text-red-600 dark:text-red-400">Log Out</div>
+                                <div className="text-[10px] text-red-500/70 dark:text-red-400/60 font-normal">Sign out of your account</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function Navbar({ onMenuToggle }) {
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, logout } = useAuthStore();
     const wsStatus = useMarketStore((s) => s.wsStatus);
     const lastQuoteAt = useMarketStore((s) => s.lastQuoteAt);
     const liveQuotes = useMarketStore((s) => s.symbols);
@@ -134,7 +313,14 @@ export default function Navbar({ onMenuToggle }) {
     const addToWatchlist = useWatchlistStore((s) => s.addItem);
     const removeFromWatchlist = useWatchlistStore((s) => s.removeItem);
 
-    const user = useAuthStore((s) => s.user);
+    const handleLogout = useCallback(async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (e) {
+            console.error('Logout error:', e);
+        }
+    }, [logout, navigate]);
 
     // Derive the active watchlist's items safely — only recomputes when watchlists
     // or activeId actually changes, not on every render.
@@ -646,6 +832,9 @@ export default function Navbar({ onMenuToggle }) {
                         />
                     )}
                 </div>
+
+                {/* User Profile Dropdown */}
+                <ProfileDropdown user={user} onLogout={handleLogout} />
             </div>
         </header>
     );
