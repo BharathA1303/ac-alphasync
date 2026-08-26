@@ -59,8 +59,8 @@ _CHECK_INTERVAL = 30
 # Let the rest of the app (DB, Redis, event bus, workers) finish booting
 # before the first transition attempt.
 _STARTUP_DELAY = 15
-# Rapid simulation replay speed (30x): 1 minute bar simulates in 2s.
-_REPLAY_SPEED = 30.0
+# 1:1 Real-time simulation replay speed (1x): 1 minute bar simulates in 60s.
+_REPLAY_SPEED = 1.0
 
 
 class AutoSimulationWorker:

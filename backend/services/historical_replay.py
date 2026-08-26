@@ -188,10 +188,11 @@ class HistoricalReplayEngine:
         simulation_date: date,
         speed: float = 1.0,
         session: Optional[SimulationSession] = None,
+        sync_clock: bool = False,
     ) -> SimulationSession:
         """
-        Load all stored candles for a simulation date into memory and create
-        (or reuse) the SimulationSession row.
+        Load all stored candles for the simulation date plus prior available trading
+        dates into memory and create (or reuse) the SimulationSession row.
         """
         self._simulation_date = simulation_date
         self._speed = float(speed) if speed and float(speed) > 0 else 1.0
@@ -202,11 +203,12 @@ class HistoricalReplayEngine:
         self._by_canonical.clear()
         self._by_token.clear()
 
+        # Load the simulation date plus available prior trading days (for rich multi-day chart depth)
         rows = (
             await db.execute(
                 select(HistoricalCandle, Instrument)
                 .join(Instrument, HistoricalCandle.instrument_id == Instrument.id)
-                .where(HistoricalCandle.trading_date == simulation_date)
+                .where(HistoricalCandle.trading_date <= simulation_date)
                 .order_by(HistoricalCandle.timestamp)
             )
         ).all()
@@ -264,10 +266,25 @@ class HistoricalReplayEngine:
             track.cursor = -1
             track.last_emitted_price = None
 
-        # Start the clock at the session open.
-        self._sim_epoch = int(
-            datetime.combine(simulation_date, SESSION_START, tzinfo=IST).timestamp()
-        )
+        if sync_clock:
+            now_ist = datetime.now(IST)
+            cur_time = now_ist.time()
+            if SESSION_START <= cur_time <= SESSION_END:
+                self._sim_epoch = int(
+                    datetime.combine(simulation_date, cur_time, tzinfo=IST).timestamp()
+                )
+            elif cur_time > SESSION_END:
+                self._sim_epoch = int(
+                    datetime.combine(simulation_date, SESSION_END, tzinfo=IST).timestamp()
+                )
+            else:
+                self._sim_epoch = int(
+                    datetime.combine(simulation_date, SESSION_START, tzinfo=IST).timestamp()
+                )
+        else:
+            self._sim_epoch = int(
+                datetime.combine(simulation_date, SESSION_START, tzinfo=IST).timestamp()
+            )
 
         if session is None:
             session = SimulationSession(
@@ -603,7 +620,14 @@ class HistoricalReplayEngine:
             return []
 
         cutoff = self._sim_epoch or track.candles[-1]["epoch"]
-        bars = [c for c in track.candles if c["epoch"] <= cutoff]
+        if period == "1d":
+            session_start = int(
+                datetime.combine(self._simulation_date, SESSION_START, tzinfo=IST).timestamp()
+            )
+            bars = [c for c in track.candles if session_start <= c["epoch"] <= cutoff]
+        else:
+            bars = [c for c in track.candles if c["epoch"] <= cutoff]
+
         if not bars:
             return []
 
@@ -642,7 +666,6 @@ class HistoricalReplayEngine:
                 }
                 for b in bars
             ]
-            # Update the latest bar's close to current interpolated price
             if res:
                 cur_price = _interpolate_candle_price(bars[-1], cutoff)
                 res[-1]["close"] = round(cur_price, 2)
@@ -692,9 +715,6 @@ class HistoricalReplayEngine:
 
         return aggregated
 
-        self._stats["ticks"] += 1
-        return advanced
-
     def _advance_clock(self, elapsed_wall_seconds: float) -> int:
         """
         Next simulated epoch after `elapsed_wall_seconds` of real time.
@@ -702,10 +722,6 @@ class HistoricalReplayEngine:
         simulated_delta = elapsed_wall * speed, with the sub-second
         remainder carried across ticks so fractional speeds accumulate
         correctly instead of being truncated to zero every iteration.
-
-        This is a single clock shared by ALL instruments — advance_to()
-        then moves every track to the same simulated instant, so no
-        instrument can run on an independent timer.
         """
         delta = float(elapsed_wall_seconds) * float(self._speed) + self._sim_fraction
         whole = int(delta)
@@ -754,8 +770,6 @@ class HistoricalReplayEngine:
         if value <= 0:
             raise ValueError("speed must be positive")
         self._speed = value
-        # Drop any partial second accumulated at the previous speed so the
-        # new rate takes effect cleanly from this instant.
         self._sim_fraction = 0.0
         return self._speed
 
@@ -787,45 +801,58 @@ class HistoricalReplayEngine:
 
     async def run(self) -> None:
         """
-        Replay loop — advances the simulated clock in real time, scaled by
-        `speed`, and publishes candles as they come into effect.
-
-        Only runs while MarketDataMode is SIMULATION; if the mode is switched
-        back to LIVE the loop stops driving the pipeline immediately.
+        Replay loop — advances the simulated clock in real time 1:1 with IST wall-clock.
         """
         end_epoch = self.session_end_epoch()
         if end_epoch is None:
             logger.warning("Replay run() called with no loaded session")
             return
 
-        logger.info("Replay loop running")
+        logger.info("Replay loop running (1:1 real-time broker simulation)")
         last_wall = _monotonic()
         while self._running:
             try:
                 await asyncio.sleep(TICK_INTERVAL_SEC)
                 self._stats["loops"] += 1
 
-                # Measure ACTUAL elapsed wall time. asyncio.sleep only
-                # guarantees a lower bound, so assuming a fixed tick would
-                # let the simulated clock drift behind real time under load.
-                now_wall = _monotonic()
-                elapsed = now_wall - last_wall
-                last_wall = now_wall
-
                 if self._status != SIM_RUNNING:
                     continue
 
-                # Mode is authoritative — never drive the pipeline in LIVE.
                 if not market_data_mode.is_simulation():
                     continue
 
-                next_epoch = self._advance_clock(elapsed)
-                if next_epoch > end_epoch:
-                    await self.advance_to(end_epoch)
-                    logger.info("Replay reached session end")
-                    self._running = False
-                    self._status = SIM_ENDED
-                    break
+                if self._speed == 1.0:
+                    now_ist = datetime.now(IST)
+                    cur_time = now_ist.time()
+                    if cur_time < SESSION_START:
+                        target_epoch = int(
+                            datetime.combine(self._simulation_date, SESSION_START, tzinfo=IST).timestamp()
+                        )
+                    elif cur_time >= SESSION_END:
+                        target_epoch = int(
+                            datetime.combine(self._simulation_date, SESSION_END, tzinfo=IST).timestamp()
+                        )
+                        await self.advance_to(target_epoch)
+                        logger.info("Replay reached session end (15:30 IST) — holding frozen close")
+                        self._running = False
+                        self._status = SIM_ENDED
+                        break
+                    else:
+                        target_epoch = int(
+                            datetime.combine(self._simulation_date, cur_time, tzinfo=IST).timestamp()
+                        )
+                    next_epoch = target_epoch
+                else:
+                    now_wall = _monotonic()
+                    elapsed = now_wall - last_wall
+                    last_wall = now_wall
+                    next_epoch = self._advance_clock(elapsed)
+                    if next_epoch > end_epoch:
+                        await self.advance_to(end_epoch)
+                        logger.info("Replay reached session end")
+                        self._running = False
+                        self._status = SIM_ENDED
+                        break
 
                 await self.advance_to(next_epoch)
 

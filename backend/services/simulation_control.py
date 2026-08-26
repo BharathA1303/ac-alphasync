@@ -42,6 +42,7 @@ class SimulationController:
         db,
         simulation_date: Optional[date] = None,
         speed: float = 1.0,
+        sync_clock: bool = True,
     ) -> dict:
         """
         Load a day's candles, switch to SIMULATION mode, and start replaying.
@@ -51,7 +52,9 @@ class SimulationController:
         """
         target = simulation_date or latest_complete_trading_day()
 
-        await historical_replay_engine.load_session(db, target, speed=speed)
+        await historical_replay_engine.load_session(
+            db, target, speed=speed, sync_clock=sync_clock
+        )
         if not historical_replay_engine.get_stats()["instruments"]:
             raise RuntimeError(
                 f"No historical candles stored for {target}; run the downloader first"
