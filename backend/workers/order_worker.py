@@ -103,6 +103,17 @@ class OrderExecutionWorker:
     def __init__(self):
         self._running = False
         self._stats = {"sweeps": 0, "fills": 0, "expired": 0, "errors": 0}
+        self._open_symbols: set[str] = set()
+        self._last_symbols_refresh: float = 0
+
+    async def _refresh_open_symbols(self, db: AsyncSession) -> None:
+        try:
+            res = await db.execute(select(Order.symbol).where(Order.status == "OPEN").distinct())
+            self._open_symbols = set(res.scalars().all())
+            import time
+            self._last_symbols_refresh = time.time()
+        except Exception:
+            pass
 
     async def run(self) -> None:
         """Main loop — sweeps periodically for order expiry and clean up."""
@@ -112,6 +123,8 @@ class OrderExecutionWorker:
         while self._running:
             try:
                 await self._sweep_expiry()
+                async with async_session_factory() as db:
+                    await self._refresh_open_symbols(db)
                 self._stats["sweeps"] += 1
                 await asyncio.sleep(60)
 
@@ -132,6 +145,15 @@ class OrderExecutionWorker:
         symbol = event.data.get("symbol")
         quote = event.data.get("quote")
         if not symbol or not quote or "price" not in quote:
+            return
+
+        import time
+        now = time.time()
+        if now - self._last_symbols_refresh > 5.0:
+            async with async_session_factory() as db:
+                await self._refresh_open_symbols(db)
+
+        if symbol not in self._open_symbols:
             return
 
         current_price = _to_decimal(quote["price"])

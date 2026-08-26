@@ -48,10 +48,48 @@ SESSION_END = time(15, 30)
 
 REPLAY_SOURCE = "historical_replay"
 
-# Wall-clock seconds between replay loop iterations.
-TICK_INTERVAL_SEC = 1.0
+# Wall-clock seconds between replay loop iterations (500ms for high responsiveness).
+TICK_INTERVAL_SEC = 0.5
 # Simulated seconds advanced per loop iteration at speed=1.
 SIM_SECONDS_PER_TICK = 1.0
+
+
+def _interpolate_candle_price(candle: dict, sim_epoch: int) -> float:
+    """Interpolate intra-minute price smoothly across open, high, low, close."""
+    c_open = candle["open"]
+    c_high = candle["high"]
+    c_low = candle["low"]
+    c_close = candle["close"]
+
+    c_epoch = candle["epoch"]
+    offset = int(sim_epoch) - int(c_epoch)
+    if offset <= 0 or offset >= 59 or c_open == c_high == c_low == c_close:
+        return c_close
+
+    progress = offset / 59.0
+
+    if c_close >= c_open:
+        # Bullish candle: open -> low -> high -> close
+        if progress < 0.25:
+            t = progress / 0.25
+            return round(c_open + (c_low - c_open) * t, 2)
+        elif progress < 0.75:
+            t = (progress - 0.25) / 0.50
+            return round(c_low + (c_high - c_low) * t, 2)
+        else:
+            t = (progress - 0.75) / 0.25
+            return round(c_high + (c_close - c_high) * t, 2)
+    else:
+        # Bearish candle: open -> high -> low -> close
+        if progress < 0.25:
+            t = progress / 0.25
+            return round(c_open + (c_high - c_open) * t, 2)
+        elif progress < 0.75:
+            t = (progress - 0.25) / 0.50
+            return round(c_high + (c_low - c_high) * t, 2)
+        else:
+            t = (progress - 0.75) / 0.25
+            return round(c_low + (c_close - c_low) * t, 2)
 
 
 @dataclass
@@ -72,6 +110,7 @@ class ReplayInstrument:
     candles: list[dict] = field(default_factory=list)
     # Index of the candle currently in effect (-1 = before first candle).
     cursor: int = -1
+    last_emitted_price: Optional[float] = None
 
     @property
     def key(self) -> str:
@@ -93,16 +132,16 @@ class HistoricalReplayEngine:
         self._simulation_date: Optional[date] = None
         self._sim_epoch: Optional[int] = None
         # Sub-second remainder carried between ticks so fractional speeds
-        # (and non-integer speed changes) never truncate away. Without this
-        # an int() per tick makes speed=0.5 stall the clock entirely.
+        # (and non-integer speed changes) never truncate away.
         self._sim_fraction: float = 0.0
         self._speed: float = 1.0
         self._status: str = SIM_READY
         self._instruments: dict[str, ReplayInstrument] = {}
         # Latest emitted state per instrument key — the "current quote".
         self._state: dict[str, dict] = {}
-        # Secondary index so option lookups can go by trading symbol alone.
+        # Secondary indexes for fast symbol resolution.
         self._by_trading_symbol: dict[str, str] = {}
+        self._by_canonical: dict[str, str] = {}
         self._by_token: dict[str, str] = {}
         self._task: Optional[asyncio.Task] = None
         self._stats = {"ticks": 0, "quotes_emitted": 0, "loops": 0}
@@ -160,6 +199,7 @@ class HistoricalReplayEngine:
         self._instruments.clear()
         self._state.clear()
         self._by_trading_symbol.clear()
+        self._by_canonical.clear()
         self._by_token.clear()
 
         rows = (
@@ -193,6 +233,13 @@ class HistoricalReplayEngine:
                 )
                 self._instruments[key] = track
                 self._by_trading_symbol[track.trading_symbol] = key
+                self._by_canonical[track.canonical_symbol] = key
+                if track.canonical_symbol.endswith(".NS"):
+                    self._by_canonical[track.canonical_symbol.replace(".NS", "")] = key
+                if track.canonical_symbol.endswith(".BO"):
+                    self._by_canonical[track.canonical_symbol.replace(".BO", "")] = key
+                if track.trading_symbol.endswith("-EQ"):
+                    self._by_canonical[track.trading_symbol.replace("-EQ", "")] = key
                 if track.token:
                     self._by_token[track.token] = key
 
@@ -215,6 +262,7 @@ class HistoricalReplayEngine:
         for track in self._instruments.values():
             track.candles.sort(key=lambda c: c["epoch"])
             track.cursor = -1
+            track.last_emitted_price = None
 
         # Start the clock at the session open.
         self._sim_epoch = int(
@@ -348,20 +396,20 @@ class HistoricalReplayEngine:
     # ── Quote construction ─────────────────────────────────────────
 
     def _build_equity_quote(self, track: ReplayInstrument, candle: dict) -> dict:
-        """Mirror the shape ZebuProvider._handle_tick builds for equities."""
+        """Mirror the shape ZebuProvider._handle_tick builds for equities with intra-bar micro-ticks."""
         prev = self._state.get(track.key) or {}
-        close = candle["close"]
-        # Day-open is the first candle's open; previous close is unavailable
-        # from intraday candles alone, so day change is measured from the open.
+        sim_ts = self._sim_epoch or candle["epoch"]
+        close = _interpolate_candle_price(candle, sim_ts)
+        
+        # Day-open is the first candle's open; day change is measured from the open.
         day_open = track.candles[0]["open"] if track.candles else candle["open"]
         change = round(close - day_open, 2)
         change_pct = round((change / day_open) * 100.0, 2) if day_open else 0.0
 
-        day_high = max(c["high"] for c in track.candles[: track.cursor + 1]) if track.cursor >= 0 else candle["high"]
-        day_low = min(c["low"] for c in track.candles[: track.cursor + 1]) if track.cursor >= 0 else candle["low"]
-        cumulative_volume = sum(
-            c["volume"] for c in track.candles[: track.cursor + 1]
-        ) if track.cursor >= 0 else candle["volume"]
+        elapsed = track.candles[: track.cursor + 1] if track.cursor >= 0 else [candle]
+        day_high = max(max(c["high"] for c in elapsed), close)
+        day_low = min(min(c["low"] for c in elapsed), close)
+        cumulative_volume = sum(c["volume"] for c in elapsed)
 
         token = track.token
         return {
@@ -385,16 +433,12 @@ class HistoricalReplayEngine:
             "oi": int(candle["open_interest"]) if candle["open_interest"] is not None else prev.get("oi", 0),
             "market_cap": 0,
             "exchange": track.exchange,
-            # `timestamp` is PUBLISH (wall-clock) time, not simulated time.
-            # Downstream freshness checks (market_data._is_quote_stale, a
-            # 120s window) treat this as tick recency — stamping the
-            # historical date here would make every replay quote look stale
-            # and silently break order fills.
+            # `timestamp` is PUBLISH (wall-clock) time.
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "simulated_timestamp": datetime.fromtimestamp(
-                self._sim_epoch or candle["epoch"], tz=timezone.utc
+                sim_ts, tz=timezone.utc
             ).isoformat(),
-            "last_trade_time": str(candle["epoch"]),
+            "last_trade_time": str(sim_ts),
             "source": REPLAY_SOURCE,
         }
 
@@ -404,20 +448,17 @@ class HistoricalReplayEngine:
         NFO/BFO ticks. Also used as options replay state.
         """
         prev = self._state.get(track.key) or {}
-        close = candle["close"]
+        sim_ts = self._sim_epoch or candle["epoch"]
+        close = _interpolate_candle_price(candle, sim_ts)
+        
         day_open = track.candles[0]["open"] if track.candles else candle["open"]
         change = round(close - day_open, 2)
         change_pct = round((change / day_open) * 100.0, 2) if day_open else 0.0
 
-        # Running session high/low up to the current cursor — matches the
-        # equity builder. Using the single candle's high/low here would make
-        # the reported day range collapse to one minute's range.
-        elapsed = track.candles[: track.cursor + 1] if track.cursor >= 0 else []
-        day_high = max((c["high"] for c in elapsed), default=candle["high"])
-        day_low = min((c["low"] for c in elapsed), default=candle["low"])
-        cumulative_volume = (
-            sum(c["volume"] for c in elapsed) if elapsed else candle["volume"]
-        )
+        elapsed = track.candles[: track.cursor + 1] if track.cursor >= 0 else [candle]
+        day_high = max(max(c["high"] for c in elapsed), close)
+        day_low = min(min(c["low"] for c in elapsed), close)
+        cumulative_volume = sum(c["volume"] for c in elapsed)
 
         oi = candle["open_interest"]
         return {
@@ -425,7 +466,6 @@ class HistoricalReplayEngine:
             "exchange": track.exchange,
             "token": track.token,
             "ltp": close,
-            # Bid/ask are not present in candle data — hold, never fabricate.
             "bid": prev.get("bid", 0),
             "ask": prev.get("ask", 0),
             "spread": 0,
@@ -440,15 +480,12 @@ class HistoricalReplayEngine:
             "avg_price": prev.get("avg_price", 0),
             "bid_qty": prev.get("bid_qty", 0),
             "ask_qty": prev.get("ask_qty", 0),
-            # Publish (wall-clock) time — see _build_equity_quote for why.
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "simulated_timestamp": datetime.fromtimestamp(
-                self._sim_epoch or candle["epoch"], tz=timezone.utc
+                sim_ts, tz=timezone.utc
             ).isoformat(),
-            "last_trade_time": str(candle["epoch"]),
+            "last_trade_time": str(sim_ts),
             "source": REPLAY_SOURCE,
-            # Fields consumed by routes/options.py normalizers (Zebu GetQuotes
-            # key aliases) so option legs need no special-casing downstream.
             "tsym": track.trading_symbol,
             "lp": close,
             "c": day_open,
@@ -494,8 +531,6 @@ class HistoricalReplayEngine:
             self._stats["quotes_emitted"] += 1
             return
 
-        # OPTIONS: no live tick pipeline exists. State is held in memory and
-        # read by routes/options.py when MarketDataMode is SIMULATION.
         self._stats["quotes_emitted"] += 1
 
     # ── Clock advance ──────────────────────────────────────────────
@@ -503,33 +538,159 @@ class HistoricalReplayEngine:
     async def advance_to(self, sim_epoch: int) -> int:
         """
         Move the simulated clock to sim_epoch and publish any instrument
-        whose in-effect candle changed.
-
-        Instruments with no new candle keep their existing state (carry
-        forward) — nothing is emitted for them and nothing is zero-filled.
-        Returns the number of instruments that advanced.
+        whose in-effect candle or intra-bar price changed.
         """
         self._sim_epoch = int(sim_epoch)
         advanced = 0
 
         for track in self._instruments.values():
+            if not track.candles:
+                continue
+
             # Find the newest candle at or before the clock.
-            new_cursor = track.cursor
-            for idx in range(track.cursor + 1, len(track.candles)):
+            new_cursor = -1
+            for idx in range(len(track.candles)):
                 if track.candles[idx]["epoch"] <= self._sim_epoch:
                     new_cursor = idx
                 else:
                     break
 
-            if new_cursor == track.cursor:
-                continue  # Hold last known state — no fabrication.
+            if new_cursor < 0:
+                continue
 
-            track.cursor = new_cursor
-            try:
-                await self._emit_for_track(track, track.candles[new_cursor])
-                advanced += 1
-            except Exception as exc:
-                logger.warning(f"Replay emit failed for {track.key}: {exc}")
+            candle = track.candles[new_cursor]
+            cur_price = _interpolate_candle_price(candle, self._sim_epoch)
+
+            # Emit whenever candle changes OR interpolated price changes
+            if new_cursor != track.cursor or track.last_emitted_price != cur_price:
+                track.cursor = new_cursor
+                track.last_emitted_price = cur_price
+                try:
+                    await self._emit_for_track(track, candle)
+                    advanced += 1
+                except Exception as exc:
+                    logger.warning(f"Replay emit failed for {track.key}: {exc}")
+
+        self._stats["ticks"] += 1
+        return advanced
+
+    def get_candles_up_to(
+        self, symbol: str, period: str = "1d", interval: str = "1d"
+    ) -> list[dict]:
+        """
+        Return replayed candles up to the current simulation epoch.
+        Aggregates 1-minute bars into requested interval (5m, 15m, 1h, 1d).
+        """
+        if not self._simulation_date or not self._instruments:
+            return []
+
+        raw = str(symbol or "").strip().upper()
+        key = self._by_canonical.get(raw) or self._by_trading_symbol.get(raw) or self._by_token.get(raw)
+        track = self._instruments.get(key) if key else None
+
+        if track is None:
+            for t in self._instruments.values():
+                if (
+                    t.canonical_symbol == raw
+                    or t.trading_symbol == raw
+                    or t.key == raw
+                    or raw in (t.canonical_symbol.replace(".NS", ""), t.canonical_symbol.replace(".BO", ""), t.trading_symbol.replace("-EQ", ""))
+                ):
+                    track = t
+                    break
+
+        if track is None or not track.candles:
+            return []
+
+        cutoff = self._sim_epoch or track.candles[-1]["epoch"]
+        bars = [c for c in track.candles if c["epoch"] <= cutoff]
+        if not bars:
+            return []
+
+        # Determine interval in seconds
+        interval_seconds = 60
+        if interval == "2m":
+            interval_seconds = 120
+        elif interval == "3m":
+            interval_seconds = 180
+        elif interval == "5m":
+            interval_seconds = 300
+        elif interval == "10m":
+            interval_seconds = 600
+        elif interval == "15m":
+            interval_seconds = 900
+        elif interval == "30m":
+            interval_seconds = 1800
+        elif interval == "1h":
+            interval_seconds = 3600
+        elif interval == "2h":
+            interval_seconds = 7200
+        elif interval == "4h":
+            interval_seconds = 14400
+        elif interval in ("1d", "1wk", "1mo"):
+            interval_seconds = 86400
+
+        if interval_seconds == 60:
+            res = [
+                {
+                    "time": b["epoch"],
+                    "open": b["open"],
+                    "high": b["high"],
+                    "low": b["low"],
+                    "close": b["close"],
+                    "volume": b["volume"],
+                }
+                for b in bars
+            ]
+            # Update the latest bar's close to current interpolated price
+            if res:
+                cur_price = _interpolate_candle_price(bars[-1], cutoff)
+                res[-1]["close"] = round(cur_price, 2)
+                res[-1]["high"] = round(max(res[-1]["high"], cur_price), 2)
+                res[-1]["low"] = round(min(res[-1]["low"], cur_price), 2)
+            return res
+
+        # Aggregate 1m bars into interval buckets
+        aggregated = []
+        current_bucket = None
+        c_open = c_high = c_low = c_close = c_vol = 0
+
+        for b in bars:
+            bucket_time = (b["epoch"] // interval_seconds) * interval_seconds
+            if current_bucket is None or bucket_time != current_bucket:
+                if current_bucket is not None:
+                    aggregated.append({
+                        "time": current_bucket,
+                        "open": round(c_open, 2),
+                        "high": round(c_high, 2),
+                        "low": round(c_low, 2),
+                        "close": round(c_close, 2),
+                        "volume": int(c_vol),
+                    })
+                current_bucket = bucket_time
+                c_open = b["open"]
+                c_high = b["high"]
+                c_low = b["low"]
+                c_close = b["close"]
+                c_vol = b["volume"]
+            else:
+                c_high = max(c_high, b["high"])
+                c_low = min(c_low, b["low"])
+                c_close = b["close"]
+                c_vol += b["volume"]
+
+        if current_bucket is not None:
+            cur_price = _interpolate_candle_price(bars[-1], cutoff)
+            aggregated.append({
+                "time": current_bucket,
+                "open": round(c_open, 2),
+                "high": round(max(c_high, cur_price), 2),
+                "low": round(min(c_low, cur_price), 2),
+                "close": round(cur_price, 2),
+                "volume": int(c_vol),
+            })
+
+        return aggregated
 
         self._stats["ticks"] += 1
         return advanced

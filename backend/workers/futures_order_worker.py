@@ -53,6 +53,17 @@ class FuturesOrderExecutionWorker:
         self._running = False
         self._stats = {"sweeps": 0, "tick_evals": 0, "fills": 0, "expired": 0, "errors": 0}
         self._open_orders_cache: dict[str, list] = {}  # contract_symbol -> [order_ids]
+        self._open_symbols: set[str] = set()
+        self._last_symbols_refresh: float = 0
+
+    async def _refresh_open_symbols(self, db: AsyncSession) -> None:
+        try:
+            res = await db.execute(select(FuturesOrder.contract_symbol).where(FuturesOrder.status == "OPEN").distinct())
+            self._open_symbols = set(res.scalars().all())
+            import time
+            self._last_symbols_refresh = time.time()
+        except Exception:
+            pass
 
     async def on_futures_tick(self, event) -> None:
         """EventBus handler: evaluate open orders on every FUTURES_QUOTE tick."""
@@ -60,6 +71,15 @@ class FuturesOrderExecutionWorker:
             contract_symbol = event.data.get("contract_symbol")
             quote = event.data.get("quote")
             if not contract_symbol or not quote:
+                return
+
+            import time
+            now = time.time()
+            if now - self._last_symbols_refresh > 5.0:
+                async with async_session_factory() as db:
+                    await self._refresh_open_symbols(db)
+
+            if contract_symbol not in self._open_symbols:
                 return
 
             ltp = quote.get("ltp")

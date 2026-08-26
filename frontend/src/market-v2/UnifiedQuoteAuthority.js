@@ -6,6 +6,7 @@ import { resolveFreshness } from './QuoteFreshnessResolver';
 import { quotePriorityEngine } from './QuotePriorityEngine';
 
 const SOURCE_RANK_OPEN = {
+  historical_replay: 5,
   live_ws: 5,
   live: 5,
   market_data_worker: 4,
@@ -22,6 +23,7 @@ const SOURCE_RANK_CLOSED = {
   eod: 9,
   frozen: 8,
   snapshot: 8,
+  historical_replay: 5,
   live_ws: 0,
   live: 0,
   poll: 2,

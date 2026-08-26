@@ -2269,9 +2269,21 @@ async def get_historical_data(
     user_id: Optional[str] = None,
 ) -> list:
     """
-    Get historical OHLCV data for charts via Zebu live data only.
+    Get historical OHLCV data for charts via Zebu live data only (or simulation replay in simulation mode).
     """
     symbol = _format_symbol(symbol)
+
+    if _is_simulation_mode():
+        try:
+            from services.historical_replay import historical_replay_engine
+            if historical_replay_engine.is_running:
+                replayed_candles = historical_replay_engine.get_candles_up_to(
+                    symbol, period=period, interval=interval
+                )
+                if replayed_candles:
+                    return replayed_candles
+        except Exception as exc:
+            logger.debug(f"Simulation history fetch failed for {symbol}: {exc}")
 
     cache_key = f"hist:{symbol}:{period}:{interval}"
     if cache_key in _symbol_requests:

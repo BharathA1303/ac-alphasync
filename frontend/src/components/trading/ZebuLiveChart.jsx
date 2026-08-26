@@ -1346,14 +1346,15 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
 
     // ── Live price updates (live session only — frozen on holiday/closed) ──
     useEffect(() => {
-        const isLiveOrHasRecentQuotes = marketLive || (lastQuoteAt > 0 && (Date.now() - lastQuoteAt) < 60000);
+        const isReplayQuote = liveQuote?.source === 'historical_replay' || Boolean(liveQuote?.simulated_timestamp);
+        const isLiveOrHasRecentQuotes = marketLive || isReplayQuote || (lastQuoteAt > 0 && (Date.now() - lastQuoteAt) < 60000);
         if (!isLiveOrHasRecentQuotes) return;
         const cs = candleSeriesRef.current;
         const vs = volumeSeriesRef.current;
         const ltp = toFiniteNumber(livePriceForEffect);
         if (!cs || !vs || ltp == null || ltp <= 0) return;
 
-        if (!isolateLivePrice) {
+        if (!isolateLivePrice && !isReplayQuote) {
             const marketStatus = String(liveQuote?.market_status || '').toLowerCase();
             if (CLOSED_MARKET_STATUSES.has(marketStatus)) return;
             // Block only if the last known live quote is very stale (>5 min).
@@ -1363,15 +1364,18 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
         const quoteTs = isolateLivePrice
             ? Math.floor(Date.now() / 1000)
             : parseQuoteEpochSeconds(
-                liveQuote?.last_trade_time ?? liveQuote?.timestamp ?? liveQuote?.ft
+                isReplayQuote
+                    ? (liveQuote?.simulated_timestamp ?? liveQuote?.last_trade_time ?? liveQuote?.timestamp)
+                    : (liveQuote?.last_trade_time ?? liveQuote?.timestamp ?? liveQuote?.ft)
             );
         if (quoteTs == null) return;
 
         const nowSec = Math.floor(Date.now() / 1000);
-        if (quoteTs > nowSec + 120) return;
-
-        const maxAgeSeconds = Math.max(LIVE_QUOTE_MAX_AGE_SECONDS, getIntervalSeconds(period) * 3);
-        if ((nowSec - quoteTs) > maxAgeSeconds) return;
+        if (!isReplayQuote) {
+            if (quoteTs > nowSec + 120) return;
+            const maxAgeSeconds = Math.max(LIVE_QUOTE_MAX_AGE_SECONDS, getIntervalSeconds(period) * 3);
+            if ((nowSec - quoteTs) > maxAgeSeconds) return;
+        }
 
         pendingLiveQuoteRef.current = {
             ltp,
@@ -1379,6 +1383,7 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
             quoteTs,
             intervalSeconds: getIntervalSeconds(period),
             intervalCode: periodCfg?.interval,
+            isReplayQuote,
         };
 
         if (liveUpdateRafRef.current) return;
@@ -1394,6 +1399,17 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
             const displayTs = quoteSec;
 
             if (candlesRef.current.length === 0) {
+                const initialCandle = {
+                    time: displayTs,
+                    open: pending.ltp,
+                    high: pending.ltp,
+                    low: pending.ltp,
+                    close: pending.ltp,
+                    volume: pending.cumulativeVolume || 0,
+                };
+                candlesRef.current = [initialCandle];
+                cs.setData([initialCandle]);
+                vs.setData([{ time: displayTs, value: initialCandle.volume, color: 'rgba(38,166,154,0.50)' }]);
                 return;
             }
 
@@ -1408,10 +1424,21 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
             );
             if (!Number.isFinite(bucketTime)) return;
 
-            if (bucketTime < lastCandle.time) return;
-
-            const maxForwardGap = Math.max(pending.intervalSeconds * 12, 30 * 60);
-            if ((bucketTime - lastCandle.time) > maxForwardGap) return;
+            if (pending.isReplayQuote) {
+                if (bucketTime < lastCandle.time) {
+                    const trimmed = candlesRef.current.filter((c) => Number(c.time) <= bucketTime);
+                    if (trimmed.length > 0) {
+                        candlesRef.current = trimmed;
+                        lastCandle = trimmed[trimmed.length - 1];
+                        cs.setData(trimmed.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+                        vs.setData(trimmed.map(c => ({ time: c.time, value: c.volume || 0, color: c.close >= c.open ? 'rgba(38,166,154,0.50)' : 'rgba(239,83,80,0.50)' })));
+                    }
+                }
+            } else {
+                if (bucketTime < lastCandle.time) return;
+                const maxForwardGap = Math.max(pending.intervalSeconds * 12, 30 * 60);
+                if ((bucketTime - lastCandle.time) > maxForwardGap) return;
+            }
 
             // Guard against cross-symbol/stale-source jumps creating extreme spikes.
             const baseClose = toFiniteNumber(lastCandle.close);

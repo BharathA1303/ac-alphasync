@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 
 _SOURCE_RANK_OPEN = {
+    "historical_replay": 5,
     "live_ws": 5,
     "live": 5,
     "market_data_worker": 4,
@@ -25,6 +26,7 @@ _SOURCE_RANK_CLOSED = {
     "eod": 10,
     "frozen": 9,
     "history_snapshot": 8,
+    "historical_replay": 5,
     "live_ws": 0,
     "live": 0,
     "poll": 4,
