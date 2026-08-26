@@ -666,10 +666,11 @@ function QuizModal({ courseId, assessment, onClose, onSubmitted }) {
 /* ────────────────────────────────────────────────────────────────
  * Pathway Circular Progress Gauge Component — High Contrast
  * ──────────────────────────────────────────────────────────────── */
-function CircularGauge({ pct = 0, size = 56, strokeWidth = 5, color = 'var(--brand, #00bcd4)' }) {
+function CircularGauge({ pct = 0, size = 52, strokeWidth = 4.5, color = '#00bcd4' }) {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (Math.max(0, Math.min(100, pct)) / 100) * circumference;
+    const cleanPct = Math.max(0, Math.min(100, Math.round(pct)));
+    const offset = circumference - (cleanPct / 100) * circumference;
 
     return (
         <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
@@ -678,15 +679,16 @@ function CircularGauge({ pct = 0, size = 56, strokeWidth = 5, color = 'var(--bra
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke="var(--border, rgba(0,0,0,0.1))"
+                    stroke="currentColor"
                     strokeWidth={strokeWidth}
                     fill="none"
+                    className="text-slate-200 dark:text-slate-800"
                 />
                 <circle
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke={pct >= 100 ? '#10b981' : color}
+                    stroke={cleanPct >= 100 ? '#10b981' : color}
                     strokeWidth={strokeWidth}
                     strokeDasharray={circumference}
                     strokeDashoffset={offset}
@@ -696,67 +698,77 @@ function CircularGauge({ pct = 0, size = 56, strokeWidth = 5, color = 'var(--bra
                 />
             </svg>
             <span
-                className="absolute text-xs font-extrabold font-mono tabular-nums"
-                style={{ color: pct >= 100 ? '#10b981' : 'var(--text-primary)' }}
+                className={`absolute text-xs font-extrabold font-mono tabular-nums ${
+                    cleanPct >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200'
+                }`}
             >
-                {pct >= 100 ? '100%' : `${Math.round(pct)}%`}
+                {cleanPct >= 100 ? '100%' : `${cleanPct}%`}
             </span>
         </div>
     );
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Pathway Course Card (Step 1, 2, 3, 4, 5... High Contrast)
+ * Pathway Course Card (Step 1, 2, 3, 4, 5... Fixed Sequence)
  * ──────────────────────────────────────────────────────────────── */
 function PathwayCourseCard({ stepNumber, course, isActive, onSelect, onOpenDetail }) {
     const lessonPct = course.lesson_count > 0 ? (course.lessons_completed / course.lesson_count) * 100 : 0;
-    const isCompleted = lessonPct >= 100;
+    const isCompleted = lessonPct >= 100 && course.lesson_count > 0;
+    const isInProgress = lessonPct > 0 && lessonPct < 100;
 
     return (
         <div
             onClick={() => onSelect(course)}
             onDoubleClick={() => onOpenDetail(course.id)}
-            className={`group relative flex flex-col justify-between p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
+            className={`group relative flex flex-col justify-between p-4 rounded-2xl border cursor-pointer transition-all duration-200 ${
                 isActive
-                    ? 'border-primary-500 bg-primary-500/10 shadow-lg ring-2 ring-primary-500/30 -translate-y-1'
-                    : 'border-edge/20 bg-surface-900/80 hover:bg-surface-800 hover:border-edge/40 hover:-translate-y-0.5'
+                    ? 'border-primary-500 bg-primary-500/10 shadow-lg ring-2 ring-primary-500/40 -translate-y-1'
+                    : isCompleted
+                    ? 'border-emerald-500/30 bg-emerald-500/[0.04] dark:bg-emerald-950/10 hover:border-emerald-500/60 hover:-translate-y-0.5 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111827] hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5'
             }`}
-            style={{ minHeight: 160, background: isActive ? 'var(--bg-surface)' : 'var(--bg-muted)', borderColor: isActive ? 'var(--brand)' : 'var(--border)' }}
+            style={{ minHeight: 175 }}
         >
-            {/* Top row: Step Number Badge & Completed Indicator */}
+            {/* Top row: Step Number & Status Indicator */}
             <div className="w-full flex items-center justify-between mb-2">
                 <span
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-mono font-extrabold"
-                    style={{
-                        background: isActive ? 'var(--brand)' : 'var(--bg-surface)',
-                        color: isActive ? '#04121a' : 'var(--text-primary)',
-                        border: '1px solid var(--border)',
-                    }}
+                    className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-mono font-extrabold shadow-sm ${
+                        isCompleted
+                            ? 'bg-emerald-500 text-white'
+                            : isActive
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                    }`}
                 >
-                    {stepNumber}
+                    {isCompleted ? '✓' : stepNumber}
                 </span>
+
                 {isCompleted ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full text-emerald-600 bg-emerald-500/15" title="Completed">
-                        ✓ Completed
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30" title="Completed">
+                        <CheckCircle2 size={11} className="flex-shrink-0" /> Done
+                    </span>
+                ) : isInProgress ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wide px-2 py-0.5 rounded-md text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
+                        In Progress
                     </span>
                 ) : (
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wide text-muted">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                         Module {stepNumber}
                     </span>
                 )}
             </div>
 
-            {/* Middle: Gauge */}
-            <div className="my-1 flex justify-center">
-                <CircularGauge pct={lessonPct} size={50} strokeWidth={4.5} />
+            {/* Middle: Progress Gauge */}
+            <div className="my-1.5 flex justify-center">
+                <CircularGauge pct={lessonPct} size={52} strokeWidth={4.5} />
             </div>
 
-            {/* Title & info */}
+            {/* Bottom: Title & Info */}
             <div className="w-full text-center mt-2">
-                <h4 className="text-sm font-bold truncate transition-colors" style={{ color: 'var(--text-primary)' }}>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate transition-colors group-hover:text-primary-600 dark:group-hover:text-primary-400" title={course.title}>
                     {course.title}
                 </h4>
-                <p className="text-xs font-medium truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {course.lesson_count} lesson{course.lesson_count === 1 ? '' : 's'} · {course.assessment_count} quiz{course.assessment_count === 1 ? '' : 'zes'}
                 </p>
             </div>
@@ -787,9 +799,9 @@ function CourseDetail({ courseId, onBack }) {
 
     useEffect(() => { loadCourse(); }, [loadCourse]);
 
-    const completedCount = course?.lessons.filter((l) => l.completed).length || 0;
-    const totalLessons = course?.lessons.length || 0;
-    const totalAssessments = course?.assessments.length || 0;
+    const completedCount = course?.lessons?.filter((l) => l.completed).length || 0;
+    const totalLessons = course?.lessons?.length || 0;
+    const totalAssessments = course?.assessments?.length || 0;
 
     if (activeQuiz) {
         return (
@@ -811,25 +823,29 @@ function CourseDetail({ courseId, onBack }) {
     }
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
-                <button className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-500 hover:text-heading transition-colors" style={{ background: 'var(--bg-muted)' }} onClick={onBack}>
-                    <ArrowLeft size={16} />
+                <button
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 hover:border-primary-500 transition-colors shadow-sm"
+                    onClick={onBack}
+                    title="Back to Pathway"
+                >
+                    <ArrowLeft size={18} />
                 </button>
                 {course && (
                     <div>
-                        <h1 className="text-xl font-display font-bold text-heading">{course.title}</h1>
-                        {course.description && <p className="text-sm text-gray-500 mt-0.5">{course.description}</p>}
+                        <h1 className="text-xl sm:text-2xl font-display font-extrabold text-slate-900 dark:text-white">{course.title}</h1>
+                        {course.description && <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">{course.description}</p>}
                     </div>
                 )}
             </div>
 
             {loading ? (
-                <div className="flex items-center justify-center py-16"><Loader2 size={22} className="animate-spin text-gray-500" /></div>
+                <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-primary-500" /></div>
             ) : !course ? (
-                <p className="text-sm text-gray-500">Course not found.</p>
+                <p className="text-sm text-slate-500">Course not found.</p>
             ) : (
-                <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SectionSummaryCard
                         icon={BookOpen}
                         title="Lessons"
@@ -864,82 +880,114 @@ export default function AcademyPage() {
             const { data } = await academyApi.listCourses();
             const fetched = data?.courses || [];
             
-            // Sort courses naturally (e.g. Tech 1 / Tech Analysis 1 -> Tech 2 -> Tech 3 -> Tech 4 -> Tech 5)
-            const sorted = [...fetched].sort((a, b) =>
-                a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
-            );
+            // Sort courses by chronological faculty order (created_at) so Step 1 is the 1st course, Step 2 is 2nd, etc.
+            const sorted = [...fetched].sort((a, b) => {
+                if (a.created_at && b.created_at) {
+                    return new Date(a.created_at) - new Date(b.created_at);
+                }
+                return a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+            });
             setCourses(sorted);
-            if (sorted.length > 0 && !selectedCourse) {
-                setSelectedCourse(sorted[0]);
+
+            // Auto-select first incomplete module, or first module if none/all complete
+            if (sorted.length > 0) {
+                const firstIncomplete = sorted.find((c) => c.lesson_count > 0 && c.lessons_completed < c.lesson_count);
+                setSelectedCourse((prev) => {
+                    if (prev) {
+                        const updated = sorted.find((c) => c.id === prev.id);
+                        if (updated) return updated;
+                    }
+                    return firstIncomplete || sorted[0];
+                });
             }
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to load courses'));
         } finally {
             setLoading(false);
         }
-    }, [selectedCourse]);
+    }, []);
 
     useEffect(() => { loadCourses(); }, [loadCourses]);
 
     const totalCourses = courses.length;
     const completedCoursesCount = courses.filter((c) => c.lesson_count > 0 && c.lessons_completed >= c.lesson_count).length;
+    const overallProgressPct = totalCourses > 0 ? Math.round((completedCoursesCount / totalCourses) * 100) : 0;
 
     const currentActiveCourse = selectedCourse || courses[0];
+    const currentActiveIndex = courses.findIndex((c) => c.id === currentActiveCourse?.id);
     const activeLessonPct = currentActiveCourse?.lesson_count > 0
         ? Math.round((currentActiveCourse.lessons_completed / currentActiveCourse.lesson_count) * 100)
         : 0;
+    const isActiveCompleted = activeLessonPct >= 100 && currentActiveCourse?.lesson_count > 0;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1240px] mx-auto flex flex-col gap-6">
+        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
             {activeCourseId ? (
                 <CourseDetail courseId={activeCourseId} onBack={() => { setActiveCourseId(null); loadCourses(); }} />
             ) : (
                 <>
-                    {/* Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                    {/* Top Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <GraduationCap size={18} style={{ color: 'var(--brand)' }} />
-                                <span className="text-xs font-extrabold uppercase tracking-widest" style={{ color: 'var(--brand)' }}>Academy Pathway</span>
+                                <GraduationCap size={20} className="text-primary-600 dark:text-primary-400" />
+                                <span className="text-xs font-extrabold uppercase tracking-widest text-primary-600 dark:text-primary-400">
+                                    Academy Pathway
+                                </span>
                             </div>
-                            <h1 className="text-2xl font-display font-extrabold" style={{ color: 'var(--text-primary)' }}>
+                            <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 dark:text-white">
                                 {user?.full_name ? `Good day, ${user.full_name.split(' ')[0]}` : 'Your Academy Pathway'}
                             </h1>
-                            <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                Complete pathway modules in order from 1 to {totalCourses} to build your track record.
+                            <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
+                                Complete pathway modules in order from 1 to {totalCourses} to build your professional trading knowledge.
                             </p>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg self-start sm:self-auto" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
-                            <Sparkles size={14} style={{ color: 'var(--brand)' }} />
-                            <span className="text-xs font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
-                                {completedCoursesCount} / {totalCourses} Completed
-                            </span>
+
+                        {/* Overall Completion Badge */}
+                        <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm self-start sm:self-auto">
+                            <Sparkles size={18} className="text-amber-500" />
+                            <div>
+                                <div className="text-xs font-bold text-slate-900 dark:text-white font-mono">
+                                    {completedCoursesCount} / {totalCourses} Modules Completed
+                                </div>
+                                <div className="w-32 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1.5">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${overallProgressPct}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {loading ? (
-                        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+                        <div className="flex items-center justify-center py-24"><Loader2 size={28} className="animate-spin text-primary-500" /></div>
                     ) : courses.length === 0 ? (
-                        <div className="text-center py-20">
-                            <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
-                            <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No courses available yet.</p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Check back once your institution approves a course.</p>
+                        <div className="text-center py-24 bg-white dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-slate-800 p-8">
+                            <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-40" />
+                            <p className="text-base font-bold text-slate-900 dark:text-white">No courses available yet.</p>
+                            <p className="text-xs text-slate-500 mt-1">Check back once your institution approves faculty courses.</p>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-6">
+                        <div className="space-y-6">
                             
-                            {/* 1. Pathway Steps Map (Top Grid: 1, 2, 3, 4, 5...) */}
-                            <div className="p-5 rounded-2xl flex flex-col gap-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-xs font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                                        Curriculum Pathway Map
-                                    </h2>
-                                    <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-muted)' }}>
+                            {/* 1. Curriculum Pathway Map (Modules 1, 2, 3, 4, 5...) */}
+                            <div className="p-6 rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                        <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                            Curriculum Pathway Map
+                                        </h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                            Structured in faculty sequence — completed modules remain checked in place.
+                                        </p>
+                                    </div>
+                                    <span className="text-xs font-mono font-semibold text-slate-400 dark:text-slate-500">
                                         Click any step to preview · Double click to open
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {courses.map((c, idx) => (
                                         <PathwayCourseCard
                                             key={c.id}
@@ -953,40 +1001,44 @@ export default function AcademyPage() {
                                 </div>
                             </div>
 
-                            {/* 2. Active Selected Course Banner */}
+                            {/* 2. Active Selected Course Hero Banner */}
                             {currentActiveCourse && (
                                 <div
-                                    className="p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all shadow-sm"
-                                    style={{
-                                        background: 'var(--bg-surface)',
-                                        border: '1px solid var(--brand)',
-                                        boxShadow: '0 4px 20px rgba(0, 188, 212, 0.08)',
-                                    }}
+                                    className="p-6 rounded-3xl bg-white dark:bg-[#111827] border-2 border-primary-500/50 shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 transition-all"
                                 >
                                     <div className="flex items-start gap-4 min-w-0 flex-1">
                                         <div
-                                            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                                            style={{ background: 'var(--brand)', color: '#04121a' }}
+                                            className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30 shadow-md"
                                         >
-                                            <BookOpen size={22} />
+                                            <BookOpen size={26} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold block mb-0.5" style={{ color: 'var(--brand)' }}>
-                                                CURRENT MODULE
-                                            </span>
-                                            <h3 className="text-lg font-extrabold truncate" style={{ color: 'var(--text-primary)' }}>
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold px-2.5 py-0.5 rounded-md bg-primary-500/15 text-primary-600 dark:text-primary-400 border border-primary-500/30">
+                                                    CURRENT MODULE · STEP {currentActiveIndex + 1}
+                                                </span>
+                                                {isActiveCompleted && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                                        ✓ Completed
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white truncate">
                                                 {currentActiveCourse.title}
                                             </h3>
-                                            <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                            <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
                                                 {currentActiveCourse.description || `${currentActiveCourse.lesson_count} lesson(s) · ${currentActiveCourse.assessment_count} quiz(zes)`}
                                             </p>
                                             
-                                            <div className="flex items-center gap-3 mt-3">
-                                                <div className="flex-1 max-w-xs">
-                                                    <ProgressBar pct={activeLessonPct} />
+                                            <div className="flex items-center gap-4 mt-4 flex-wrap">
+                                                <div className="w-48 sm:w-64 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-primary-500 rounded-full transition-all duration-500"
+                                                        style={{ width: `${activeLessonPct}%` }}
+                                                    />
                                                 </div>
-                                                <span className="text-xs font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
-                                                    {activeLessonPct}%
+                                                <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
+                                                    {activeLessonPct}% ({currentActiveCourse.lessons_completed}/{currentActiveCourse.lesson_count} lessons)
                                                 </span>
                                             </div>
                                         </div>
@@ -995,50 +1047,52 @@ export default function AcademyPage() {
                                     <button
                                         type="button"
                                         onClick={() => setActiveCourseId(currentActiveCourse.id)}
-                                        className="admin-action-btn admin-action-btn--primary text-xs font-extrabold px-6 py-3 rounded-xl flex-shrink-0 self-stretch sm:self-auto justify-center"
-                                        style={{ background: 'var(--brand)', color: '#04121a', minHeight: 42 }}
+                                        className="w-full lg:w-auto px-8 py-3.5 rounded-2xl font-extrabold text-sm text-white bg-primary-600 hover:bg-primary-500 active:scale-95 transition-all shadow-lg hover:shadow-primary-500/25 flex items-center justify-center gap-2 flex-shrink-0"
                                     >
-                                        Resume Course <ChevronRight size={16} />
+                                        {isActiveCompleted ? 'Review Course' : activeLessonPct > 0 ? 'Resume Course' : 'Start Course'} <ChevronRight size={18} />
                                     </button>
                                 </div>
                             )}
 
                             {/* 3. Quizzes & Assessments Section */}
-                            <div className="p-5 rounded-2xl flex flex-col gap-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                            <div className="p-6 rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <ClipboardCheck size={16} style={{ color: 'var(--brand)' }} />
-                                    <h3 className="text-xs font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+                                    <ClipboardCheck size={18} className="text-primary-600 dark:text-primary-400" />
+                                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
                                         Quizzes &amp; Assessments
                                     </h3>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                                     {courses.map((c, idx) => {
                                         const hasScore = c.best_score_percent !== null && c.best_score_percent !== undefined;
                                         return (
                                             <div
                                                 key={c.id}
                                                 onClick={() => setActiveCourseId(c.id)}
-                                                className="flex items-center justify-between p-3.5 rounded-xl transition-all cursor-pointer hover:brightness-110"
-                                                style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
+                                                className="flex flex-col justify-between p-4 rounded-2xl transition-all cursor-pointer bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 hover:border-primary-500/50 hover:shadow-md group"
+                                                style={{ minHeight: 110 }}
                                             >
-                                                <div className="min-w-0 pr-2">
-                                                    <span className="text-[10px] font-mono font-bold block" style={{ color: 'var(--brand)' }}>
+                                                <div>
+                                                    <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 inline-block mb-1">
                                                         Step {idx + 1}
                                                     </span>
-                                                    <p className="text-xs font-bold truncate mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                                                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                                                         {c.title} Quiz
                                                     </p>
                                                 </div>
-                                                {hasScore ? (
-                                                    <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md text-emerald-600 bg-emerald-500/15 border border-emerald-500/30 flex-shrink-0">
-                                                        Score: {c.best_score_percent}%
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs font-bold flex items-center gap-1 flex-shrink-0" style={{ color: 'var(--brand)' }}>
-                                                        Start <ChevronRight size={13} />
-                                                    </span>
-                                                )}
+
+                                                <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                                                    {hasScore ? (
+                                                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30">
+                                                            Score: {c.best_score_percent}%
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs font-bold flex items-center gap-1 text-primary-600 dark:text-primary-400 group-hover:translate-x-1 transition-transform">
+                                                            Start <ChevronRight size={13} />
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })}

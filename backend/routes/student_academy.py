@@ -116,7 +116,7 @@ async def list_available_courses(
     result = await db.execute(
         select(Course)
         .where(Course.status == "approved")
-        .order_by(Course.created_at.desc())
+        .order_by(Course.created_at.asc())
     )
     courses = result.scalars().all()
     if not courses:
@@ -152,6 +152,7 @@ async def list_available_courses(
                 "assessment_count": assessment_counts.get(str(c.id), 0),
                 "lessons_completed": completed_lessons.get(str(c.id), 0),
                 "best_score_percent": best_scores.get(str(c.id)),
+                "created_at": c.created_at.isoformat() if c.created_at else None,
             }
             for c in courses
         ]
