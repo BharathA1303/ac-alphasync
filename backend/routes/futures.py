@@ -262,6 +262,59 @@ async def list_contracts(
     return payload
 
 
+class BatchFuturesQuotesRequest(BaseModel):
+    contracts: list[str] = []
+
+
+@router.post("/quotes/batch")
+async def get_batch_contract_quotes(
+    req: BatchFuturesQuotesRequest,
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Get live quotes for multiple futures contracts in a single batch request.
+    """
+    contracts = req.contracts or []
+    quotes: dict[str, dict] = {}
+
+    for sym in contracts[:60]:
+        sym_clean = sym.strip().upper()
+        if not sym_clean:
+            continue
+        try:
+            q = await futures_service.get_quote(sym_clean)
+            if q and (q.get("ltp") is not None or q.get("price") is not None):
+                quotes[sym_clean] = {
+                    "contract_symbol": sym_clean,
+                    "ltp": q.get("ltp") or q.get("price") or q.get("lp"),
+                    "open": q.get("open") or q.get("o"),
+                    "high": q.get("high") or q.get("h"),
+                    "low": q.get("low") or q.get("l"),
+                    "close": q.get("close") or q.get("c"),
+                    **_change_fields(q),
+                    "volume": q.get("volume") or q.get("v") or 0,
+                    "oi": q.get("oi") or 0,
+                    "oi_change": q.get("oi_change"),
+                    "bid": q.get("bid") or q.get("b"),
+                    "ask": q.get("ask") or q.get("a"),
+                    "vwap": q.get("vwap"),
+                    "timestamp": _to_unix_timestamp(
+                        q.get("timestamp") or q.get("last_trade_time") or q.get("ft")
+                    ),
+                    "market_open": market_session.is_trading_hours(),
+                    "bid_depth": q.get("bid_depth"),
+                    "ask_depth": q.get("ask_depth"),
+                    "basis": q.get("basis"),
+                    "premium": q.get("premium"),
+                    "_tier": q.get("_tier"),
+                    "available": True,
+                }
+        except Exception as e:
+            logger.debug(f"Batch quote failed for {sym_clean}: {e}")
+
+    return {"quotes": quotes}
+
+
 @router.get("/quote/{contract_symbol}")
 async def get_contract_quote(
     contract_symbol: str,
@@ -431,6 +484,9 @@ async def get_contract_quote(
         "market_open": market_session.is_trading_hours(),
         "bid_depth": quote.get("bid_depth"),
         "ask_depth": quote.get("ask_depth"),
+        "basis": quote.get("basis"),
+        "premium": quote.get("premium"),
+        "_tier": quote.get("_tier"),
         "available": True,
     }
 

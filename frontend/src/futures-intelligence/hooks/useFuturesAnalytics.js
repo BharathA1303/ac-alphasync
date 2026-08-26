@@ -74,6 +74,31 @@ export function useFuturesAnalytics() {
     };
   }, [selectedUnderlying, sessionKey]);
 
+  // Fetch quotes for all timeline contracts (Near, Mid, Far) of the active underlying
+  useEffect(() => {
+    if (!selectedUnderlying) return;
+    const symbols = byUnderlying[selectedUnderlying] || [];
+    if (!symbols.length) return;
+
+    const missing = symbols.filter((s) => !quotes[s] || quotes[s]?.available === false);
+    if (!missing.length) return;
+
+    api.post('/futures/quotes/batch', { contracts: symbols }).then((res) => {
+      const q = res.data?.quotes;
+      if (q && Object.keys(q).length > 0) {
+        useUnifiedFuturesStore.getState().updateQuotes(q);
+      }
+    }).catch(() => {
+      missing.forEach((sym) => {
+        api.get(`/futures/quote/${encodeURIComponent(sym)}`).then((res) => {
+          if (res.data) {
+            useUnifiedFuturesStore.getState().setQuote(sym, res.data);
+          }
+        }).catch(() => {});
+      });
+    });
+  }, [selectedUnderlying, byUnderlying, quotes]);
+
   // Merge WebSocket live price into spotQuote for broker-level spot price speed.
   // When the underlying is subscribed to the main market WebSocket (e.g. it's in
   // the user's watchlist), we get tick-by-tick LTP without waiting for the REST poll.
