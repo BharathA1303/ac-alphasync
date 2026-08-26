@@ -16,9 +16,10 @@ from sqlalchemy import (
     Numeric,
     DateTime,
     ForeignKey,
+    JSON,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from database.connection import Base
 
 
@@ -70,7 +71,7 @@ class TradingAssignment(Base):
     )
     # JSON list of symbols, e.g. ["RELIANCE", "TCS"] or [] for ANY
     target_symbols = Column(
-        JSONB, default=list, nullable=False, server_default=text("'[]'::jsonb")
+        JSON, default=list, nullable=False, server_default=text("'[]'")
     )
 
     min_trades = Column(
@@ -99,12 +100,12 @@ class TradingAssignment(Base):
 
     # JSON list of product types, e.g. ["CNC", "MIS"] or ["ALL"]
     allowed_product_types = Column(
-        JSONB, default=lambda: ["ALL"], nullable=False, server_default=text("'[\"ALL\"]'::jsonb")
+        JSON, default=lambda: ["ALL"], nullable=False, server_default=text("'[\"ALL\"]'")
     )
 
     # Arbitrary additional rule constraints
     rules_config = Column(
-        JSONB, default=dict, nullable=False, server_default=text("'{}'::jsonb")
+        JSON, default=dict, nullable=False, server_default=text("'{}'")
     )
 
     created_at = Column(
@@ -161,12 +162,12 @@ class AssignmentSubmission(Base):
 
     # Array of order UUID strings that satisfied the assignment requirements
     matched_order_ids = Column(
-        JSONB, default=list, nullable=False, server_default=text("'[]'::jsonb")
+        JSON, default=list, nullable=False, server_default=text("'[]'")
     )
 
     # Detailed evaluation results containing rule checklist and metrics
     evaluation_summary = Column(
-        JSONB, default=dict, nullable=False, server_default=text("'{}'::jsonb")
+        JSON, default=dict, nullable=False, server_default=text("'{}'")
     )
 
     student_notes = Column(Text, nullable=True)

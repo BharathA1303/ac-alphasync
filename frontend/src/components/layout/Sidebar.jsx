@@ -24,7 +24,7 @@ import {
   Lightbulb,
   GraduationCap,
   ClipboardCheck,
-  Target,
+  ListCheck,
 } from "lucide-react";
 
 /* ─── Avatar helpers ─────────────────────────────────────── */
@@ -340,7 +340,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                   />
                   <SidebarItem
                     to="/faculty/assignments"
-                    icon={Target}
+                    icon={ListCheck}
                     label="Trading Tasks"
                     collapsed={collapsed}
                     onNavigate={closeMobileDrawer}
@@ -358,7 +358,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                   />
                   <SidebarItem
                     to="/student/assignments"
-                    icon={Target}
+                    icon={ListCheck}
                     label="Trading Tasks"
                     collapsed={collapsed}
                     onNavigate={closeMobileDrawer}
@@ -441,7 +441,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                     />
                     <SidebarItem
                       to="/faculty/assignments"
-                      icon={Target}
+                      icon={ListCheck}
                       label="Trading Tasks"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
@@ -462,7 +462,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                     />
                     <SidebarItem
                       to="/student/assignments"
-                      icon={Target}
+                      icon={ListCheck}
                       label="Trading Tasks"
                       collapsed={collapsed}
                       onNavigate={closeMobileDrawer}
