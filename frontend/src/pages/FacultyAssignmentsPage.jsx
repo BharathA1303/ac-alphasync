@@ -139,11 +139,11 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                 <div className="p-6 overflow-y-auto space-y-5 text-xs">
                     {/* Basic Info */}
                     <div className="space-y-3">
-                        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
                             1. Task Details
                         </label>
                         <div>
-                            <label className="block mb-1 text-muted">Task Title *</label>
+                            <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Task Title *</label>
                             <input
                                 className="input-field text-sm w-full"
                                 placeholder="e.g. Stop-Loss Discipline & Risk Sizing Challenge"
@@ -152,7 +152,7 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                             />
                         </div>
                         <div>
-                            <label className="block mb-1 text-muted">Instructions & Objective</label>
+                            <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Instructions & Objective</label>
                             <textarea
                                 className="input-field text-xs w-full"
                                 style={{ height: 68, resize: 'vertical' }}
@@ -165,12 +165,12 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
 
                     {/* Target Assets & Scope */}
                     <div className="space-y-3 pt-2 border-t border-edge/10">
-                        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
                             2. Market & Symbol Scope
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                                <label className="block mb-1 text-muted">Asset Class</label>
+                                <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Asset Class</label>
                                 <select
                                     className="input-field text-xs w-full"
                                     value={targetAsset}
@@ -182,7 +182,7 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                                 </select>
                             </div>
                             <div>
-                                <label className="block mb-1 text-muted">Allowed Order Side</label>
+                                <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Allowed Order Side</label>
                                 <select
                                     className="input-field text-xs w-full"
                                     value={allowedSides}
@@ -196,7 +196,7 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                         </div>
 
                         <div>
-                            <label className="block mb-1 text-muted">
+                            <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">
                                 Target Symbols (Optional — comma separated, blank for any)
                             </label>
                             <input
@@ -210,12 +210,12 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
 
                     {/* Discipline Rules */}
                     <div className="space-y-3 pt-2 border-t border-edge/10">
-                        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
                             3. Trading Discipline Rules
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                                <label className="block mb-1 text-muted">Min Required Trades</label>
+                                <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Min Required Trades</label>
                                 <input
                                     type="number"
                                     min={1}
@@ -226,7 +226,7 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                                 />
                             </div>
                             <div>
-                                <label className="block mb-1 text-muted">Product Type</label>
+                                <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Product Type</label>
                                 <select
                                     className="input-field text-xs w-full"
                                     value={productType}
@@ -239,7 +239,7 @@ function AssignmentModal({ isOpen, onClose, onSaved, editData = null }) {
                                 </select>
                             </div>
                             <div>
-                                <label className="block mb-1 text-muted">Pass Threshold Score (%)</label>
+                                <label className="block mb-1 font-medium text-slate-700 dark:text-slate-300">Pass Threshold Score (%)</label>
                                 <input
                                     type="number"
                                     min={10}
