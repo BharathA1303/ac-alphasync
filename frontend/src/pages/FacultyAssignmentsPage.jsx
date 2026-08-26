@@ -378,6 +378,7 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
     const [loading, setLoading] = useState(true);
     const [assignment, setAssignment] = useState(null);
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [studentSearch, setStudentSearch] = useState('');
     const [feedback, setFeedback] = useState('');
     const [grading, setGrading] = useState(false);
 
@@ -432,85 +433,170 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
 
     if (!isOpen) return null;
 
+    const filteredSubmissions = assignment?.submissions?.filter((st) => {
+        if (!studentSearch.trim()) return true;
+        const q = studentSearch.toLowerCase();
+        return (
+            st.student_name?.toLowerCase().includes(q) ||
+            st.student_email?.toLowerCase().includes(q)
+        );
+    }) || [];
+
+    // Fallback default checklist based on assignment rules if student hasn't evaluated yet
+    const getChecklist = () => {
+        if (selectedStudent?.evaluation_summary?.checklist?.length > 0) {
+            return selectedStudent.evaluation_summary.checklist;
+        }
+        if (!assignment) return [];
+        const fallback = [
+            {
+                title: `Execute at least ${assignment.min_trades} qualifying trade(s)`,
+                satisfied: false,
+                weight: 40,
+                required: assignment.min_trades,
+                actual: selectedStudent?.matched_trades_count || 0,
+            },
+        ];
+        if (assignment.require_stop_loss) {
+            fallback.push({
+                title: `Stop-Loss Discipline (SL trigger set ${assignment.max_sl_percent ? `≤ ${assignment.max_sl_percent}%` : 'mandatory'})`,
+                satisfied: false,
+                weight: 30,
+            });
+        }
+        if (assignment.require_take_profit) {
+            fallback.push({
+                title: `Take-Profit Target (Risk/Reward ${assignment.min_risk_reward_ratio ? `≥ 1:${assignment.min_risk_reward_ratio}` : 'mandatory'})`,
+                satisfied: false,
+                weight: 30,
+            });
+        }
+        return fallback;
+    };
+
+    const checklistItems = getChecklist();
+
     return (
         <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/70 backdrop-blur-md animate-fade-in">
             <div
-                className="w-full max-w-4xl h-full flex flex-col shadow-2xl animate-slide-left bg-white dark:bg-[#111827] border-l border-slate-200 dark:border-slate-800"
+                className="w-full max-w-5xl h-full flex flex-col shadow-2xl animate-slide-left bg-white dark:bg-[#0f172a] border-l border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/80">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                            <UserCheck size={20} />
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                            <ListCheck size={22} />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                                {assignment?.title || 'Trading Task Submissions'}
-                            </h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+                                    {assignment?.title || 'Trading Task Submissions'}
+                                </h2>
+                                {assignment?.target_asset_class && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        {assignment.target_asset_class}
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Review student trade executions, discipline scorecards, and order logs
+                                Real-time order log grading, stop-loss compliance, and student execution review
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
                     >
-                        <X size={18} />
+                        <X size={20} />
                     </button>
                 </div>
 
                 {/* Content */}
                 {loading ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                        <Loader2 size={32} className="animate-spin text-emerald-500" />
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                        <Loader2 size={36} className="animate-spin text-emerald-500" />
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                             Analyzing student order records...
                         </span>
                     </div>
                 ) : (
                     <div className="flex-1 flex overflow-hidden">
                         {/* Student List Sidebar */}
-                        <div className="w-72 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/30">
-                            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                                <span>Students ({assignment?.submissions?.length || 0})</span>
+                        <div className="w-80 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/60 dark:bg-slate-900/40">
+                            <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
+                                <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    <span>Enrolled Students</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[11px] font-mono">
+                                        {assignment?.submissions?.length || 0}
+                                    </span>
+                                </div>
+                                <div className="relative">
+                                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        className="w-full pl-8 pr-3 py-1.5 rounded-lg border text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        placeholder="Search student..."
+                                        value={studentSearch}
+                                        onChange={(e) => setStudentSearch(e.target.value)}
+                                    />
+                                </div>
                             </div>
+
                             <div className="flex-1 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800/60">
-                                {assignment?.submissions?.map((st) => {
+                                {filteredSubmissions.map((st) => {
                                     const isSelected = selectedStudent?.student_id === st.student_id;
+                                    const initials = (st.student_name || 'Student')
+                                        .split(' ')
+                                        .map((n) => n[0])
+                                        .join('')
+                                        .slice(0, 2)
+                                        .toUpperCase();
+
                                     return (
                                         <button
                                             key={st.student_id}
                                             onClick={() => handleSelectStudent(st)}
-                                            className={`w-full text-left p-4 transition flex flex-col gap-1.5 ${
+                                            className={`w-full text-left p-3.5 transition flex items-center gap-3 ${
                                                 isSelected
                                                     ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-l-4 border-emerald-500'
                                                     : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/50'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between">
-                                                <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                                    {st.student_name}
-                                                </span>
-                                                {st.passed ? (
-                                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                                                        <CheckCircle2 size={10} /> Passed
-                                                    </span>
-                                                ) : st.status === 'in_progress' ? (
-                                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                                                        <Clock size={10} /> In Progress
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400">
-                                                        {st.status === 'submitted' ? 'Submitted' : 'Not Started'}
-                                                    </span>
-                                                )}
+                                            <div
+                                                className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                                    st.passed
+                                                        ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                                                        : isSelected
+                                                        ? 'bg-emerald-600 text-white'
+                                                        : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                                }`}
+                                            >
+                                                {initials}
                                             </div>
-                                            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                                                <span>{st.matched_trades_count} qualifying trades</span>
-                                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                                    {st.score}%
-                                                </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                                        {st.student_name}
+                                                    </span>
+                                                    {st.passed ? (
+                                                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                                            Passed
+                                                        </span>
+                                                    ) : st.status === 'in_progress' ? (
+                                                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                                                            In Progress
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-slate-400">
+                                                            {st.status === 'submitted' ? 'Submitted' : 'Not Started'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                    <span>{st.matched_trades_count} qualifying trade(s)</span>
+                                                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                                        {st.score}%
+                                                    </span>
+                                                </div>
                                             </div>
                                         </button>
                                     );
@@ -522,34 +608,55 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
                         <div className="flex-1 flex flex-col overflow-y-auto p-6 space-y-6">
                             {selectedStudent ? (
                                 <>
-                                    {/* Student Header Summary */}
-                                    <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4">
-                                        <div>
-                                            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                                                {selectedStudent.student_name}
-                                            </h3>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                {selectedStudent.student_email}
-                                            </p>
+                                    {/* Task Rules Overview Mini-Banner */}
+                                    <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/5 via-indigo-500/5 to-transparent border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Shield size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                                Task Target:
+                                            </span>
+                                            <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                                                Min {assignment?.min_trades} Trade{assignment?.min_trades > 1 ? 's' : ''} •{' '}
+                                                {assignment?.require_stop_loss ? `Max SL ${assignment?.max_sl_percent || 2}%` : 'No SL limit'} •{' '}
+                                                Pass Score {assignment?.pass_score}%
+                                            </span>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                    </div>
+
+                                    {/* Student Header Summary Card */}
+                                    <div className="p-5 rounded-2xl border bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between flex-wrap gap-4">
+                                        <div className="flex items-center gap-3.5">
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-extrabold text-base flex items-center justify-center shadow-md shadow-emerald-500/20">
+                                                {(selectedStudent.student_name || 'S')[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                                    {selectedStudent.student_name}
+                                                </h3>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                                    {selectedStudent.student_email}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
                                             <div className="text-right">
                                                 <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
                                                     Discipline Score
                                                 </div>
-                                                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                                                <div className="text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
                                                     {selectedStudent.score}%
                                                 </div>
                                             </div>
-                                            <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+                                            <div className="h-10 w-px bg-slate-200 dark:bg-slate-700" />
                                             <div>
                                                 {selectedStudent.passed ? (
-                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20">
-                                                        <CheckCircle2 size={14} /> Passed Requirements
+                                                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 shadow-sm">
+                                                        <CheckCircle2 size={15} /> Passed Requirements
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20">
-                                                        <AlertCircle size={14} /> Criteria Pending
+                                                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20 shadow-sm">
+                                                        <AlertCircle size={15} /> Criteria Pending
                                                     </div>
                                                 )}
                                             </div>
@@ -558,27 +665,43 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
 
                                     {/* Rule Checklist Verification */}
                                     <div className="space-y-3">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                            <BarChart3 size={15} className="text-emerald-500" />
-                                            Rule Verification Checklist
-                                        </h4>
-                                        <div className="space-y-2">
-                                            {selectedStudent.evaluation_summary?.checklist?.map((c, idx) => (
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                <BarChart3 size={15} className="text-emerald-500" />
+                                                Rule Verification Checklist
+                                            </h4>
+                                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                                Threshold: {assignment?.pass_score}%
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2.5">
+                                            {checklistItems.map((c, idx) => (
                                                 <div
                                                     key={idx}
-                                                    className="flex items-center justify-between p-3.5 rounded-xl border bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-xs"
+                                                    className={`p-4 rounded-xl border flex items-center justify-between text-xs transition ${
+                                                        c.satisfied
+                                                            ? 'bg-emerald-500/5 border-emerald-500/25'
+                                                            : 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800'
+                                                    }`}
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         {c.satisfied ? (
-                                                            <CheckCircle2 size={17} className="text-emerald-500 flex-shrink-0" />
+                                                            <CheckCircle2 size={18} className="text-emerald-500 flex-shrink-0" />
                                                         ) : (
-                                                            <XCircle size={17} className="text-red-500 flex-shrink-0" />
+                                                            <XCircle size={18} className="text-slate-400 dark:text-slate-600 flex-shrink-0" />
                                                         )}
-                                                        <span className="font-semibold text-slate-900 dark:text-white">
-                                                            {c.title}
-                                                        </span>
+                                                        <div>
+                                                            <div className="font-bold text-slate-900 dark:text-white">
+                                                                {c.title}
+                                                            </div>
+                                                            {c.actual !== undefined && (
+                                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                                                    Status: {c.actual} / {c.required} qualifying orders executed
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400">
+                                                    <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-400">
                                                         Weight: {c.weight}%
                                                     </span>
                                                 </div>
@@ -588,15 +711,15 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
 
                                     {/* Matched Orders Log */}
                                     <div className="space-y-3">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                             <TrendingUp size={15} className="text-emerald-500" />
                                             Order Execution Log
                                         </h4>
                                         {selectedStudent.evaluation_summary?.orders_evaluated?.length > 0 ? (
-                                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                                <table className="w-full text-left text-xs border-collapse">
+                                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden font-mono text-xs">
+                                                <table className="w-full text-left border-collapse">
                                                     <thead>
-                                                        <tr className="bg-slate-100/80 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                                        <tr className="bg-slate-100/80 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-sans">
                                                             <th className="p-3">Symbol</th>
                                                             <th className="p-3">Side</th>
                                                             <th className="p-3">Exec Price</th>
@@ -605,7 +728,7 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
                                                             <th className="p-3">Compliance</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono">
+                                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                                                         {selectedStudent.evaluation_summary.orders_evaluated.map((o) => (
                                                             <tr key={o.order_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
                                                                 <td className="p-3 font-bold text-slate-900 dark:text-white">
@@ -648,33 +771,33 @@ function SubmissionsDrawer({ assignmentId, isOpen, onClose }) {
                                                 </table>
                                             </div>
                                         ) : (
-                                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 text-xs text-slate-500 text-center">
-                                                No qualifying order executions found in student's trading history.
+                                            <div className="p-5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
+                                                No qualifying order executions found in student's trading history yet.
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Student Notes if any */}
+                                    {/* Student Reflection Notes */}
                                     {selectedStudent.student_notes && (
-                                        <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 space-y-1.5">
+                                        <div className="p-4 rounded-2xl border bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 space-y-1.5">
                                             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                                                 Student Submission Reflection
                                             </div>
-                                            <p className="text-xs text-slate-800 dark:text-slate-200 italic font-serif">
+                                            <p className="text-xs text-slate-800 dark:text-slate-200 italic font-serif leading-relaxed">
                                                 "{selectedStudent.student_notes}"
                                             </p>
                                         </div>
                                     )}
 
                                     {/* Faculty Feedback Form */}
-                                    <div className="p-5 rounded-xl border bg-slate-50/80 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 space-y-3">
+                                    <div className="p-5 rounded-2xl border bg-white dark:bg-slate-900/90 border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5">
                                         <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <MessageSquare size={15} className="text-emerald-500" />
+                                            <MessageSquare size={16} className="text-emerald-500" />
                                             Faculty Coaching Notes &amp; Manual Override
                                         </label>
                                         <textarea
-                                            className="w-full px-3.5 py-2.5 rounded-xl border text-xs transition bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
-                                            style={{ height: 64, resize: 'vertical' }}
+                                            className="w-full px-3.5 py-2.5 rounded-xl border text-xs transition bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                                            style={{ height: 68, resize: 'vertical' }}
                                             placeholder="Leave coaching feedback on student's risk management or trade setups..."
                                             value={feedback}
                                             onChange={(e) => setFeedback(e.target.value)}
