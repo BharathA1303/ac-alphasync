@@ -31,41 +31,47 @@ export default function AtRiskList({ data, isLoading }) {
 
                 {/* Learner List */}
                 <div className="divide-y divide-edge/5 mt-1">
-                    {learners.map((st) => (
-                        <div
-                            key={st.id}
-                            className="py-2.5 flex items-center justify-between gap-2 hover:bg-surface-800/30 transition-colors rounded-lg px-1.5"
-                        >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={cn(
-                                    "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold uppercase text-white flex-shrink-0 shadow-sm",
-                                    st.severity === 'HIGH' ? "bg-rose-600" : "bg-amber-600"
-                                )}>
-                                    {st.avatar_initials}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-bold text-heading truncate">
-                                            {st.name}
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] text-gray-400 font-sans truncate max-w-[200px] mt-0.5">
-                                        {st.diagnostic_tag}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() => navigate(st.decision_replay_url || '/terminal')}
-                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-surface-800 hover:bg-surface-700 text-gray-300 hover:text-heading border border-edge/10 transition-colors flex-shrink-0"
-                                title="Inspect student execution & decision replay"
+                    {learners.length > 0 ? (
+                        learners.map((st) => (
+                            <div
+                                key={st.id}
+                                className="py-2.5 flex items-center justify-between gap-2 hover:bg-surface-800/30 transition-colors rounded-lg px-1.5"
                             >
-                                <Eye className="w-3 h-3 text-primary-500" />
-                                Review
-                            </button>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className={cn(
+                                        "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold uppercase text-white flex-shrink-0 shadow-sm",
+                                        st.severity === 'HIGH' ? "bg-rose-600" : "bg-amber-600"
+                                    )}>
+                                        {st.avatar_initials}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-xs font-bold text-heading truncate">
+                                                {st.name}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 font-sans truncate max-w-[200px] mt-0.5">
+                                            {st.diagnostic_tag}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(st.decision_replay_url || '/terminal')}
+                                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-surface-800 hover:bg-surface-700 text-gray-300 hover:text-heading border border-edge/10 transition-colors flex-shrink-0"
+                                    title="Inspect student execution & decision replay"
+                                >
+                                    <Eye className="w-3 h-3 text-primary-500" />
+                                    Review
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="py-6 text-center text-xs text-gray-400">
+                            No learners currently flagged for high risk or inactivity.
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 

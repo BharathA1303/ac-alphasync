@@ -28,24 +28,30 @@ export default function WeakConceptList({ data, onOpenRemediationModal, isLoadin
 
                 {/* Concept List */}
                 <div className="space-y-2.5 mt-3">
-                    {weak_concepts.map((item) => (
-                        <div key={item.id} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="font-semibold text-heading truncate max-w-[180px]">
-                                    {item.concept}
-                                </span>
-                                <span className="font-mono font-bold text-amber-500 dark:text-amber-400">
-                                    {item.mastery_percent}%
-                                </span>
+                    {weak_concepts.length > 0 ? (
+                        weak_concepts.map((item) => (
+                            <div key={item.id} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-heading truncate max-w-[180px]">
+                                        {item.concept}
+                                    </span>
+                                    <span className="font-mono font-bold text-amber-500 dark:text-amber-400">
+                                        {item.mastery_percent}%
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-surface-800 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                                        style={{ width: `${item.mastery_percent}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="h-1.5 w-full bg-surface-800 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                                    style={{ width: `${item.mastery_percent}%` }}
-                                />
-                            </div>
+                        ))
+                    ) : (
+                        <div className="py-6 text-center text-xs text-gray-400">
+                            No concept deficiencies identified yet.
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 

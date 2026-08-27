@@ -12,6 +12,7 @@ export default function MasteryHeatmap({ data, isLoading }) {
 
     // Helper to get color intensity based on score
     const getCellColor = (score) => {
+        if (!score || score === 0) return "bg-surface-800/40 text-gray-600";
         if (score >= 80) return "bg-primary-500/80 text-white font-bold";
         if (score >= 65) return "bg-primary-600/50 text-slate-100";
         if (score >= 50) return "bg-primary-800/40 text-slate-300";
