@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   ListCheck,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 
 /* ─── Role-Based Section definitions (Academic Campus Priority) ─── */
@@ -55,6 +56,7 @@ function getNavigationSections(role) {
       items: [
         { to: "/institution/portal", icon: GraduationCap, label: "Campus Portal" },
         { to: "/institution/courses", icon: ClipboardCheck, label: "Course Approvals" },
+        { to: "/institution/compliance", icon: ShieldCheck, label: "SEBI Compliance" },
         { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
         { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
       ],

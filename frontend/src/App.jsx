@@ -47,6 +47,7 @@ import AdminAcademicPage from './pages/AdminAcademicPage';
 import AdminInstitutionDetailPage from './pages/AdminInstitutionDetailPage';
 import InstitutionPortalPage from './pages/InstitutionPortalPage';
 import InstitutionCoursesPage from './pages/InstitutionCoursesPage';
+import InstitutionCompliancePage from './pages/InstitutionCompliancePage';
 import FacultyPortalPage from './pages/FacultyPortalPage';
 import FacultyCohortPage from './pages/FacultyCohortPage';
 import FacultyAssignmentsPage from './pages/FacultyAssignmentsPage';
@@ -144,6 +145,9 @@ export default function App() {
                             } />
                             <Route path="/institution/courses" element={
                                 <InstitutionRoute><InstitutionCoursesPage /></InstitutionRoute>
+                            } />
+                            <Route path="/institution/compliance" element={
+                                <InstitutionRoute><InstitutionCompliancePage /></InstitutionRoute>
                             } />
                             {/* ── Faculty portal & assignments ── */}
                             <Route path="/faculty/portal" element={
