@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
+import { Bot, ShieldCheck } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 
 export default function AiGuardrailPanel({ data, isLoading }) {
@@ -14,7 +14,7 @@ export default function AiGuardrailPanel({ data, isLoading }) {
     } = data;
 
     return (
-        <div className="rounded-xl bg-surface-900/70 border border-edge/10 p-4 flex flex-col justify-between shadow-sm">
+        <div className="rounded-xl bg-surface-900 border border-edge/15 p-4 flex flex-col justify-between shadow-sm">
             <div>
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-edge/10">
@@ -40,7 +40,7 @@ export default function AiGuardrailPanel({ data, isLoading }) {
                         <span className="text-xs font-bold text-heading leading-tight block">
                             Advisory responses reaching a learner
                         </span>
-                        <span className="text-[10px] text-gray-500 font-mono mt-0.5 block">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 block">
                             in the last {period_days} days
                         </span>
                     </div>
@@ -49,26 +49,26 @@ export default function AiGuardrailPanel({ data, isLoading }) {
                 {/* Metrics Breakdown */}
                 <div className="divide-y divide-edge/5 mt-4 text-xs font-sans">
                     <div className="py-1.5 flex items-center justify-between">
-                        <span className="text-gray-400 text-[11px]">Responses generated</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Responses generated</span>
                         <span className="font-mono font-bold text-heading text-[11px]">{metrics.responses_generated?.toLocaleString() || "0"}</span>
                     </div>
                     <div className="py-1.5 flex items-center justify-between">
-                        <span className="text-gray-400 text-[11px]">Blocked by classifier</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Blocked by classifier</span>
                         <span className="font-mono font-bold text-amber-500 text-[11px]">{metrics.blocked_by_classifier || 0}</span>
                     </div>
                     <div className="py-1.5 flex items-center justify-between">
-                        <span className="text-gray-400 text-[11px]">Refused as prompt injection</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Refused as prompt injection</span>
                         <span className="font-mono font-bold text-rose-500 text-[11px]">{metrics.refused_as_prompt_injection || 0}</span>
                     </div>
                     <div className="py-1.5 flex items-center justify-between">
-                        <span className="text-gray-400 text-[11px]">Mandatory audit sample</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Mandatory audit sample</span>
                         <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">{metrics.mandatory_audit_sample || "100%"}</span>
                     </div>
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="pt-2.5 border-t border-edge/10 mt-2 flex items-center justify-between text-[10px] font-mono text-gray-400">
+            <div className="pt-2.5 border-t border-edge/10 mt-2 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400">
                 <span>Adversarial audits</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">{metrics.adversarial_audits || "0 findings"}</span>
             </div>

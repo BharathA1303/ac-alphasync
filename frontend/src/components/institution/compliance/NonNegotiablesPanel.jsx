@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Shield, Lock } from 'lucide-react';
+import { CheckCircle2, Shield } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 
 export default function NonNegotiablesPanel({ data, isLoading }) {
@@ -7,10 +7,10 @@ export default function NonNegotiablesPanel({ data, isLoading }) {
         return <div className="h-64 rounded-xl bg-surface-900/70 border border-edge/10 animate-pulse" />;
     }
 
-    const { gates = [], all_gates_passing = true } = data;
+    const { gates = [] } = data;
 
     return (
-        <div className="rounded-xl bg-surface-900/70 border border-edge/10 p-4 flex flex-col justify-between shadow-sm">
+        <div className="rounded-xl bg-surface-900 border border-edge/15 p-4 flex flex-col justify-between shadow-sm">
             <div>
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-edge/10">
@@ -36,13 +36,13 @@ export default function NonNegotiablesPanel({ data, isLoading }) {
                                 <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-[11px] w-6 flex-shrink-0">
                                     {g.id}
                                 </span>
-                                <span className="text-gray-300 font-medium truncate">
+                                <span className="text-slate-700 dark:text-slate-300 font-medium truncate">
                                     {g.title}
                                 </span>
                             </div>
 
                             <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className="text-[10px] font-mono text-gray-500">
+                                <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
                                     {g.mechanism}
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">

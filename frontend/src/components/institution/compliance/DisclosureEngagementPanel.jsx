@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, FileCheck2, Scale, BookOpen } from 'lucide-react';
+import { FileCheck2 } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 
 export default function DisclosureEngagementPanel({ data, isLoading }) {
@@ -10,7 +10,7 @@ export default function DisclosureEngagementPanel({ data, isLoading }) {
     const { disclosures = [], regulatory_register = [] } = data;
 
     return (
-        <div className="rounded-xl bg-surface-900/70 border border-edge/10 p-4 flex flex-col justify-between shadow-sm">
+        <div className="rounded-xl bg-surface-900 border border-edge/15 p-4 flex flex-col justify-between shadow-sm">
             <div>
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-edge/10">
@@ -27,7 +27,7 @@ export default function DisclosureEngagementPanel({ data, isLoading }) {
                     {disclosures.map((d, idx) => (
                         <div key={d.title || idx} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
-                                <span className="text-gray-300 font-medium truncate max-w-[200px]">
+                                <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[200px]">
                                     {d.title}
                                 </span>
                                 <span className="font-mono font-bold text-heading text-[11px]">
@@ -50,7 +50,7 @@ export default function DisclosureEngagementPanel({ data, isLoading }) {
 
             {/* Regulatory Register Sub-panel */}
             <div className="pt-3 border-t border-edge/10 mt-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 font-mono block mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono block mb-2">
                     REGULATORY REGISTER
                 </span>
                 <div className="space-y-1.5 text-xs font-mono">
@@ -59,13 +59,13 @@ export default function DisclosureEngagementPanel({ data, isLoading }) {
                             <div className="flex items-center gap-2">
                                 <span className={cn(
                                     "w-1.5 h-1.5 rounded-full",
-                                    r.badge === 'amber' ? "bg-amber-400" : "bg-emerald-400"
+                                    r.badge === 'amber' ? "bg-amber-500" : "bg-emerald-500"
                                 )} />
-                                <span className="text-gray-300 text-[11px]">{r.code} · {r.title}</span>
+                                <span className="text-slate-700 dark:text-slate-300 text-[11px]">{r.code} · {r.title}</span>
                             </div>
                             <span className={cn(
                                 "text-[10px]",
-                                r.badge === 'amber' ? "text-amber-500 font-semibold" : "text-gray-400"
+                                r.badge === 'amber' ? "text-amber-500 font-semibold" : "text-slate-500 dark:text-slate-400"
                             )}>
                                 {r.status}
                             </span>
