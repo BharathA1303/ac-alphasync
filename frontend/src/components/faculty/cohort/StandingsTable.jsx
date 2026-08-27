@@ -17,7 +17,7 @@ export default function StandingsTable({ data, isLoading }) {
             <div className="flex items-center justify-between gap-3 pb-3 border-b border-edge/10">
                 <div>
                     <h3 className="text-sm font-bold text-heading">
-                        Standings <span className="text-xs font-normal text-gray-400">— ranked on process-weighted score</span>
+                        Standings
                     </h3>
                 </div>
                 {reward_badge && (
@@ -110,8 +110,8 @@ export default function StandingsTable({ data, isLoading }) {
                 </table>
             </div>
 
-            {/* Pedagogical Process-Score Insight Banner (ASM-002) */}
-            {insight_banner && (
+            {/* Pedagogical Process-Score Insight Banner */}
+            {insight_banner?.surfaced && insight_banner.description && (
                 <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-start gap-2 text-xs">
                     <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <p className="leading-relaxed font-sans font-medium text-[11px]">

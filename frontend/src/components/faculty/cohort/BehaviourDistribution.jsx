@@ -57,11 +57,6 @@ export default function BehaviourDistribution({ data, isLoading }) {
                     })}
                 </div>
             </div>
-
-            <div className="pt-2 text-[10px] text-gray-500 border-t border-edge/10 mt-3 flex items-center justify-between">
-                <span>SEBI NISM aligned simulation heuristics</span>
-                <span className="text-emerald-500 font-semibold">Active Monitoring</span>
-            </div>
         </div>
     );
 }

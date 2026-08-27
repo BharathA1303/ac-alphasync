@@ -74,8 +74,7 @@ export default function MasteryHeatmap({ data, isLoading }) {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-edge/10 text-[10px] text-gray-500">
-                <span>Quartile distribution across active cohorts</span>
+            <div className="flex items-center justify-end mt-3 pt-2.5 border-t border-edge/10 text-[10px] text-gray-500">
                 <div className="flex items-center gap-1.5">
                     <span>Lower</span>
                     <div className="flex items-center gap-0.5">

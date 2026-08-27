@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, ArrowDownRight, Users, CheckCircle2, Award, Activity, AlertTriangle } from 'lucide-react';
+import { Users, CheckCircle2, Award, Activity, AlertTriangle } from 'lucide-react';
 import { cn } from '../../../utils/cn';
 
 function Sparkline({ data = [], color = 'emerald' }) {
@@ -27,7 +27,7 @@ function Sparkline({ data = [], color = 'emerald' }) {
     }[color] || '#10b981';
 
     return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-20 h-7 overflow-visible">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-16 h-6 overflow-visible">
             <polyline
                 fill="none"
                 stroke={strokeColor}
@@ -88,7 +88,6 @@ export default function CohortStatRow({ data, isLoading }) {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {cards.map(({ key, item, icon: Icon, color }) => {
                 if (!item) return null;
-                const isNegative = !item.trend_positive;
 
                 return (
                     <div
@@ -101,40 +100,23 @@ export default function CohortStatRow({ data, isLoading }) {
                             </span>
                             <div className={cn(
                                 "p-1.5 rounded-lg",
-                                color === 'rose' ? "bg-rose-500/10 text-rose-500 dark:text-rose-400" :
-                                color === 'blue' ? "bg-blue-500/10 text-blue-500 dark:text-blue-400" :
-                                "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400"
+                                color === 'rose' ? "bg-rose-500/10 text-rose-500" :
+                                color === 'blue' ? "bg-blue-500/10 text-blue-500" :
+                                "bg-emerald-500/10 text-emerald-500"
                             )}>
                                 <Icon className="w-3.5 h-3.5" />
                             </div>
                         </div>
 
                         <div className="flex items-baseline justify-between mt-2">
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-2xl font-black text-heading font-mono tracking-tight">
-                                    {item.value}
-                                </span>
-                            </div>
+                            <span className="text-2xl font-black text-heading font-mono tracking-tight">
+                                {item.value}
+                            </span>
                             <Sparkline data={item.sparkline} color={color} />
                         </div>
 
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-edge/5 text-[10px]">
-                            <span className="text-gray-400 truncate max-w-[110px]">
-                                {item.subtext}
-                            </span>
-                            <span className={cn(
-                                "flex items-center font-semibold font-mono",
-                                isNegative
-                                    ? "text-rose-500 dark:text-rose-400"
-                                    : "text-emerald-500 dark:text-emerald-400"
-                            )}>
-                                {isNegative ? (
-                                    <ArrowDownRight className="w-3 h-3 mr-0.5" />
-                                ) : (
-                                    <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                                )}
-                                {item.trend}
-                            </span>
+                        <div className="mt-2 pt-2 border-t border-edge/5 text-[11px] text-gray-400">
+                            {item.subtext}
                         </div>
                     </div>
                 );

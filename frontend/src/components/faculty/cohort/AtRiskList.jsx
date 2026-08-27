@@ -74,10 +74,6 @@ export default function AtRiskList({ data, isLoading }) {
                     )}
                 </div>
             </div>
-
-            <div className="pt-2 text-[10px] text-gray-500 border-t border-edge/10 mt-2">
-                Automated diagnoses connect to Module 15 (Risk Management) decision logs.
-            </div>
         </div>
     );
 }
