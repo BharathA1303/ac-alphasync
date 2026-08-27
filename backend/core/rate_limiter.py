@@ -5,6 +5,16 @@ Provides per-IP rate limiting for auth endpoints (login, register)
 to prevent brute-force attacks. Uses a sliding window counter stored in Redis.
 Falls back to in-memory if Redis is unavailable.
 
+Implemented as a pure ASGI middleware rather than Starlette's
+BaseHTTPMiddleware. BaseHTTPMiddleware runs the downstream app in a
+separate task group via call_next(), and if that inner task times out or
+is cancelled (e.g. a route's own asyncio.wait_for(..., timeout=...)
+expiring), the cancellation can race with call_next()'s stream consumption
+and surface as "RuntimeError: No response returned" — a 500 with no
+useful traceback, even when the route already handles the timeout itself.
+A plain ASGI middleware calls the downstream app directly in the same
+task, so no such race exists.
+
 Usage:
     Applied as FastAPI middleware in main.py.
 """
@@ -12,9 +22,9 @@ Usage:
 import time
 import logging
 from collections import defaultdict
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +53,20 @@ DEFAULT_RATE_LIMIT = {"max_requests": 120, "window_seconds": 60}
 _RL_PREFIX = "alphasync:ratelimit"
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
+class RateLimitMiddleware:
     """
     Sliding-window rate limiter keyed by client IP + path prefix.
 
     Uses Redis sorted sets for persistence across restarts.
     Falls back to in-memory dict if Redis is unavailable.
     Skips non-API paths (static files, WebSocket, health).
+
+    Pure ASGI middleware — see module docstring for why this isn't
+    Starlette's BaseHTTPMiddleware.
     """
 
-    def __init__(self, app):
-        super().__init__(app)
+    def __init__(self, app: ASGIApp):
+        self.app = app
         # In-memory fallback
         self._requests: dict[tuple, list[float]] = defaultdict(list)
         self._last_cleanup = time.time()
@@ -70,20 +83,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             pass
         return None
 
-    async def __call__(self, scope, receive, send):
-        # CRITICAL: BaseHTTPMiddleware breaks WebSocket protocol.
-        # Bypass completely for WebSocket connections.
-        if scope["type"] == "websocket":
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            # WebSocket/lifespan — pass through untouched.
             await self.app(scope, receive, send)
             return
-        await super().__call__(scope, receive, send)
 
-    async def dispatch(self, request: Request, call_next):
+        request = Request(scope, receive=receive)
         path = request.url.path
 
-        # Skip non-API paths, WebSocket, and health checks
+        # Skip non-API paths and health checks
         if not path.startswith("/api/") or path == "/api/health":
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         client_ip = self._extract_client_ip(request)
 
@@ -120,7 +132,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 f"Rate limit exceeded: {client_ip} on {path} "
                 f"({count}/{max_requests} in {window}s)"
             )
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=429,
                 content={
                     "detail": "Too many requests. Please try again later.",
@@ -128,8 +140,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 },
                 headers={"Retry-After": str(retry_after)},
             )
+            await response(scope, receive, send)
+            return
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
 
     def _extract_client_ip(self, request: Request) -> str:
         """Resolve the best-effort client IP behind reverse proxies."""
