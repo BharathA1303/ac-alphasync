@@ -22,7 +22,7 @@ from models.course import (
 )
 from models.assignment import TradingAssignment, AssignmentSubmission
 from models.order import Order
-from models.portfolio import Position, Trade
+from models.portfolio import Portfolio, Holding, Trade
 from dependencies.faculty import require_faculty
 from services.invite_service import _as_uuid
 
