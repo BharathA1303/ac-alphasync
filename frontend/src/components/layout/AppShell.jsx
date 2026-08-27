@@ -1,9 +1,7 @@
-// AppShell.jsx - Main authenticated layout with sidebar, navbar, and market ticker
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import MarketTickerBar from './MarketTickerBar';
 import FeedbackWidget from '../FeedbackWidget';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useLivePortfolio } from '../../hooks/useLivePortfolio';
@@ -107,7 +105,6 @@ export default function AppShell() {
                     )}
                 >
                     <Navbar onMenuToggle={toggleSidebar} />
-                    <MarketTickerBar />
 
                     <HardenedResponsiveShell isFullViewportPage={isFullViewportPage}>
                         <main className={cn(
