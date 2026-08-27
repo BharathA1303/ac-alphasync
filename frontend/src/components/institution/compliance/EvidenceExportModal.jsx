@@ -94,16 +94,16 @@ export default function EvidenceExportModal({ isOpen, onClose }) {
 
                 {/* Evidence Inclusions Checklist */}
                 <div className="rounded-xl bg-surface-950/60 border border-edge/10 p-3 space-y-2 text-xs font-mono">
-                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> 52-Day Minimum Lag Proof (HO/MIRSD/MIRSD-PoD-1/P/CIR/2024/104)
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-[11px]">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> 30-Day SEBI Minimum Lag Proof (HO/MIRSD/MIRSD-PoD-1/P/CIR/2024/104)
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-[11px]">
                         <CheckCircle2 className="w-3.5 h-3.5" /> WORM SHA-256 Audit Trail Verification
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-[11px]">
                         <CheckCircle2 className="w-3.5 h-3.5" /> AI Mentor Anti-Advisory Logs & Refusals
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-400 text-[11px]">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-[11px]">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Non-Negotiables CI Pass Verification (N7–N11)
                     </div>
                 </div>
