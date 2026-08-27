@@ -209,10 +209,13 @@ def _symbol_aliases(symbol: str) -> list[str]:
 
     if raw.endswith(".NS"):
         _add(raw[:-3])
+        _add(f"{raw[:-3]}.BO")
     elif raw.endswith(".BO"):
         _add(raw[:-3])
+        _add(f"{raw[:-3]}.NS")
     elif "=" not in raw and not raw.endswith((".NS", ".BO")):
         _add(f"{raw}.NS")
+        _add(f"{raw}.BO")
 
     return aliases
 

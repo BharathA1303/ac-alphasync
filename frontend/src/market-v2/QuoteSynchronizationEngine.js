@@ -36,6 +36,11 @@ class QuoteSynchronizationEngine {
     const patch = buildWatchlistPatch(symbol, quote);
     if (Object.keys(patch).length > 0) {
       useWatchlistStore.getState().updatePrices(patch);
+      for (const alias of Object.keys(patch)) {
+        if (alias !== symbol) {
+          useMarketStore.getState().updateQuote(alias, { ...quote, symbol: alias }, source);
+        }
+      }
     }
   }
 

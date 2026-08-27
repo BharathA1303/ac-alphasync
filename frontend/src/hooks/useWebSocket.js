@@ -120,6 +120,15 @@ export function useWebSocket() {
             quoteSyncEngine.ingestFromWs(symbol, quoteData);
             callbacksRef.current.updateQuote(symbol, quoteData, liveSource);
         }
+        if (key.endsWith('.NS')) {
+            const bseKey = `${key.slice(0, -3)}.BO`;
+            quoteSyncEngine.ingestFromWs(bseKey, { ...quoteData, symbol: bseKey });
+            callbacksRef.current.updateQuote(bseKey, { ...quoteData, symbol: bseKey }, liveSource);
+        } else if (key.endsWith('.BO')) {
+            const nseKey = `${key.slice(0, -3)}.NS`;
+            quoteSyncEngine.ingestFromWs(nseKey, { ...quoteData, symbol: nseKey });
+            callbacksRef.current.updateQuote(nseKey, { ...quoteData, symbol: nseKey }, liveSource);
+        }
         if (commodityRoot) {
             quoteSyncEngine.ingestFromWs(commodityRoot, quoteData);
             callbacksRef.current.updateQuote(commodityRoot, quoteData, liveSource);

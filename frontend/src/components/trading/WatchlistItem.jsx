@@ -1,8 +1,9 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { formatPrice, formatPercent } from '../../utils/formatters';
 import { getConstituents } from '../../utils/indexConstituents';
+import { TrendingUp, TrendingDown, BarChart2, Trash2 } from 'lucide-react';
 import api from '../../services/api';
 
 const formatSignedNumber = (value, decimals = 2) => {
@@ -13,10 +14,12 @@ const formatSignedNumber = (value, decimals = 2) => {
 };
 
 /**
- * Single watchlist row.
- * — Default state : symbol name (left) + price & change% (right)
- * — Hover state   : prices stay visible, action buttons appear as overlay
- * — Index items   : expand chevron reveals constituent stocks with live prices
+ * Modernized Watchlist Row
+ * — Live price tick flash (emerald / rose)
+ * — Visual exchange badges (BSE amber/gold, NSE cyan/blue)
+ * — High-precision tabular typography & geometric trend icons
+ * — Glassmorphic action overlays on hover
+ * — Smooth expandable constituent stocks
  */
 const WatchlistItem = memo(function WatchlistItem({
     item,
@@ -32,9 +35,25 @@ const WatchlistItem = memo(function WatchlistItem({
     const [isExpanded, setIsExpanded] = useState(false);
     const [constituentPrices, setConstituentPrices] = useState({});
     const [loadingConstituents, setLoadingConstituents] = useState(false);
+    const [flashClass, setFlashClass] = useState('');
+    const prevPriceRef = useRef(price?.price);
 
     const constituents = getConstituents(item.symbol);
     const isIndex = constituents !== null;
+
+    // ── Live tick flash effect ────────────────────────────────────────────────
+    useEffect(() => {
+        const cur = Number(price?.price);
+        const prev = Number(prevPriceRef.current);
+        if (Number.isFinite(cur) && Number.isFinite(prev) && cur !== prev) {
+            const cls = cur > prev ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400';
+            setFlashClass(cls);
+            const timer = setTimeout(() => setFlashClass(''), 800);
+            prevPriceRef.current = cur;
+            return () => clearTimeout(timer);
+        }
+        prevPriceRef.current = cur;
+    }, [price?.price]);
 
     // ── Fetch constituent prices when expanded ────────────────────────────────
     const constituentSuffix = (item.exchange || '').toUpperCase() === 'BSE' ? '.BO' : '.NS';
@@ -45,7 +64,6 @@ const WatchlistItem = memo(function WatchlistItem({
             const symbols = constituents.map(s => `${s}${constituentSuffix}`).join(',');
             const res = await api.get(`/market/batch?symbols=${encodeURIComponent(symbols)}`);
             const quotes = res.data?.quotes ?? {};
-            // Normalize: store under both RELIANCE.NS and RELIANCE so lookup always works
             const normalized = {};
             Object.entries(quotes).forEach(([k, v]) => {
                 const upper = k.toUpperCase();
@@ -58,7 +76,7 @@ const WatchlistItem = memo(function WatchlistItem({
         } finally {
             setLoadingConstituents(false);
         }
-    }, [constituents]);
+    }, [constituents, constituentSuffix]);
 
     const handleExpandToggle = useCallback((e) => {
         e.stopPropagation();
@@ -69,36 +87,38 @@ const WatchlistItem = memo(function WatchlistItem({
         });
     }, [fetchConstituentPrices]);
 
-    const changePositive = (price?.change ?? price?.change_percent ?? 0) >= 0;
-    const rawSymbol = item.symbol || '';
+    const changeVal = Number(price?.change ?? price?.change_percent ?? 0);
+    const changePositive = changeVal >= 0;
+    const rawSymbol = String(item.symbol || '');
     const symbol = rawSymbol.replace('.NS', '').replace('.BO', '').replace(/^\^/, '');
     const exchange = item.exchange || (rawSymbol.endsWith('.BO') ? 'BSE' : 'NSE');
+    const isBse = String(exchange).toUpperCase() === 'BSE';
     const chartSymbol = rawSymbol.startsWith('^') || rawSymbol.endsWith('.NS') || rawSymbol.endsWith('.BO')
         ? rawSymbol
-        : exchange === 'BSE' ? `${rawSymbol}.BO` : `${rawSymbol}.NS`;
+        : isBse ? `${rawSymbol}.BO` : `${rawSymbol}.NS`;
 
     return (
-        <div className="border-b border-edge/[0.03]">
+        <div className="border-b border-edge/5 transition-colors group">
             {/* ── Main row ─────────────────────────────────────────────────────── */}
             <div
                 onClick={onSelect}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 className={cn(
-                    'relative flex items-center justify-between px-3 py-2 cursor-pointer',
-                    'transition-colors duration-150',
+                    'relative flex items-center justify-between px-3.5 py-2.5 cursor-pointer transition-all duration-200 select-none',
                     isSelected
-                        ? 'bg-primary-500/10 border-l-[3px] border-l-primary-500 hover:bg-primary-500/15 dark:bg-slate-700/60 dark:hover:bg-slate-700/80'
-                        : 'border-l-[3px] border-l-transparent hover:bg-slate-100 dark:hover:bg-slate-800/50',
+                        ? 'bg-primary-500/10 dark:bg-primary-900/20 border-l-[3px] border-l-primary-500'
+                        : 'border-l-[3px] border-l-transparent hover:bg-surface-800/40 dark:hover:bg-surface-800/60',
+                    flashClass
                 )}
             >
-                {/* ── Left: symbol + exchange badge + expand chevron ──────────── */}
-                <div className="flex-1 min-w-0 flex items-center gap-1">
+                {/* ── Left: symbol + exchange badge + company name ─────────────── */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
                     {isIndex && (
                         <button
                             onClick={handleExpandToggle}
-                            className="flex-shrink-0 p-0.5 rounded text-slate-400 hover:text-primary-500 transition-colors"
-                            title={isExpanded ? 'Collapse stocks' : 'Expand stocks'}
+                            className="flex-shrink-0 p-1 rounded-md text-slate-400 hover:text-primary-500 hover:bg-surface-800/70 transition-colors"
+                            title={isExpanded ? 'Collapse constituents' : 'Expand constituents'}
                         >
                             <svg
                                 className={cn('w-3 h-3 transition-transform duration-200', isExpanded && 'rotate-90')}
@@ -110,94 +130,118 @@ const WatchlistItem = memo(function WatchlistItem({
                         </button>
                     )}
                     <div className="min-w-0">
-                        <div className="font-semibold text-[13px] text-heading truncate">{symbol}</div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                            <span className={cn(
-                                'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium leading-none tracking-wide',
-                                'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-                            )}>
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[13px] text-heading tracking-tight group-hover:text-primary-500 transition-colors truncate">
+                                {symbol}
+                            </span>
+                            <span
+                                className={cn(
+                                    'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase border leading-none',
+                                    isBse
+                                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-400'
+                                        : 'bg-blue-500/10 text-blue-500 border-blue-500/20 dark:bg-blue-500/15 dark:text-blue-400'
+                                )}
+                            >
                                 {exchange}
                             </span>
-                            {item.company_name && (
-                                <span className="text-[10px] text-slate-500 dark:text-slate-500 truncate leading-tight max-w-[90px]">
-                                    {item.company_name}
-                                </span>
-                            )}
                         </div>
+                        {item.company_name ? (
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[130px] mt-0.5 font-sans">
+                                {item.company_name}
+                            </div>
+                        ) : (
+                            <div className="text-[10px] text-gray-600 dark:text-gray-500 truncate max-w-[130px] mt-0.5 font-sans">
+                                {isBse ? 'BSE Equities' : 'NSE Equities'}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* ── Right: action buttons (hover) + price always visible ─────── */}
-                <div className="flex-shrink-0 ml-1 flex items-center gap-1.5">
+                {/* ── Right: price & trend badge + hover actions ─────────────────── */}
+                <div className="flex-shrink-0 flex items-center gap-2">
+                    {/* Hover quick action buttons */}
                     {hovered && (
-                        <div className="flex items-center gap-0.5 animate-fade-in">
+                        <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     navigate(`/terminal?symbol=${encodeURIComponent(chartSymbol)}`);
                                 }}
-                                className="p-1 rounded text-gray-400 hover:text-primary-600 hover:bg-primary-500/10 transition-colors"
-                                title="Open chart"
+                                className="p-1 rounded-md text-gray-400 hover:text-primary-500 hover:bg-primary-500/10 transition-colors"
+                                title="Open Chart"
                             >
-                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M3 3v18h18" /><path d="M7 16l4-8 4 5 5-9" />
-                                </svg>
+                                <BarChart2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                                onClick={(e) => { e.stopPropagation(); onBuy?.(item.symbol); }}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/90 hover:bg-emerald-400 text-white transition-colors leading-none"
+                                onClick={(e) => { e.stopPropagation(); onBuy?.(chartSymbol); }}
+                                className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-sm active:scale-95 leading-none"
+                                title="Buy"
                             >
                                 B
                             </button>
                             <button
-                                onClick={(e) => { e.stopPropagation(); onSell?.(item.symbol); }}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/90 hover:bg-red-400 text-white transition-colors leading-none"
+                                onClick={(e) => { e.stopPropagation(); onSell?.(chartSymbol); }}
+                                className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500 hover:bg-rose-400 text-white transition-all shadow-sm active:scale-95 leading-none"
+                                title="Sell"
                             >
                                 S
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onRemove?.(item.id); }}
-                                className="p-0.5 rounded text-gray-400 hover:text-red-500 transition-colors"
-                                title="Remove"
+                                className="p-1 rounded-md text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                title="Remove from Watchlist"
                             >
-                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                    <path d="M18 6L6 18M6 6l12 12" />
-                                </svg>
+                                <Trash2 className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     )}
 
-                    <div className="flex flex-col items-end transition-opacity duration-300"
-                        style={{ opacity: price?.price != null ? 1 : 0.3 }}
+                    {/* Price & Change Column */}
+                    <div
+                        className={cn(
+                            'flex flex-col items-end transition-opacity duration-200',
+                            price?.price != null ? 'opacity-100' : 'opacity-40'
+                        )}
                     >
-                        <span className="text-[13px] font-price font-semibold text-heading tabular-nums">
+                        <span className="text-[13px] font-mono font-bold text-heading tabular-nums tracking-tight">
                             {price?.price != null ? formatPrice(price.price) : '—'}
                         </span>
-                        <span className={cn(
-                            'flex items-center gap-0.5 text-[10px] font-price tabular-nums',
-                            changePositive ? 'text-bull' : 'text-bear'
-                        )}>
-                            {price?.change != null && price?.change_percent != null
-                                ? `${formatSignedNumber(price.change, 2)} (${formatPercent(price.change_percent, 2)})`
-                                : '—'}
-                        </span>
+                        <div
+                            className={cn(
+                                'flex items-center gap-0.5 text-[10px] font-mono font-medium tabular-nums px-1 py-0.5 rounded-sm mt-0.5',
+                                changePositive
+                                    ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10'
+                                    : 'text-rose-500 dark:text-rose-400 bg-rose-500/10'
+                            )}
+                        >
+                            {changePositive ? (
+                                <TrendingUp className="w-2.5 h-2.5 stroke-[3]" />
+                            ) : (
+                                <TrendingDown className="w-2.5 h-2.5 stroke-[3]" />
+                            )}
+                            <span>
+                                {price?.change != null && price?.change_percent != null
+                                    ? `${formatSignedNumber(price.change, 2)} (${formatPercent(price.change_percent, 2)})`
+                                    : '—'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* ── Constituent stocks sub-list ───────────────────────────────────── */}
             {isIndex && isExpanded && (
-                <div className="bg-slate-50 dark:bg-slate-900/60 border-l-[3px] border-l-primary-400/40">
+                <div className="bg-surface-900/80 border-l-[3px] border-l-primary-500/40 pl-2">
                     {loadingConstituents ? (
-                        <div className="flex items-center justify-center py-3 text-[11px] text-slate-400">
-                            Loading...
+                        <div className="flex items-center justify-center py-3 text-[11px] text-gray-500 font-sans">
+                            Loading constituents...
                         </div>
                     ) : (
-                        <div className="max-h-64 overflow-y-auto divide-y divide-slate-200/40 dark:divide-slate-700/30">
+                        <div className="max-h-64 overflow-y-auto divide-y divide-edge/5">
                             {constituents.map(base => {
                                 const sym = `${base}${constituentSuffix}`;
                                 const p = constituentPrices[sym] ?? constituentPrices[base] ?? {};
-                                const chg = p.change_percent ?? 0;
+                                const chg = Number(p.change_percent ?? 0);
                                 const chgPos = chg >= 0;
                                 return (
                                     <div
@@ -206,18 +250,18 @@ const WatchlistItem = memo(function WatchlistItem({
                                             e.stopPropagation();
                                             navigate(`/terminal?symbol=${encodeURIComponent(sym)}`);
                                         }}
-                                        className="flex items-center justify-between px-4 py-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+                                        className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-surface-800/40 transition-colors"
                                     >
-                                        <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate max-w-[100px]">
+                                        <span className="text-[11px] font-semibold text-gray-300 truncate max-w-[110px]">
                                             {base}
                                         </span>
                                         <div className="flex flex-col items-end ml-2">
-                                            <span className="text-[11px] font-semibold text-heading tabular-nums">
+                                            <span className="text-[11px] font-mono font-bold text-heading tabular-nums">
                                                 {p.price != null ? formatPrice(p.price) : '—'}
                                             </span>
                                             <span className={cn(
-                                                'text-[9px] tabular-nums',
-                                                chgPos ? 'text-bull' : 'text-bear'
+                                                'text-[9px] font-mono tabular-nums',
+                                                chgPos ? 'text-emerald-400' : 'text-rose-400'
                                             )}>
                                                 {p.change_percent != null
                                                     ? `${chgPos ? '+' : ''}${Number(p.change_percent).toFixed(2)}%`

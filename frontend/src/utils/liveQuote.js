@@ -8,11 +8,33 @@ import { shouldUseRealtimePrices } from '../market/utils/marketSessionUtils';
 export const symbolAliases = (symbol = '') => {
     const raw = String(symbol || '').trim().toUpperCase();
     if (!raw) return [];
-    const withSuffix = raw.startsWith('^') || raw.endsWith('.NS') || raw.endsWith('.BO')
-        ? raw
-        : `${raw}.NS`;
-    const withoutSuffix = withSuffix.replace(/\.(NS|BO)$/i, '');
-    return [...new Set([raw, withSuffix, withoutSuffix])];
+    const withoutSuffix = raw
+        .replace(/\.(NS|BO)$/i, '')
+        .replace(/^BSE:|^NSE:/i, '')
+        .replace(/^\^/, '');
+
+    if (raw.startsWith('^') || raw === 'SENSEX' || raw === 'BSESN' || raw === 'NIFTY' || raw === 'NIFTY50' || raw === 'BANKNIFTY') {
+        const indexAliases = [raw];
+        if (raw === 'SENSEX' || raw === 'BSESN' || raw === '^BSESN') {
+            indexAliases.push('^BSESN', 'BSESN', 'SENSEX');
+        } else if (raw === 'NIFTY' || raw === 'NIFTY50' || raw === '^NSEI' || raw === 'NSEI') {
+            indexAliases.push('^NSEI', 'NSEI', 'NIFTY', 'NIFTY50', 'NIFTY 50');
+        } else if (raw === 'BANKNIFTY' || raw === '^NSEBANK' || raw === 'NSEBANK') {
+            indexAliases.push('^NSEBANK', 'NSEBANK', 'BANKNIFTY', 'BANK NIFTY');
+        }
+        return [...new Set(indexAliases)];
+    }
+
+    return [
+        ...new Set([
+            raw,
+            `${withoutSuffix}.NS`,
+            `${withoutSuffix}.BO`,
+            withoutSuffix,
+            `BSE:${withoutSuffix}`,
+            `NSE:${withoutSuffix}`,
+        ]),
+    ];
 };
 
 const toFiniteNumber = (value) => {

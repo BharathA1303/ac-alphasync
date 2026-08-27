@@ -267,8 +267,8 @@ class ConnectionManager:
             msg = {
                 "type": "quote",
                 "channel": "prices",
-                "symbol": sym,
                 **price_data,
+                "symbol": sym,
             }
             for conn_id in list(subscribers):
                 ws = self.active_connections.get(conn_id)

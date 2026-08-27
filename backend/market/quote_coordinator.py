@@ -106,22 +106,37 @@ class QuoteCoordinator:
         if tier == PriorityTier.HOT:
             quote_metrics.record_hot(sym)
 
+        all_mirrors = list(mirror_symbols or [])
+        if sym.endswith(".NS") and (sym[:-3] + ".BO") not in all_mirrors:
+            all_mirrors.append(sym[:-3] + ".BO")
+        elif sym.endswith(".BO") and (sym[:-3] + ".NS") not in all_mirrors:
+            all_mirrors.append(sym[:-3] + ".NS")
+
         if write_redis:
-            await self._write_redis(sym, enriched, mirror_symbols or [])
+            await self._write_redis(sym, enriched, all_mirrors)
 
         if emit_event and changed:
             await self._maybe_emit(sym, enriched, tier)
+            for alias in all_mirrors:
+                if alias and alias != sym:
+                    alias_upper = str(alias).strip().upper()
+                    alias_tier = symbol_priority_engine.get_tier(alias_upper)
+                    alias_enriched = {**enriched, "symbol": alias_upper}
+                    await self._maybe_emit(alias_upper, alias_enriched, alias_tier)
 
         # Build intraday OHLCV buffers for charts (indices need tick-built bar volume).
         try:
             from workers.market_worker import market_data_worker
 
             market_data_worker._update_candles(sym, enriched)
+            for alias in all_mirrors:
+                if alias and alias != sym:
+                    market_data_worker._update_candles(alias, {**enriched, "symbol": alias})
         except Exception:
             pass
 
         # Mirror aliases share authority entries
-        for alias in mirror_symbols or []:
+        for alias in all_mirrors:
             if not alias or alias == sym:
                 continue
             alias_upper = str(alias).strip().upper()

@@ -332,6 +332,7 @@ def redis_price_lookup_symbols(symbol: str) -> list[str]:
 
     Legacy tickers (e.g. TATAMOTORS.NS) are checked AFTER the live Zebu master
     canonical (TMPV.NS) so stale pre-rename frozen keys are not returned first.
+    Includes cross-exchange lookup (.BO ↔ .NS).
     """
     canonical = _normalize_equity_canonical(symbol)
     if not canonical:
@@ -349,7 +350,11 @@ def redis_price_lookup_symbols(symbol: str) -> list[str]:
                 ordered.append(f"{live_base}.NS")
 
     base = canonical.replace(".NS", "").replace(".BO", "")
-    if base:
+    if base and not canonical.startswith("^"):
+        if canonical.endswith(".BO"):
+            ordered.append(f"{base}.NS")
+        elif canonical.endswith(".NS"):
+            ordered.append(f"{base}.BO")
         ordered.append(base)
 
     deduped: list[str] = []
@@ -370,4 +375,13 @@ def mirror_canonicals_for_quote(canonical: str) -> list[str]:
             keys.append(legacy_c)
         elif canonical == legacy_c:
             keys.append(live_c)
+
+    base = canonical.replace(".NS", "").replace(".BO", "")
+    if base and not canonical.startswith("^") and not is_commodity_symbol(base):
+        if canonical.endswith(".NS"):
+            keys.append(f"{base}.BO")
+        elif canonical.endswith(".BO"):
+            keys.append(f"{base}.NS")
+        keys.append(base)
+
     return list(dict.fromkeys(keys))

@@ -7,12 +7,11 @@ import Skeleton from '../ui/Skeleton';
 import { cn } from '../../utils/cn';
 import { isCommoditySymbol } from '../../utils/constants';
 import {
-    Search, Plus,
-    CheckCircle2, Menu, ChevronLeft, ChevronRight,
+    Search, Plus, Menu, ChevronLeft, ChevronRight, X, Layers,
 } from 'lucide-react';
 import { useWatchlistStore } from '../../stores/useWatchlistStore';
 import { useMarketStore } from '../../store/useMarketStore';
-import { mergeWatchlistPrices } from '../../utils/liveQuote';
+import { mergeWatchlistPrices, symbolAliases } from '../../utils/liveQuote';
 import {
     getSessionCloseCache,
     getSessionClosePrice,
@@ -24,22 +23,16 @@ const getPriceForSymbol = (primaryPrices, symbol) => {
     const raw = String(symbol || '').trim();
     if (!raw) return {};
 
-    const upper = raw.toUpperCase();
-    const isExplicitExchange = upper.endsWith('.NS') || upper.endsWith('.BO') || upper.startsWith('^');
-    const withNs = isExplicitExchange ? upper : `${upper}.NS`;
-    const withoutNs = upper.replace(/\.(NS|BO)$/i, '');
-
-    const candidates = isExplicitExchange
-        ? [upper, withoutNs]
-        : [withNs, upper, withoutNs];
+    const aliases = symbolAliases(raw);
 
     if (!shouldUseRealtimePrices()) {
-        const session = getSessionClosePrice(raw);
-        if (session?.price != null) return session;
-        return {};
+        for (const key of aliases) {
+            const session = getSessionClosePrice(key);
+            if (session?.price != null) return session;
+        }
     }
 
-    for (const key of candidates) {
+    for (const key of aliases) {
         const quote = primaryPrices[key];
         if (quote?.price != null) return quote;
     }
@@ -51,7 +44,9 @@ const normalizeSymbolKey = (symbol = '') =>
     String(symbol || '')
         .trim()
         .toUpperCase()
-        .replace(/\.(NS|BO)$/i, '');
+        .replace(/\.(NS|BO)$/i, '')
+        .replace(/^BSE:|^NSE:/i, '')
+        .replace(/^\^/, '');
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function Watchlist({
@@ -88,12 +83,14 @@ export default function Watchlist({
     );
 
     const activeWatchlist = watchlists.find(w => w.id === activeId);
-    const items = activeWatchlist?.items ?? [];
+    const rawItems = activeWatchlist?.items ?? [];
 
     // ── UI state ──────────────────────────────────────────────────────────────
     const [modalOpen, setModalOpen] = useState(false);
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [newWlName, setNewWlName] = useState('');
     const [tabScroll, setTabScroll] = useState({ left: false, right: false });
     const tabsRef = useRef(null);
@@ -101,19 +98,26 @@ export default function Watchlist({
     // Drag-and-drop state
     const [dragIndex, setDragIndex] = useState(null);
     const [dragOverIndex, setDragOverIndex] = useState(null);
-
     const scrollEl = useRef(null);
 
-    // ── Focus helpers ─────────────────────────────────────────────────────────
-    const sortedWatchlists = useMemo(() => watchlists, [watchlists]);
+    // Filter items by local search query
+    const items = useMemo(() => {
+        if (!searchQuery.trim()) return rawItems;
+        const q = searchQuery.toLowerCase().trim();
+        return rawItems.filter(item => {
+            const sym = String(item.symbol || '').toLowerCase();
+            const name = String(item.company_name || '').toLowerCase();
+            return sym.includes(q) || name.includes(q);
+        });
+    }, [rawItems, searchQuery]);
 
-    // ── Prefetch closed-session prices for every watchlist row (not only selected) ──
+    // ── Prefetch closed-session prices for every watchlist row ──
     const itemSymbolsKey = useMemo(
-        () => items.map((i) => i.symbol).join('|'),
-        [items],
+        () => rawItems.map((i) => i.symbol).join('|'),
+        [rawItems],
     );
     useEffect(() => {
-        if (items.length > 0) fetchPrices();
+        if (rawItems.length > 0) fetchPrices();
     }, [activeId, itemSymbolsKey, fetchPrices]);
 
     const updateTabScroll = useCallback(() => {
@@ -139,7 +143,7 @@ export default function Watchlist({
             el.removeEventListener('scroll', onScroll);
             window.removeEventListener('resize', updateTabScroll);
         };
-    }, [sortedWatchlists.length, updateTabScroll]);
+    }, [watchlists.length, updateTabScroll]);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleAddSymbol = useCallback((symbol, exchange) => {
@@ -160,46 +164,83 @@ export default function Watchlist({
     }, [handleCreateSubmit]);
 
     return (
-        <div className="flex flex-col h-full border-r border-edge/5 bg-surface-900/60">
+        <div className="flex flex-col h-full border-r border-edge/10 bg-surface-900/90 backdrop-blur-md">
 
-            {/* ── TOP SEARCH BAR ───────────────────────────────────────── */}
-            <div className="flex items-center px-3 py-2 border-b border-edge/5 bg-surface-900/40 flex-shrink-0">
-                <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-heading hover:bg-surface-800/60 transition-colors"
-                    title="Watchlists"
-                >
-                    <Menu className="w-4 h-4" />
-                </button>
-
-                <button
-                    onClick={() => setModalOpen(true)}
-                    className="flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-heading hover:bg-surface-800/60 transition-colors"
-                    title="Search or add symbol"
-                >
-                    <Search className="w-4 h-4 flex-shrink-0" />
-                </button>
-
-                <div className="flex-1 text-center text-sm font-semibold font-sans text-heading tracking-wide select-none">
-                    Watchlist
+            {/* ── TOP HEADER BAR ───────────────────────────────────────── */}
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-edge/10 bg-surface-900/70 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-heading hover:bg-surface-800/80 transition-colors"
+                        title="Manage Watchlists"
+                    >
+                        <Menu className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-heading tracking-tight">Watchlist</span>
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-surface-800 text-gray-400 border border-edge/10">
+                            {rawItems.length}
+                        </span>
+                    </div>
                 </div>
 
-                <button
-                    onClick={() => setCreateModalOpen(true)}
-                    className="flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-primary-500/10 transition-colors"
-                    title="New watchlist"
-                >
-                    <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setSearchOpen(!searchOpen)}
+                        className={cn(
+                            'h-8 w-8 rounded-lg flex items-center justify-center transition-colors',
+                            searchOpen || searchQuery
+                                ? 'bg-primary-500/15 text-primary-500'
+                                : 'text-gray-400 hover:text-heading hover:bg-surface-800/80'
+                        )}
+                        title="Filter symbols"
+                    >
+                        <Search className="w-4 h-4" />
+                    </button>
+
+                    <button
+                        onClick={() => setModalOpen(true)}
+                        className="h-8 px-2.5 rounded-lg flex items-center gap-1 bg-primary-600/15 hover:bg-primary-600/25 text-primary-500 font-semibold text-xs transition-colors border border-primary-500/20"
+                        title="Add symbol to list"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                    </button>
+                </div>
             </div>
 
-            {/* ── TAB ROW WITH OVERFLOW ARROWS ────────────────────────── */}
-            <div className="flex items-center border-b border-edge/5 bg-surface-900/35 flex-shrink-0 h-10">
+            {/* ── SEARCH FILTER INPUT (COLLAPSIBLE) ────────────────────── */}
+            {searchOpen && (
+                <div className="px-3 py-2 border-b border-edge/10 bg-surface-800/40 animate-in slide-in-from-top-1 duration-150 flex items-center gap-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input
+                            autoFocus
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Filter current list..."
+                            className="w-full h-8 pl-8 pr-7 rounded-md bg-surface-900 border border-edge/15 text-xs text-heading placeholder-gray-500 focus:outline-none focus:border-primary-500/50"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODERN TAB ROW WITH OVERFLOW ARROWS ─────────────────── */}
+            <div className="flex items-center border-b border-edge/10 bg-surface-950/40 flex-shrink-0 h-10 px-1">
                 {tabScroll.left && (
                     <button
                         onClick={() => tabsRef.current?.scrollBy({ left: -180, behavior: 'smooth' })}
-                        className="flex-shrink-0 h-full w-8 flex items-center justify-center text-gray-500 hover:text-heading hover:bg-surface-800/50 transition-colors"
-                        aria-label="Scroll watchlists left"
+                        className="flex-shrink-0 h-full w-7 flex items-center justify-center text-gray-400 hover:text-heading hover:bg-surface-800/50 transition-colors"
+                        aria-label="Scroll left"
                     >
                         <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -207,24 +248,36 @@ export default function Watchlist({
 
                 <div
                     ref={tabsRef}
-                    className="flex-1 h-full overflow-x-auto overflow-y-hidden no-scrollbar flex items-stretch"
+                    className="flex-1 h-full overflow-x-auto overflow-y-hidden no-scrollbar flex items-center gap-1 px-1"
                     style={{ scrollbarWidth: 'none' }}
                     onScroll={updateTabScroll}
                 >
                     {watchlists.map((wl) => {
                         const isActive = wl.id === activeId;
+                        const isSensex = wl.name?.toUpperCase().includes('SENSEX');
+                        const isNifty = wl.name?.toUpperCase().includes('NIFTY');
                         return (
                             <button
                                 key={wl.id}
                                 onClick={() => setActiveWatchlist(wl.id)}
                                 className={cn(
-                                    'px-4 h-full flex items-center justify-center flex-shrink-0 text-sm font-medium font-sans border-b-2 transition-colors whitespace-nowrap',
+                                    'px-3 py-1 rounded-md flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold font-sans transition-all duration-150 whitespace-nowrap select-none',
                                     isActive
-                                        ? 'text-primary-600 border-primary-500 bg-primary-500/5'
-                                        : 'text-gray-500 border-transparent hover:text-heading hover:bg-surface-800/30'
+                                        ? 'bg-primary-500/20 text-primary-400 shadow-sm border border-primary-500/30'
+                                        : 'text-gray-400 hover:text-heading hover:bg-surface-800/50'
                                 )}
                             >
-                                {wl.name}
+                                <span>{wl.name}</span>
+                                {isSensex && (
+                                    <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 leading-none">
+                                        BSE
+                                    </span>
+                                )}
+                                {isNifty && (
+                                    <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-blue-500/20 text-blue-400 leading-none">
+                                        NSE
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -233,8 +286,8 @@ export default function Watchlist({
                 {tabScroll.right && (
                     <button
                         onClick={() => tabsRef.current?.scrollBy({ left: 180, behavior: 'smooth' })}
-                        className="flex-shrink-0 h-full w-8 flex items-center justify-center text-gray-500 hover:text-heading hover:bg-surface-800/50 transition-colors"
-                        aria-label="Scroll watchlists right"
+                        className="flex-shrink-0 h-full w-7 flex items-center justify-center text-gray-400 hover:text-heading hover:bg-surface-800/50 transition-colors"
+                        aria-label="Scroll right"
                     >
                         <ChevronRight className="w-4 h-4" />
                     </button>
@@ -244,44 +297,50 @@ export default function Watchlist({
             {/* ── CONTENT AREA ──────────────────────────────────────────── */}
             <div ref={scrollEl} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col">
                 {isLoading ? (
-                    // Loading state
                     <div>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} variant="watchlist-row" />)}</div>
                 ) : items.length === 0 ? (
-                    // Empty state with centered "Add Symbol" button
-                    <div className="flex flex-col items-center justify-center h-full text-gray-600 gap-4 px-4">
-                        <div className="text-center">
-                            <p className="text-sm font-medium mb-2">Watchlist is empty</p>
-                            <p className="text-xs opacity-75">Add stocks to get started</p>
+                    <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-3 px-4 py-8">
+                        <div className="w-12 h-12 rounded-full bg-surface-800/80 flex items-center justify-center text-gray-400 border border-edge/10">
+                            <Layers className="w-5 h-5" />
                         </div>
-                        <button
-                            onClick={() => setModalOpen(true)}
-                            className="px-6 py-3 bg-primary-600/20 hover:bg-primary-600/30 text-primary-600 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Symbol
-                        </button>
+                        <div className="text-center">
+                            <p className="text-sm font-semibold text-heading mb-1">
+                                {searchQuery ? 'No matching symbols' : 'Watchlist is empty'}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                                {searchQuery ? 'Try another keyword' : 'Add stocks to monitor real-time prices'}
+                            </p>
+                        </div>
+                        {!searchQuery && (
+                            <button
+                                onClick={() => setModalOpen(true)}
+                                className="px-4 py-2 bg-primary-600 text-white rounded-lg font-semibold text-xs transition-transform active:scale-95 flex items-center gap-1.5 shadow-md hover:bg-primary-500"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                Add Symbol
+                            </button>
+                        )}
                     </div>
                 ) : (
-                    // Stock list
                     <div className="flex flex-col h-full">
-                        <div className="flex-1 min-h-0 overflow-y-auto">
+                        <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-edge/5">
                             {items.map((item, index) => {
                                 const price = getPriceForSymbol(mergedPrices, item.symbol);
                                 const itemKey = normalizeSymbolKey(item.symbol);
                                 const selectedKey = normalizeSymbolKey(selectedSymbol);
                                 const isSelectedRow = itemKey && selectedKey && itemKey === selectedKey;
                                 const rawSymbol = String(item.symbol || '');
-                                const exchange = String(item.exchange || (rawSymbol.endsWith('.BO') ? 'BSE' : 'NSE')).toUpperCase();
+                                const isBse = String(item.exchange || '').toUpperCase() === 'BSE' || rawSymbol.endsWith('.BO');
+                                const exchange = item.exchange || (isBse ? 'BSE' : 'NSE');
                                 const chartSymbol = rawSymbol.startsWith('^') || rawSymbol.endsWith('.NS') || rawSymbol.endsWith('.BO') || isCommoditySymbol(rawSymbol)
                                     ? rawSymbol
-                                    : exchange === 'BSE' ? `${rawSymbol}.BO` : `${rawSymbol}.NS`;
-                                const effectivePrice = price;
+                                    : isBse ? `${rawSymbol}.BO` : `${rawSymbol}.NS`;
                                 const isDragging = dragIndex === index;
                                 const isDragOver = dragOverIndex === index && dragIndex !== index;
 
                                 return (
                                     <div
-                                        key={item.id}
+                                        key={item.id || item.symbol}
                                         draggable
                                         onDragStart={(e) => {
                                             setDragIndex(index);
@@ -315,8 +374,8 @@ export default function Watchlist({
                                         )}
                                     >
                                         <WatchlistItem
-                                            item={item}
-                                            price={effectivePrice}
+                                            item={{ ...item, exchange }}
+                                            price={price}
                                             isSelected={isSelectedRow}
                                             onSelect={() => onSelectSymbol?.(chartSymbol)}
                                             onRemove={removeItem}
@@ -328,8 +387,12 @@ export default function Watchlist({
                             })}
                         </div>
 
-                        <div className="px-3 py-1.5 border-t border-edge/5 text-[11px] text-gray-600 flex-shrink-0">
-                            {items.length} symbol{items.length !== 1 ? 's' : ''} in watchlist
+                        <div className="px-3.5 py-2 border-t border-edge/10 text-[11px] text-gray-400 bg-surface-950/30 flex items-center justify-between flex-shrink-0 font-mono">
+                            <span>{items.length} symbol{items.length !== 1 ? 's' : ''} shown</span>
+                            <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-sans">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Live Feed Active
+                            </span>
                         </div>
                     </div>
                 )}
@@ -340,7 +403,7 @@ export default function Watchlist({
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
                 onAddSymbol={handleAddSymbol}
-                watchlistItems={items}
+                watchlistItems={rawItems}
             />
 
             {/* ── WATCHLIST SIDEBAR ─────────────────────────────────────── */}
@@ -366,7 +429,7 @@ export default function Watchlist({
                 size="sm"
             >
                 <div className="p-5">
-                    <p className="text-sm text-gray-500 mb-4">Enter a name for the new watchlist.</p>
+                    <p className="text-sm text-gray-400 mb-4">Enter a name for the new watchlist.</p>
                     <input
                         autoFocus
                         value={newWlName}
@@ -382,13 +445,13 @@ export default function Watchlist({
                                 setCreateModalOpen(false);
                                 setNewWlName('');
                             }}
-                            className="px-4 py-2 rounded-lg border border-edge/10 text-sm text-gray-500 hover:text-heading hover:bg-surface-800/50 transition-colors"
+                            className="px-4 py-2 rounded-lg border border-edge/10 text-sm text-gray-400 hover:text-heading hover:bg-surface-800/50 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleCreateSubmit}
-                            className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-600/90 transition-colors"
+                            className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-500 transition-colors"
                         >
                             Create
                         </button>
