@@ -30,7 +30,6 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import AIMentorPage from './pages/AIMentorPage';
 import DashboardWorkspace from './workspaces/DashboardWorkspace';
 import TradingWorkspace from './workspaces/TradingWorkspace';
-import StudentTradingTerminal from './pages/StudentTradingTerminal';
 import BrokerSelectPage from './pages/BrokerSelectPage';
 import BrokerCallbackPage from './pages/BrokerCallbackPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
@@ -52,14 +51,6 @@ import FacultyPortalPage from './pages/FacultyPortalPage';
 import FacultyAssignmentsPage from './pages/FacultyAssignmentsPage';
 import AcademyPage from './pages/AcademyPage';
 import StudentAssignmentsPage from './pages/StudentAssignmentsPage';
-
-function TerminalSwitch() {
-    const user = useAuthStore((s) => s.user);
-    if (user?.role === 'student') {
-        return <StudentTradingTerminal />;
-    }
-    return <TradingWorkspace />;
-}
 
 export default function App() {
     useEffect(() => {
@@ -112,7 +103,7 @@ export default function App() {
                             <Route path="/dashboard" element={<DashboardWorkspace />} />
                             <Route path="/leaderboard" element={<LeaderboardPage />} />
                             <Route path="/mentor" element={<AIMentorPage />} />
-                            <Route path="/terminal" element={<TerminalSwitch />} />
+                            <Route path="/terminal" element={<TradingWorkspace />} />
                             <Route path="/market" element={<MarketPage />} />
                             <Route path="/futures" element={<FuturesPage />} />
                             <Route path="/options" element={<OptionsPage />} />
@@ -166,9 +157,6 @@ export default function App() {
                             } />
                             <Route path="/student/assignments" element={
                                 <StudentRoute><StudentAssignmentsPage /></StudentRoute>
-                            } />
-                            <Route path="/student/terminal" element={
-                                <StudentRoute><StudentTradingTerminal /></StudentRoute>
                             } />
                         </Route>
 
