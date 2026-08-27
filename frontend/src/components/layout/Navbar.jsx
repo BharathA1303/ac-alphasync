@@ -556,7 +556,7 @@ export default function Navbar({ onMenuToggle }) {
     const wsColor = {
         connected: 'bg-green-400',
         frozen: 'bg-primary-500',
-        connecting: 'bg-primary-500 animate-pulse',
+        connecting: 'bg-primary-500',
         disconnected: 'bg-gray-500',
         error: 'bg-red-400',
     }[effectiveWsStatus];
@@ -766,7 +766,7 @@ export default function Navbar({ onMenuToggle }) {
 
                 {/* Market status */}
                 <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800/40 mr-1">
-                    <div className={cn('w-2 h-2 rounded-full', statusColor, marketOpen && 'animate-pulse')} />
+                    <div className={cn('w-2 h-2 rounded-full', statusColor)} />
                     <span className="text-xs text-gray-400 font-medium">{statusText}</span>
                 </div>
 

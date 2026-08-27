@@ -389,8 +389,7 @@ export default function Watchlist({
 
                         <div className="px-3.5 py-2 border-t border-edge/10 text-[11px] text-gray-400 bg-surface-950/30 flex items-center justify-between flex-shrink-0 font-mono">
                             <span>{items.length} symbol{items.length !== 1 ? 's' : ''} shown</span>
-                            <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-sans">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span className="text-[10px] text-gray-500 font-sans font-medium">
                                 Live Feed Active
                             </span>
                         </div>

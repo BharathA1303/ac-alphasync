@@ -885,7 +885,7 @@ export default function FuturesPage() {
   return (
     <div
       className={cn(
-        'terminal-grid h-[calc(100vh-56px-36px)]',
+        'terminal-grid w-full h-[calc(100vh-56px)]',
         !rightPanelOpen && 'terminal-grid--no-right',
         !watchlistVisible && 'terminal-grid--no-watchlist',
       )}

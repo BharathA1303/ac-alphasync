@@ -35,25 +35,9 @@ const WatchlistItem = memo(function WatchlistItem({
     const [isExpanded, setIsExpanded] = useState(false);
     const [constituentPrices, setConstituentPrices] = useState({});
     const [loadingConstituents, setLoadingConstituents] = useState(false);
-    const [flashClass, setFlashClass] = useState('');
-    const prevPriceRef = useRef(price?.price);
 
     const constituents = getConstituents(item.symbol);
     const isIndex = constituents !== null;
-
-    // ── Live tick flash effect ────────────────────────────────────────────────
-    useEffect(() => {
-        const cur = Number(price?.price);
-        const prev = Number(prevPriceRef.current);
-        if (Number.isFinite(cur) && Number.isFinite(prev) && cur !== prev) {
-            const cls = cur > prev ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400';
-            setFlashClass(cls);
-            const timer = setTimeout(() => setFlashClass(''), 800);
-            prevPriceRef.current = cur;
-            return () => clearTimeout(timer);
-        }
-        prevPriceRef.current = cur;
-    }, [price?.price]);
 
     // ── Fetch constituent prices when expanded ────────────────────────────────
     const constituentSuffix = (item.exchange || '').toUpperCase() === 'BSE' ? '.BO' : '.NS';
@@ -105,11 +89,10 @@ const WatchlistItem = memo(function WatchlistItem({
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 className={cn(
-                    'relative flex items-center justify-between px-3.5 py-2.5 cursor-pointer transition-all duration-200 select-none',
+                    'relative flex items-center justify-between px-3.5 py-2.5 cursor-pointer transition-colors duration-150 select-none',
                     isSelected
                         ? 'bg-primary-500/10 dark:bg-primary-900/20 border-l-[3px] border-l-primary-500'
                         : 'border-l-[3px] border-l-transparent hover:bg-surface-800/40 dark:hover:bg-surface-800/60',
-                    flashClass
                 )}
             >
                 {/* ── Left: symbol + exchange badge + company name ─────────────── */}
@@ -208,17 +191,12 @@ const WatchlistItem = memo(function WatchlistItem({
                         </span>
                         <div
                             className={cn(
-                                'flex items-center gap-0.5 text-[10px] font-mono font-medium tabular-nums px-1 py-0.5 rounded-sm mt-0.5',
+                                'flex items-center gap-0.5 text-[10px] font-mono font-medium tabular-nums mt-0.5',
                                 changePositive
-                                    ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10'
-                                    : 'text-rose-500 dark:text-rose-400 bg-rose-500/10'
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-rose-600 dark:text-rose-400'
                             )}
                         >
-                            {changePositive ? (
-                                <TrendingUp className="w-2.5 h-2.5 stroke-[3]" />
-                            ) : (
-                                <TrendingDown className="w-2.5 h-2.5 stroke-[3]" />
-                            )}
                             <span>
                                 {price?.change != null && price?.change_percent != null
                                     ? `${formatSignedNumber(price.change, 2)} (${formatPercent(price.change_percent, 2)})`

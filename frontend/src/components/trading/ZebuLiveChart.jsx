@@ -1724,8 +1724,8 @@ const ZebuLiveChart = memo(function ZebuLiveChart({
                 )}>
                     <span className={cn(
                         'w-1.5 h-1.5 rounded-full',
-                        effectiveWsStatus === 'connected' ? 'bg-emerald-400 animate-pulse'
-                            : effectiveWsStatus === 'connecting' ? 'bg-primary-500 animate-pulse'
+                        effectiveWsStatus === 'connected' ? 'bg-emerald-400'
+                            : effectiveWsStatus === 'connecting' ? 'bg-primary-500'
                                 : 'bg-gray-500'
                     )} />
                     {!marketLive

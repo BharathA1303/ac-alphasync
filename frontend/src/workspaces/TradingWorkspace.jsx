@@ -555,8 +555,8 @@ export default function TradingWorkspace() {
     return (
         <div
             className={cn(
-                'terminal-grid',
-                isCompact ? 'h-full min-h-0 flex-1' : 'h-[calc(100vh-56px-36px)]',
+                'terminal-grid w-full',
+                isCompact ? 'h-full min-h-0 flex-1' : 'h-[calc(100vh-56px)]',
             )}
             onFocus={() => setIsTerminalFocused(true)}
             onBlur={() => setIsTerminalFocused(false)}
