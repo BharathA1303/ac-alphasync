@@ -22,6 +22,7 @@ import {
   GraduationCap,
   ClipboardCheck,
   ListCheck,
+  Users,
 } from "lucide-react";
 
 /* ─── Role-Based Section definitions (Academic Campus Priority) ─── */
@@ -42,6 +43,7 @@ function getNavigationSections(role) {
       label: "Faculty Academic",
       items: [
         { to: "/faculty/portal", icon: GraduationCap, label: "Course Builder" },
+        { to: "/faculty/cohort", icon: Users, label: "Cohort Console" },
         { to: "/faculty/assignments", icon: ListCheck, label: "Trading Tasks" },
         { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
         { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },

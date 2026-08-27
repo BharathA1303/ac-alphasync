@@ -474,6 +474,7 @@ from routes.faculty import router as faculty_router
 from routes.student_academy import router as student_academy_router
 from routes.faculty_assignments import router as faculty_assignments_router
 from routes.student_assignments import router as student_assignments_router
+from routes.faculty_cohort import router as faculty_cohort_router
 
 app.include_router(direct_auth_router)  # Firebase-free auth (must be first)
 app.include_router(auth_router)
@@ -496,6 +497,7 @@ app.include_router(feedback_router)
 app.include_router(admin_academic_router)
 app.include_router(institution_admin_router)
 app.include_router(faculty_router)
+app.include_router(faculty_cohort_router)
 app.include_router(student_academy_router)
 app.include_router(faculty_assignments_router)
 app.include_router(student_assignments_router)
