@@ -323,10 +323,10 @@ async def get_cohort_standings(
             max_dd = 0.0
             if portfolio:
                 initial_capital = float(student.virtual_capital or 1000000.0)
-                tot_val = float(portfolio.cash_balance or 0.0) + float(portfolio.invested_value or 0.0) + float(portfolio.realized_pnl or 0.0)
+                tot_val = float(portfolio.available_capital or 0.0) + float(portfolio.current_value or 0.0)
                 return_pct = round(((tot_val - initial_capital) / initial_capital) * 100, 2)
-                if portfolio.realized_pnl and float(portfolio.realized_pnl) < 0:
-                    max_dd = round((float(portfolio.realized_pnl) / initial_capital) * 100, 1)
+                if portfolio.total_pnl and float(portfolio.total_pnl) < 0:
+                    max_dd = round((float(portfolio.total_pnl) / initial_capital) * 100, 1)
 
             # 3. Fetch real student quiz mastery %
             att_stmt = select(AssessmentAttempt).where(AssessmentAttempt.user_id == student.id)
@@ -636,8 +636,8 @@ async def get_at_risk_learners(
             port_res = await db.execute(select(Portfolio).where(Portfolio.user_id == s.id))
             portfolio = port_res.scalars().first()
             pnl_pct = 0.0
-            if portfolio and portfolio.realized_pnl:
-                pnl_pct = round((float(portfolio.realized_pnl) / float(s.virtual_capital or 1000000.0)) * 100, 1)
+            if portfolio and portfolio.total_pnl:
+                pnl_pct = round((float(portfolio.total_pnl) / float(s.virtual_capital or 1000000.0)) * 100, 1)
 
             initials = "".join([part[0].upper() for part in (s.full_name or s.username or s.email).split()[:2]]) or "ST"
 
