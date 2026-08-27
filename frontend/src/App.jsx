@@ -12,6 +12,7 @@ import AdminRoute from './components/AdminRoute';
 import InstitutionRoute from './components/InstitutionRoute';
 import FacultyRoute from './components/FacultyRoute';
 import StudentRoute from './components/StudentRoute';
+import NonStudentRoute from './components/NonStudentRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './stores/useAuthStore';
 
@@ -52,6 +53,7 @@ import FacultyPortalPage from './pages/FacultyPortalPage';
 import FacultyCohortPage from './pages/FacultyCohortPage';
 import FacultyAssignmentsPage from './pages/FacultyAssignmentsPage';
 import AcademyPage from './pages/AcademyPage';
+import DefaultCoursesPage from './pages/DefaultCoursesPage';
 import StudentAssignmentsPage from './pages/StudentAssignmentsPage';
 
 export default function App() {
@@ -165,6 +167,10 @@ export default function App() {
                             } />
                             <Route path="/student/assignments" element={
                                 <StudentRoute><StudentAssignmentsPage /></StudentRoute>
+                            } />
+                            {/* ── Default AI-generated courses (every role except student) ── */}
+                            <Route path="/courses" element={
+                                <NonStudentRoute><DefaultCoursesPage /></NonStudentRoute>
                             } />
                         </Route>
 

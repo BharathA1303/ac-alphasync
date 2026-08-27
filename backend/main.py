@@ -472,6 +472,7 @@ from routes.admin_academic import router as admin_academic_router
 from routes.institution_admin import router as institution_admin_router
 from routes.faculty import router as faculty_router
 from routes.student_academy import router as student_academy_router
+from routes.default_courses import router as default_courses_router
 from routes.faculty_assignments import router as faculty_assignments_router
 from routes.student_assignments import router as student_assignments_router
 from routes.faculty_cohort import router as faculty_cohort_router
@@ -501,6 +502,7 @@ app.include_router(institution_compliance_router)
 app.include_router(faculty_router)
 app.include_router(faculty_cohort_router)
 app.include_router(student_academy_router)
+app.include_router(default_courses_router)
 app.include_router(faculty_assignments_router)
 app.include_router(student_assignments_router)
 

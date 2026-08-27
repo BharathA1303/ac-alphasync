@@ -28,7 +28,9 @@ class Course(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     institution_id = Column(UUID(as_uuid=True), ForeignKey("institutions.id"), nullable=True, index=True)
-    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # Nullable: platform-wide default courses (is_default=true) are system-generated
+    # and have no authoring faculty/user to attribute them to.
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
@@ -41,6 +43,11 @@ class Course(Base):
 
     # platform-wide default courses (institution_id is NULL) ship with is_default=true
     is_default = Column(Boolean, default=False, nullable=False, server_default=text("false"))
+    # Sequential unlock order among default courses only (ignored otherwise).
+    default_order_index = Column(Integer, default=0, nullable=False, server_default=text("0"))
+    # Whether AI has already generated this default course's lesson/assessment
+    # content (generation happens once, lazily, on first open).
+    content_generated = Column(Boolean, default=False, nullable=False, server_default=text("false"))
 
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False, server_default=text("CURRENT_TIMESTAMP"))

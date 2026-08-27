@@ -24,28 +24,42 @@ import {
   ListCheck,
   Users,
   ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 
 /* ─── Role-Based Section definitions (Academic Campus Priority) ─── */
 function getNavigationSections(role) {
   // 1. Priority 1: Academic Campus Suite
+  // Default branch (role === "user", the independent trader): no Academy/
+  // Trading Tasks — those belong to the student-only Academy. Traders get
+  // the AI-generated default Courses section instead (see below).
   let academicSection = {
     label: "Academic Campus",
     items: [
-      { to: "/academy", icon: GraduationCap, label: "Academy" },
-      { to: "/student/assignments", icon: ListCheck, label: "Trading Tasks" },
+      { to: "/courses", icon: BookOpen, label: "Courses" },
       { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
       { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
     ],
   };
 
-  if (role === "faculty") {
+  if (role === "student") {
+    academicSection = {
+      label: "Academic Campus",
+      items: [
+        { to: "/academy", icon: GraduationCap, label: "Academy" },
+        { to: "/student/assignments", icon: ListCheck, label: "Trading Tasks" },
+        { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
+        { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
+      ],
+    };
+  } else if (role === "faculty") {
     academicSection = {
       label: "Faculty Academic",
       items: [
         { to: "/faculty/portal", icon: GraduationCap, label: "Course Builder" },
         { to: "/faculty/cohort", icon: Users, label: "Cohort Console" },
         { to: "/faculty/assignments", icon: ListCheck, label: "Trading Tasks" },
+        { to: "/courses", icon: BookOpen, label: "Courses" },
         { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
         { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
       ],
@@ -57,6 +71,7 @@ function getNavigationSections(role) {
         { to: "/institution/portal", icon: GraduationCap, label: "Campus Portal" },
         { to: "/institution/courses", icon: ClipboardCheck, label: "Course Approvals" },
         { to: "/institution/compliance", icon: ShieldCheck, label: "SEBI Compliance" },
+        { to: "/courses", icon: BookOpen, label: "Courses" },
         { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
         { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
       ],
@@ -67,6 +82,7 @@ function getNavigationSections(role) {
       items: [
         { to: "/admin/panel", icon: Shield, label: "Admin Panel" },
         { to: "/admin/academic", icon: GraduationCap, label: "Institutions" },
+        { to: "/courses", icon: BookOpen, label: "Courses" },
         { to: "/leaderboard", icon: Trophy, label: "Campus Ranking" },
         { to: "/mentor", icon: Lightbulb, label: "AI Mentor" },
       ],
