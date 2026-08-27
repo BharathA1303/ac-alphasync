@@ -104,8 +104,8 @@ function GenerateInviteModal({ onClose }) {
     const loadInvites = useCallback(async () => {
         setLoadingInvites(true);
         try {
-            const { data } = await academicApi.listInviteLinks();
-            setInvites(data?.invites || []);
+            const { data } = await academicApi.listMemberInvites();
+            setInvites(data?.invite_links || []);
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to load invites'));
         } finally {
@@ -118,9 +118,9 @@ function GenerateInviteModal({ onClose }) {
     const handleCreate = async () => {
         setGenerating(true);
         try {
-            const { data } = await academicApi.createInviteLink({ role, expires_in: expiresIn });
+            const { data } = await academicApi.createMemberInvite({ target_role: role, expiry: expiresIn });
             const origin = window.location.origin;
-            const fullUrl = `${origin}/join?code=${data.code}`;
+            const fullUrl = `${origin}/register?invite=${data.invite_link.token}`;
             setInviteLink(fullUrl);
             toast.success('Invite link generated');
             loadInvites();
@@ -136,9 +136,9 @@ function GenerateInviteModal({ onClose }) {
         toast.success('Copied to clipboard');
     };
 
-    const handleRevoke = async (code) => {
+    const handleRevoke = async (linkId) => {
         try {
-            await academicApi.revokeInviteLink(code);
+            await academicApi.deleteMemberInvite(linkId);
             toast.success('Invite link revoked');
             loadInvites();
         } catch (err) {
@@ -216,16 +216,16 @@ function GenerateInviteModal({ onClose }) {
                     ) : (
                         <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
                             {invites.map((inv) => (
-                                <div key={inv.code} className="flex items-center justify-between text-xs p-2 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
+                                <div key={inv.id} className="flex items-center justify-between text-xs p-2 rounded-lg" style={{ background: 'var(--bg-muted)' }}>
                                     <div className="min-w-0">
-                                        <span className="font-bold capitalize" style={{ color: inv.role === 'faculty' ? 'var(--brand)' : '#10b981' }}>{inv.role}</span>
+                                        <span className="font-bold capitalize" style={{ color: inv.target_role === 'faculty' ? 'var(--brand)' : '#10b981' }}>{inv.target_role}</span>
                                         <span className="text-[11px] ml-2" style={{ color: 'var(--text-muted)' }}>{timeLeftLabel(inv.expires_at)}</span>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <button className="p-1 hover:text-white" onClick={() => handleCopy(`${window.location.origin}/join?code=${inv.code}`)} title="Copy link">
+                                        <button className="p-1 hover:text-white" onClick={() => handleCopy(`${window.location.origin}/register?invite=${inv.token}`)} title="Copy link">
                                             <Copy size={12} />
                                         </button>
-                                        <button className="p-1 text-red-400 hover:text-red-300" onClick={() => handleRevoke(inv.code)} title="Revoke">
+                                        <button className="p-1 text-red-400 hover:text-red-300" onClick={() => handleRevoke(inv.id)} title="Revoke">
                                             <X size={12} />
                                         </button>
                                     </div>
@@ -245,7 +245,7 @@ function GrantRetakeRow({ memberId, attempt, onGranted }) {
     const handleGrant = async () => {
         setGranting(true);
         try {
-            await academicApi.grantRetake(memberId, attempt.assessment_id);
+            await academicApi.grantAssessmentRetake(memberId, attempt.assessment_id);
             toast.success(`Retake permission granted for "${attempt.assessment_title || 'Assessment'}"`);
             onGranted();
         } catch (err) {
@@ -293,7 +293,7 @@ function MemberDetailView({ member, onBack }) {
         if (!window.confirm(`Remove ${member.full_name} from your institution?`)) return;
         setRemoving(true);
         try {
-            await academicApi.removeInstitutionMember(member.id);
+            await academicApi.removeMember(member.id);
             toast.success(`${member.full_name} removed from institution`);
             onBack(true);
         } catch (err) {
