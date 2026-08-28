@@ -85,7 +85,10 @@ async def lifespan(app: FastAPI):
 
     # ── Load Zebu master contracts (NSE and BSE equities via live Zebu CDN) ──
     try:
-        from services.contract_loader import get_nse_contracts_cached
+        from services.contract_loader import (
+            get_nse_contracts_cached,
+            fetch_zebu_contracts,
+        )
         from providers.symbol_mapper import load_zebu_contracts
 
         # Fetch NSE contracts (cached for on-demand symbol registration)
