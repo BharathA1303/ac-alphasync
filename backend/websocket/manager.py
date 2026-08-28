@@ -281,21 +281,42 @@ class ConnectionManager:
                 self.disconnect(d)
 
     async def broadcast_futures_quote(self, contract_symbol: str, quote_data: dict):
-        """Broadcast futures quote to all subscribers of a contract."""
-        subscribers = self.futures_subscriptions.get(contract_symbol, set())
+        """Broadcast futures quote to all subscribers or all connected clients."""
+        subscribers = (
+            self.futures_subscriptions.get(contract_symbol, set())
+            | self.subscriptions.get(contract_symbol, set())
+        )
+        target_conns = subscribers if subscribers else set(self.active_connections.keys())
         dead = []
         msg = {
             "type": "futures_quote",
             "contract_symbol": contract_symbol,
             "data": quote_data,
         }
-        for conn_id in subscribers:
+        for conn_id in list(target_conns):
             ws = self.active_connections.get(conn_id)
             if ws:
                 try:
                     await ws.send_json(msg)
                 except Exception:
                     dead.append(conn_id)
+
+        # Handle NIFTY <-> NIFTYFPI alias broadcast for UI watchlist
+        if contract_symbol.startswith("NIFTY") and not contract_symbol.startswith("NIFTYFPI") and not contract_symbol.startswith("NIFTYNXT50"):
+            fpi_sym = contract_symbol.replace("NIFTY", "NIFTYFPI", 1)
+            alias_msg = {
+                "type": "futures_quote",
+                "contract_symbol": fpi_sym,
+                "data": {**quote_data, "contract_symbol": fpi_sym, "tsym": fpi_sym},
+            }
+            for conn_id in list(target_conns):
+                ws = self.active_connections.get(conn_id)
+                if ws:
+                    try:
+                        await ws.send_json(alias_msg)
+                    except Exception:
+                        dead.append(conn_id)
+
         for d in dead:
             self.disconnect(d)
 

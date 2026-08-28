@@ -1152,10 +1152,12 @@ def _extract_underlying_from_tsym(tsym: str) -> str:
         "NIFTYNXT50",
         "BANKNIFTY",
         "FINNIFTY",
+        "NIFTYFPI",
         "NIFTY50",
         "NIFTY",
         "SENSEX50",
         "SENSEX",
+        "BANKEX",
     ]:
         if s.startswith(known):
             return known
@@ -1470,21 +1472,24 @@ async def get_history(
     except Exception as e:
         logger.debug(f"Direct replay history check failed for {sym}: {e}")
 
-    # 2. Check stored historical archive candles in PostgreSQL
-    db_candles = await _fetch_stored_candles_from_db(sym, interval=interval, limit=limit)
-    if db_candles and len(db_candles) > 0:
-        return db_candles[-limit:] if limit else db_candles
+    # 2. Check stored historical archive candles in PostgreSQL only for daily intervals
+    if interval.lower() in ("1d", "d", "day"):
+        db_candles = await _fetch_stored_candles_from_db(sym, interval=interval, limit=limit)
+        if db_candles and len(db_candles) > 0:
+            return db_candles[-limit:] if limit else db_candles
 
     # 3. Derive from underlying spot history
     underlying = _extract_underlying_from_tsym(sym) or sym
     _INDEX_MAP = {
         "NIFTY": "^NSEI",
+        "NIFTYFPI": "^NSEI",
         "NIFTY50": "^NSEI",
         "BANKNIFTY": "^NSEBANK",
         "NIFTYBANK": "^NSEBANK",
         "FINNIFTY": "^CNXFIN",
         "MIDCPNIFTY": "^CNXMIDCAP",
         "SENSEX": "^BSESN",
+        "BANKEX": "^BSESN",
         "NIFTYNXT50": "^CNXJUNIOR",
     }
     spot_sym = _INDEX_MAP.get(

@@ -308,22 +308,31 @@ class HistoricalReplayEngine:
                         else:
                             c["volume"] = int(1500000 * multiplier)
 
-        # Ensure all index futures have active simulation tracks for Near, Mid, Far
-        from services.futures_service import generate_standard_3_expiries
+        # Ensure all index futures and stock futures have active simulation tracks for Near, Mid, Far
+        from services.futures_service import generate_standard_3_expiries, _KNOWN_INDEX_UNDERLYINGS
         import uuid
 
         spot_underlyings = [
             ("NIFTY", "^NSEI"),
+            ("NIFTYFPI", "^NSEI"),
             ("BANKNIFTY", "^NSEBANK"),
             ("FINNIFTY", "^CNXFIN"),
             ("MIDCPNIFTY", "^CNXMIDCAP"),
             ("NIFTYNXT50", "^CNXJUNIOR"),
             ("SENSEX", "^BSESN"),
+            ("BANKEX", "^BSESN"),
         ]
+
+        # Add all loaded equity underlyings as well (e.g. HDFCBANK, RELIANCE, TCS, INFY, ICICIBANK, SBIN, AXISBANK, etc.)
+        for t in list(self._instruments.values()):
+            if t.instrument_type == "EQUITY":
+                sym_clean = t.trading_symbol.replace("-EQ", "").replace(".NS", "").replace(".BO", "").strip().upper()
+                if sym_clean and not any(u[0] == sym_clean for u in spot_underlyings):
+                    spot_underlyings.append((sym_clean, t.canonical_symbol))
 
         for under_name, spot_sym in spot_underlyings:
             spot_track = None
-            for cand_key in [spot_sym, f"NSE:{spot_sym}", f"BSE:{spot_sym}", under_name]:
+            for cand_key in [spot_sym, f"NSE:{spot_sym}", f"BSE:{spot_sym}", under_name, f"{under_name}.NS", f"{under_name}.BO"]:
                 k = self._by_canonical.get(cand_key) or self._by_trading_symbol.get(cand_key)
                 if k and k in self._instruments:
                     spot_track = self._instruments[k]
@@ -354,6 +363,8 @@ class HistoricalReplayEngine:
 
                 f_candles = []
                 last_c = None
+                is_index = under_name in _KNOWN_INDEX_UNDERLYINGS or under_name.startswith("^")
+
                 for c_idx, sc in enumerate(spot_track.candles):
                     s_o, s_h, s_l, s_c = (
                         sc["open"],
@@ -375,14 +386,14 @@ class HistoricalReplayEngine:
                                     "low": last_c,
                                     "close": last_c,
                                     "volume": 0,
-                                    "open_interest": 450000,
+                                    "open_interest": 450000 if is_index else 18000,
                                 }
                             )
                         else:
                             o = round(s_o * mult, 2)
                             c = round(s_c * mult, 2)
-                            h = round(max(o, c) + 1.5, 2)
-                            l = round(min(o, c) - 1.5, 2)
+                            h = round(max(o, c) + (1.5 if is_index else 0.5), 2)
+                            l = round(min(o, c) - (1.5 if is_index else 0.5), 2)
                             v = max(5, int(s_v * vol_ratio))
                             last_c = c
                             f_candles.append(
@@ -393,7 +404,7 @@ class HistoricalReplayEngine:
                                     "low": l,
                                     "close": c,
                                     "volume": v,
-                                    "open_interest": 450000,
+                                    "open_interest": 450000 if is_index else 18000,
                                 }
                             )
                     else:
@@ -403,7 +414,10 @@ class HistoricalReplayEngine:
                         c = round(s_c * mult, 2)
                         v = max(10, int(s_v * vol_ratio))
                         last_c = c
-                        oi_val = 10500000 if tier == "Near" else 2800000
+                        if is_index:
+                            oi_val = 10500000 if tier == "Near" else 2800000
+                        else:
+                            oi_val = 420000 if tier == "Near" else 112000
                         f_candles.append(
                             {
                                 "epoch": epoch,
@@ -434,8 +448,23 @@ class HistoricalReplayEngine:
                 self._instruments[f_key] = new_track
                 self._by_trading_symbol[tsym] = f_key
                 self._by_canonical[tsym] = f_key
+                self._by_canonical[f"NFO:{tsym}"] = f_key
+                self._by_canonical[f"BFO:{tsym}"] = f_key
+                self._by_canonical[f"NSE:{tsym}"] = f_key
+                self._by_canonical[f"BSE:{tsym}"] = f_key
                 if new_track.token:
                     self._by_token[new_track.token] = f_key
+
+                # Register NIFTY <-> NIFTYFPI aliases for UI watchlist compatibility
+                if under_name == "NIFTY":
+                    fpi_sym = tsym.replace("NIFTY", "NIFTYFPI", 1)
+                    self._by_trading_symbol[fpi_sym] = f_key
+                    self._by_canonical[fpi_sym] = f_key
+                    self._by_canonical[f"NFO:{fpi_sym}"] = f_key
+                elif under_name == "NIFTYFPI":
+                    nifty_sym = tsym.replace("NIFTYFPI", "NIFTY", 1)
+                    self._by_trading_symbol[nifty_sym] = f_key
+                    self._by_canonical[nifty_sym] = f_key
 
         if sync_clock:
             now_ist = datetime.now(IST)
