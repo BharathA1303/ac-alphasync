@@ -1347,6 +1347,8 @@ async def get_quote(contract_symbol: str) -> dict:
     """
     sym = str(contract_symbol or "").strip().upper()
     if not sym:
+        return {}
+
     # 1. Try historical replay engine if running in simulation
     try:
         from services.historical_replay import historical_replay_engine
