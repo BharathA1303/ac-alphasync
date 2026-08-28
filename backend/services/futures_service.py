@@ -720,132 +720,90 @@ def get_contracts(symbol: str, limit: Optional[int] = None) -> list[dict]:
     return contracts
 
 
+async def get_all_underlyings() -> list[dict]:
+    """
+    Get all available F&O underlying indices and stocks (210+ underlyings)
+    from database instruments and memory catalog.
+    """
+    underlyings_map = {}
+
+    # 1. Base indices
+    indices = [
+        {"symbol": "NIFTY", "type": "Index", "desc": "Nifty 50 Index Futures", "exchange": "NSE", "lot_size": 65},
+        {"symbol": "BANKNIFTY", "type": "Index", "desc": "Bank Nifty Futures", "exchange": "NSE", "lot_size": 30},
+        {"symbol": "FINNIFTY", "type": "Index", "desc": "Nifty Financial Services Futures", "exchange": "NSE", "lot_size": 65},
+        {"symbol": "MIDCPNIFTY", "type": "Index", "desc": "Nifty Midcap Select Futures", "exchange": "NSE", "lot_size": 75},
+        {"symbol": "NIFTYNXT50", "type": "Index", "desc": "Nifty Next 50 Futures", "exchange": "NSE", "lot_size": 25},
+        {"symbol": "SENSEX", "type": "Index", "desc": "BSE SENSEX Index Futures", "exchange": "BSE", "lot_size": 20},
+        {"symbol": "BANKEX", "type": "Index", "desc": "BSE BANKEX Index Futures", "exchange": "BSE", "lot_size": 15},
+    ]
+    for idx in indices:
+        underlyings_map[idx["symbol"]] = idx
+
+    # 2. Query all distinct underlyings from PostgreSQL instruments
+    try:
+        from database.connection import async_session_factory
+        from models.market_data import Instrument
+        from sqlalchemy import select, distinct
+
+        async with async_session_factory() as db:
+            fut_stmt = select(distinct(Instrument.underlying)).where(
+                Instrument.underlying.isnot(None),
+                Instrument.instrument_type.in_(["FUTSTK", "FUTIDX", "FUTURES"]),
+            )
+            fut_rows = (await db.execute(fut_stmt)).scalars().all()
+            for u in fut_rows:
+                sym = str(u or "").strip().upper()
+                if not sym or sym in underlyings_map:
+                    continue
+                lot = get_underlying_lot_size(sym)
+                underlyings_map[sym] = {
+                    "symbol": sym,
+                    "type": "Stock",
+                    "desc": f"{sym} Stock Futures",
+                    "exchange": "NSE",
+                    "lot_size": lot,
+                }
+
+            eq_stmt = select(Instrument.trading_symbol).where(
+                Instrument.instrument_type == "EQUITY"
+            )
+            eq_rows = (await db.execute(eq_stmt)).scalars().all()
+            for eq in eq_rows:
+                sym = str(eq or "").replace("-EQ", "").replace(".NS", "").replace(".BO", "").strip().upper()
+                if not sym or sym in underlyings_map:
+                    continue
+                lot = get_underlying_lot_size(sym)
+                underlyings_map[sym] = {
+                    "symbol": sym,
+                    "type": "Stock",
+                    "desc": f"{sym} Stock Futures",
+                    "exchange": "NSE",
+                    "lot_size": lot,
+                }
+    except Exception as e:
+        logger.debug(f"DB underlyings query failed: {e}")
+
+    for sym, lot in _FUTURES_LOT_SIZES.items():
+        if sym not in underlyings_map:
+            underlyings_map[sym] = {
+                "symbol": sym,
+                "type": "Index" if sym in _KNOWN_INDEX_UNDERLYINGS else "Stock",
+                "desc": f"{sym} Futures",
+                "exchange": "BSE" if sym in ("SENSEX", "BANKEX") else "NSE",
+                "lot_size": lot,
+            }
+
+    idx_list = [v for v in underlyings_map.values() if v["type"] == "Index"]
+    stk_list = sorted([v for v in underlyings_map.values() if v["type"] == "Stock"], key=lambda x: x["symbol"])
+    return idx_list + stk_list
+
+
 async def get_contracts_live(
     symbol: str, user_id: Optional[str] = None, limit: Optional[int] = None
 ) -> list[dict]:
-    """Fetch live futures contracts from Noren SearchScrip for one underlying."""
-    symbol = symbol.upper().strip().replace(".NS", "").replace(".BO", "")
-
-    from services.broker_session import broker_session_manager
-
-    provider = None
-    if user_id:
-        provider = broker_session_manager.get_session(user_id)
-    if provider is None:
-        provider = broker_session_manager.get_any_session()
-        if provider is None:
-            try:
-                from services.master_session import master_session_service
-
-                if await master_session_service.initialize():
-                    provider = broker_session_manager.get_any_session()
-            except Exception as e:
-                logger.debug(f"Futures live contract recovery failed for {symbol}: {e}")
-
-    if provider is None:
-        return get_contracts(symbol, limit=limit)
-
-    exch = "BFO" if symbol in {"SENSEX", "BANKEX"} else "NFO"
-    data = await provider._rest_post("/SearchScrip", {"exch": exch, "stext": symbol})
-    if not data or data.get("stat") != "Ok":
-        return get_contracts(symbol, limit=limit)
-
-    values = data.get("values") or []
-
-    def _parse_expiry(tsym: str) -> Optional[str]:
-        m = re.search(r"(\d{2}[A-Z]{3}\d{2,4})", tsym)
-        if not m:
-            return None
-        raw = m.group(1)
-        for fmt in ("%d%b%y", "%d%b%Y"):
-            try:
-                return datetime.strptime(raw, fmt).strftime("%Y-%m-%d")
-            except Exception:
-                continue
-        return None
-
-    contracts: list[dict] = []
-    for item in values:
-        tsym = str(item.get("tsym") or "").upper().strip()
-        token = str(item.get("token") or "").strip()
-        if not tsym or not token:
-            continue
-
-        # Keep only futures of this underlying.
-        if not (tsym.endswith("F") or tsym.endswith("FUT")):
-            continue
-        # Strict underlying match — never use substring/contains logic
-        extracted = _extract_underlying_from_tsym(tsym)
-        if extracted != symbol:
-            continue
-
-        expiry_date = _parse_expiry(tsym)
-        lot_raw = item.get("ls") or item.get("lotsize") or item.get("lot_size") or 1
-        tick_raw = item.get("ti") or item.get("tick_size") or 0.05
-
-        try:
-            lot_size = int(float(lot_raw))
-        except Exception:
-            lot_size = 1
-        try:
-            tick_size = float(tick_raw)
-        except Exception:
-            tick_size = 0.05
-
-        contracts.append(
-            {
-                "contract_symbol": tsym,
-                "token": token,
-                "exchange": exch,
-                "expiry_date": expiry_date,
-                "expiry_label": "",
-                "lot_size": lot_size,
-                "tick_size": tick_size,
-                "instrument_type": (
-                    "FUTIDX"
-                    if symbol
-                    in {
-                        "NIFTY",
-                        "BANKNIFTY",
-                        "FINNIFTY",
-                        "MIDCPNIFTY",
-                        "NIFTYNXT50",
-                        "SENSEX",
-                        "BANKEX",
-                    }
-                    else "FUTSTK"
-                ),
-            }
-        )
-
-    if not contracts:
-        return get_contracts(symbol, limit=limit)
-
-    # Stable nearest-first sorting using parsed expiry.
-    contracts.sort(key=lambda c: c.get("expiry_date") or "9999-12-31")
-
-    # Refresh in-memory cache and symbol map with live contracts.
-    _futures_contracts[symbol] = contracts
-    try:
-        load_zebu_contracts(
-            [
-                {
-                    "symbol": c["contract_symbol"],
-                    "canonical": c["contract_symbol"],
-                    "trading_symbol": c["contract_symbol"],
-                    "token": c["token"],
-                    "exchange": c.get("exchange") or exch,
-                }
-                for c in contracts
-            ]
-        )
-    except Exception as e:
-        logger.debug(f"Futures live contract mapping refresh failed for {symbol}: {e}")
-
-    if limit:
-        contracts = contracts[:limit]
-
-    return contracts
+    """Fetch futures contracts from catalog and DB without external broker dependencies."""
+    return get_contracts(symbol, limit=limit)
 
 
 def label_expiry(expiry_date: str, ref_date: Optional[datetime] = None) -> str:

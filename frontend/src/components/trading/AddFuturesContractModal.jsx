@@ -41,6 +41,7 @@ export default function AddFuturesContractModal({
     onAddContract,
     watchlistItems = [],
 }) {
+    const [allUnderlyings, setAllUnderlyings] = useState(POPULAR_UNDERLYINGS);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUnderlying, setSelectedUnderlying] = useState('NIFTY');
     const [contracts, setContracts] = useState([]);
@@ -49,17 +50,32 @@ export default function AddFuturesContractModal({
     const [error, setError] = useState(null);
     const searchRef = useRef(null);
 
+    // Fetch all 210+ underlyings from backend
+    useEffect(() => {
+        let isMounted = true;
+        api.get('/futures/underlyings')
+            .then((res) => {
+                const list = res.data?.underlyings || [];
+                if (isMounted && list.length > 0) {
+                    setAllUnderlyings(list);
+                }
+            })
+            .catch(() => {});
+        return () => { isMounted = false; };
+    }, []);
+
     const underlyings = useMemo(() => {
         const query = sanitize(searchQuery);
-        if (!query) return POPULAR_UNDERLYINGS;
-        const filtered = POPULAR_UNDERLYINGS.filter((item) =>
-            item.symbol.includes(query) || item.desc.toUpperCase().includes(query)
+        const source = allUnderlyings.length > 0 ? allUnderlyings : POPULAR_UNDERLYINGS;
+        if (!query) return source;
+        const filtered = source.filter((item) =>
+            item.symbol.includes(query) || (item.desc && item.desc.toUpperCase().includes(query))
         );
         if (filtered.some((item) => item.symbol === query)) {
             return filtered;
         }
         return [{ symbol: query, type: 'Stock', desc: `${query} Futures` }, ...filtered];
-    }, [searchQuery]);
+    }, [searchQuery, allUnderlyings]);
 
     useEffect(() => {
         if (searchQuery.trim()) {
@@ -91,10 +107,10 @@ export default function AddFuturesContractModal({
             try {
                 const res = await api.get(`/futures/contracts/${encodeURIComponent(selectedUnderlying)}`);
                 if (cancelled) return;
-                const list = (res.data?.contracts || []).filter((c) => c?.contract_symbol && c?.token);
+                const list = (res.data?.contracts || []).filter((c) => c?.contract_symbol);
                 setContracts(list);
                 if (list.length === 0) {
-                    setError(`No Zebu futures contracts returned for ${selectedUnderlying}`);
+                    setError(`No futures contracts returned for ${selectedUnderlying}`);
                     setQuotes({});
                     return;
                 }

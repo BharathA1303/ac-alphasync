@@ -40,14 +40,16 @@ RATE_LIMITS = {
     # Admin endpoints — strict rate limiting
     "/api/admin/auth": {"max_requests": 5, "window_seconds": 60},
     "/api/admin/": {"max_requests": 180, "window_seconds": 60},
-    # Market data endpoints are read-only cached data — allow higher throughput
-    "/api/market/": {"max_requests": 600, "window_seconds": 60},
-    # Futures endpoints get their own bucket — WS-first arch reduces REST usage
-    "/api/futures/": {"max_requests": 300, "window_seconds": 60},
+    # Market data endpoints are read-only cached data — allow high throughput
+    "/api/market/": {"max_requests": 10000, "window_seconds": 60},
+    # Futures endpoints get their own bucket — allow high throughput
+    "/api/futures/": {"max_requests": 10000, "window_seconds": 60},
+    # Options endpoints get their own bucket — allow high throughput
+    "/api/options/": {"max_requests": 10000, "window_seconds": 60},
 }
 
 # Default rate limit for all other API endpoints
-DEFAULT_RATE_LIMIT = {"max_requests": 120, "window_seconds": 60}
+DEFAULT_RATE_LIMIT = {"max_requests": 1000, "window_seconds": 60}
 
 # Redis key prefix for rate limiting
 _RL_PREFIX = "alphasync:ratelimit"

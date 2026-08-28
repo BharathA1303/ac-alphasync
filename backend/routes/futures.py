@@ -231,10 +231,9 @@ async def list_contracts(
         }
         return _snapshot_envelope(payload, stream_symbols, datetime.now(), snapshot=True)
 
-    # Get live contracts from service (SearchScrip) and fall back to cache only if needed
+    # Get contracts from futures service catalog & DB instantly
     try:
-        user_id = user.id if user else None
-        contracts = await futures_service.get_contracts_live(symbol, user_id=user_id)
+        contracts = futures_service.get_contracts(symbol)
     except Exception as e:
         logger.error(f"Error fetching contracts for {symbol}: {e}")
         return {"contracts": [], "symbol": symbol, "found": False, "error": str(e)}
@@ -261,6 +260,18 @@ async def list_contracts(
         stream_symbols = [c.get("contract_symbol") for c in results if c.get("contract_symbol")]
         return _snapshot_envelope(payload, stream_symbols, datetime.now(), snapshot=False)
     return payload
+
+
+@router.get("/underlyings")
+async def get_all_underlyings(
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Return all available F&O stock and index underlyings (210+ underlyings)
+    with their segment, name, and lot size.
+    """
+    underlyings = await futures_service.get_all_underlyings()
+    return {"underlyings": underlyings, "count": len(underlyings)}
 
 
 class BatchFuturesQuotesRequest(BaseModel):
