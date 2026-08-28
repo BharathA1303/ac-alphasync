@@ -1383,19 +1383,67 @@ async def get_quote(contract_symbol: str) -> dict:
     return {}
 
 
+async def _fetch_stored_candles_from_db(
+    contract_symbol: str, interval: str = "5m", limit: int = 500
+) -> list[dict]:
+    """Fetch stored historical candles for a futures contract from PostgreSQL."""
+    try:
+        from database.connection import async_session_factory
+        from models.market_data import Instrument, HistoricalCandle
+        from sqlalchemy import select
+
+        sym_clean = contract_symbol.upper().strip()
+        async with async_session_factory() as db:
+            inst_stmt = select(Instrument.id).where(
+                (Instrument.trading_symbol == sym_clean) | (Instrument.token == sym_clean)
+            ).limit(1)
+            inst_id = (await db.execute(inst_stmt)).scalar_one_or_none()
+            if not inst_id:
+                return []
+
+            candle_stmt = (
+                select(HistoricalCandle)
+                .where(HistoricalCandle.instrument_id == inst_id)
+                .order_by(HistoricalCandle.timestamp.asc())
+            )
+            if limit:
+                candle_stmt = candle_stmt.limit(limit)
+
+            rows = (await db.execute(candle_stmt)).scalars().all()
+            if not rows:
+                return []
+
+            candles = []
+            for r in rows:
+                epoch_sec = int(r.timestamp.timestamp())
+                candles.append({
+                    "time": epoch_sec,
+                    "timestamp": r.timestamp.isoformat(),
+                    "open": float(r.open),
+                    "high": float(r.high),
+                    "low": float(r.low),
+                    "close": float(r.close),
+                    "volume": int(r.volume),
+                    "oi": int(r.open_interest) if r.open_interest is not None else 0,
+                })
+            return candles
+    except Exception as e:
+        logger.debug(f"DB candle fetch failed for {contract_symbol}: {e}")
+        return []
+
+
 async def get_history(
     contract_symbol: str, interval: str = "5m", limit: int = 500
 ) -> list[dict]:
     """
     Fetch OHLCV history for a futures contract.
-    If direct candles are missing, derives from underlying spot history
-    with accurate timeline basis and broken-candle illiquidity for Far contracts.
+    Checks simulation replay engine, then PostgreSQL stored candles, then derives from underlying spot.
     """
     sym = str(contract_symbol or "").strip().upper()
     if not sym:
         return []
 
-    # 1. Check historical replay engine for direct candles
+    # 1. Check historical replay engine for direct simulated candles
     try:
         from services.historical_replay import historical_replay_engine
 
@@ -1408,7 +1456,12 @@ async def get_history(
     except Exception as e:
         logger.debug(f"Direct replay history check failed for {sym}: {e}")
 
-    # 2. Derive from underlying spot history
+    # 2. Check stored historical archive candles in PostgreSQL
+    db_candles = await _fetch_stored_candles_from_db(sym, interval=interval, limit=limit)
+    if db_candles and len(db_candles) > 0:
+        return db_candles[-limit:] if limit else db_candles
+
+    # 3. Derive from underlying spot history
     underlying = _extract_underlying_from_tsym(sym) or sym
     _INDEX_MAP = {
         "NIFTY": "^NSEI",

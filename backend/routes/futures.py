@@ -27,6 +27,7 @@ from routes.auth import get_current_user_optional, get_current_user
 from models.user import User
 from engines.market_session import market_session
 from services import futures_service
+from services.futures_analytics_service import futures_analytics_service
 from services.market_data import get_system_quote_live_only
 from services.futures_trading_service import (
     place_futures_order,
@@ -603,6 +604,80 @@ async def get_underlying_spot(
         ),
         "market_open": market_session.is_trading_hours(),
         "available": True,
+    }
+
+
+@router.get("/analytics/{contract_symbol}")
+async def get_contract_analytics(
+    contract_symbol: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Get comprehensive micro-information calculations for a single futures contract.
+    Calculates Basis, Annualized Cost of Carry, Fair Value, 4-Quadrant Buildup,
+    Turnover in Cr, Contract Value, Estimated Margin, VWAP deviation.
+    """
+    sym = contract_symbol.upper().strip()
+    underlying = futures_service._extract_underlying_from_tsym(sym) or sym
+
+    # 1. Fetch contract meta
+    contracts = futures_service.get_contracts(underlying)
+    contract_meta = next((c for c in contracts if c.get("contract_symbol") == sym), None)
+    if not contract_meta:
+        contract_meta = {
+            "contract_symbol": sym,
+            "underlying": underlying,
+            "exchange": "BFO" if underlying in ("SENSEX", "BANKEX") else "NFO",
+            "lot_size": futures_service.get_underlying_lot_size(underlying),
+            "tick_size": 0.05,
+            "instrument_type": "FUTIDX" if underlying in futures_service._KNOWN_INDEX_UNDERLYINGS else "FUTSTK",
+        }
+
+    # 2. Fetch contract quote
+    quote = await futures_service.get_quote(sym) or {}
+
+    # 3. Fetch underlying spot quote
+    spot_data = await get_underlying_spot(underlying, user)
+
+    # 4. Compute micro-analytics
+    analytics = futures_analytics_service.calculate_contract_analytics(
+        contract_meta, quote, spot_data
+    )
+
+    return {
+        "contract_symbol": sym,
+        "analytics": analytics.__dict__,
+        "market_open": market_session.is_trading_hours(),
+    }
+
+
+@router.get("/analytics/ladder/{symbol}")
+async def get_ladder_analytics(
+    symbol: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """
+    Get complete term structure analysis, calendar spreads, and expiry ladder micro-information.
+    """
+    underlying = symbol.upper().strip().replace(".NS", "").replace(".BO", "").replace("^", "")
+    contracts = futures_service.get_contracts(underlying)
+
+    symbols = [c.get("contract_symbol") for c in contracts if c.get("contract_symbol")]
+    quotes: dict[str, dict] = {}
+    for sym in symbols:
+        q = await futures_service.get_quote(sym)
+        if q:
+            quotes[sym] = q
+
+    spot_data = await get_underlying_spot(underlying, user)
+    ladder_data = futures_analytics_service.calculate_ladder_analytics(
+        underlying, contracts, quotes, spot_data
+    )
+
+    return {
+        "underlying": underlying,
+        **ladder_data,
+        "market_open": market_session.is_trading_hours(),
     }
 
 

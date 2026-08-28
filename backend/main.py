@@ -29,6 +29,7 @@ from workers.access_expiry_worker import access_expiry_worker
 from workers.historical_download_worker import historical_download_worker
 from workers.auto_simulation_worker import auto_simulation_worker
 from workers.historical_retention_worker import historical_retention_worker
+from workers.futures_daily_worker import futures_daily_worker
 
 # ── Broker Session Manager (per-user providers) ────────────────────
 from services.broker_session import broker_session_manager
@@ -326,6 +327,7 @@ async def lifespan(app: FastAPI):
             # Historical market data: daily download + 100-day retention purge.
             asyncio.create_task(historical_download_worker.run()),
             asyncio.create_task(historical_retention_worker.run()),
+            asyncio.create_task(futures_daily_worker.run()),
             # Automatic replay: historical data is the ONLY market data
             # source now. This worker keeps replay aligned with the NSE
             # session with no admin action and no LIVE/SIMULATION switch.
