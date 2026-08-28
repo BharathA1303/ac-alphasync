@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.connection import get_db
 from models.user import User, UserSession
+from models.institution import Institution
 from models.portfolio import Portfolio, Transaction
 from models.order import Order
 from models.course import (
@@ -72,6 +73,11 @@ async def get_dashboard(
     )
     counts = {role: count for role, count in counts_result.all()}
 
+    inst = await db.get(Institution, inst_id)
+    max_students = inst.max_students if inst and inst.max_students is not None else 200
+    max_faculty = inst.max_faculty if inst and inst.max_faculty is not None else 20
+    max_admins = inst.max_institution_admins if inst and inst.max_institution_admins is not None else 5
+
     pnl_result = await db.execute(
         select(func.coalesce(func.sum(Portfolio.total_pnl), 0))
         .join(User, User.id == Portfolio.user_id)
@@ -100,8 +106,12 @@ async def get_dashboard(
 
     return {
         "institution_id": str(inst_id),
+        "institution_name": inst.name if inst else None,
         "total_students": counts.get("student", 0),
+        "max_students": max_students,
         "total_faculty": counts.get("faculty", 0),
+        "max_faculty": max_faculty,
+        "max_institution_admins": max_admins,
         "total_pnl": round(total_pnl, 2),
         "top_student": top_student,
     }

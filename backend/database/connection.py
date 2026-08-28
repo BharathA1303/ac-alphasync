@@ -126,6 +126,9 @@ async def init_db():
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS reviewed_by_user_id UUID REFERENCES users(id);"))
             await conn.execute(text("ALTER TABLE courses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE;"))
             await conn.execute(text("ALTER TABLE assessments ADD COLUMN IF NOT EXISTS lesson_ids JSONB DEFAULT '[]'::jsonb;"))
+            await conn.execute(text("ALTER TABLE institutions ADD COLUMN IF NOT EXISTS max_institution_admins INTEGER NOT NULL DEFAULT 5;"))
+            await conn.execute(text("ALTER TABLE institutions ADD COLUMN IF NOT EXISTS max_faculty INTEGER NOT NULL DEFAULT 20;"))
+            await conn.execute(text("ALTER TABLE institutions ADD COLUMN IF NOT EXISTS max_students INTEGER NOT NULL DEFAULT 200;"))
         from models import user, order, portfolio, watchlist, algo  # noqa
         from models import broker as broker_model  # noqa
         from models import futures_order  # noqa  — futures paper trading tables
@@ -302,6 +305,23 @@ async def init_db():
             )
             await conn.execute(
                 text("CREATE INDEX IF NOT EXISTS ix_users_institution_id ON users (institution_id);")
+            )
+
+            # Academic institution limit columns
+            async def _ensure_institutions_column(column_name: str, ddl: str):
+                res = await conn.execute(text("PRAGMA table_info(institutions);"))
+                cols = [row[1] for row in res.fetchall()]
+                if column_name not in cols:
+                    await conn.execute(text(f"ALTER TABLE institutions ADD COLUMN {ddl};"))
+
+            await _ensure_institutions_column(
+                "max_institution_admins", "max_institution_admins INTEGER NOT NULL DEFAULT 5"
+            )
+            await _ensure_institutions_column(
+                "max_faculty", "max_faculty INTEGER NOT NULL DEFAULT 20"
+            )
+            await _ensure_institutions_column(
+                "max_students", "max_students INTEGER NOT NULL DEFAULT 200"
             )
 
             # ZeroLoss strategy columns for per-user isolation

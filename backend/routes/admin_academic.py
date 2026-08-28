@@ -33,12 +33,18 @@ class CreateInstitutionRequest(BaseModel):
     name: str
     code: str
     email_domain: Optional[str] = None
+    max_institution_admins: Optional[int] = 5
+    max_faculty: Optional[int] = 20
+    max_students: Optional[int] = 200
 
 
 class UpdateInstitutionRequest(BaseModel):
     name: Optional[str] = None
     email_domain: Optional[str] = None
     status: Optional[str] = None
+    max_institution_admins: Optional[int] = None
+    max_faculty: Optional[int] = None
+    max_students: Optional[int] = None
 
 
 class CreateInviteLinkRequest(BaseModel):
@@ -77,6 +83,9 @@ async def list_institutions(
                 "code": inst.code,
                 "email_domain": inst.email_domain,
                 "status": inst.status,
+                "max_institution_admins": inst.max_institution_admins if inst.max_institution_admins is not None else 5,
+                "max_faculty": inst.max_faculty if inst.max_faculty is not None else 20,
+                "max_students": inst.max_students if inst.max_students is not None else 200,
                 "created_at": inst.created_at.isoformat() if inst.created_at else None,
                 "admin_count": counts.get(str(inst.id), {}).get("institution_admin", 0),
                 "faculty_count": counts.get(str(inst.id), {}).get("faculty", 0),
@@ -115,6 +124,9 @@ async def get_institution(
             "code": institution.code,
             "email_domain": institution.email_domain,
             "status": institution.status,
+            "max_institution_admins": institution.max_institution_admins if institution.max_institution_admins is not None else 5,
+            "max_faculty": institution.max_faculty if institution.max_faculty is not None else 20,
+            "max_students": institution.max_students if institution.max_students is not None else 200,
             "created_at": institution.created_at.isoformat() if institution.created_at else None,
             "admin_count": counts["institution_admin"],
             "faculty_count": counts["faculty"],
@@ -142,10 +154,24 @@ async def create_institution(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="An institution with this name or code already exists")
 
+    max_admins = req.max_institution_admins if req.max_institution_admins is not None else 5
+    max_faculty = req.max_faculty if req.max_faculty is not None else 20
+    max_students = req.max_students if req.max_students is not None else 200
+
+    if max_admins < 1:
+        raise HTTPException(status_code=400, detail="Institution admin limit must be at least 1")
+    if max_faculty < 0:
+        raise HTTPException(status_code=400, detail="Faculty limit cannot be negative")
+    if max_students < 0:
+        raise HTTPException(status_code=400, detail="Student limit cannot be negative")
+
     institution = Institution(
         name=name,
         code=code,
         email_domain=(req.email_domain or "").strip() or None,
+        max_institution_admins=max_admins,
+        max_faculty=max_faculty,
+        max_students=max_students,
         created_by_user_id=admin.id,
     )
     db.add(institution)
@@ -160,6 +186,9 @@ async def create_institution(
             "code": institution.code,
             "email_domain": institution.email_domain,
             "status": institution.status,
+            "max_institution_admins": institution.max_institution_admins,
+            "max_faculty": institution.max_faculty,
+            "max_students": institution.max_students,
             "created_at": institution.created_at.isoformat() if institution.created_at else None,
         },
     }
@@ -185,6 +214,18 @@ async def update_institution(
         if req.status not in ("active", "suspended"):
             raise HTTPException(status_code=400, detail="Invalid status")
         institution.status = req.status
+    if req.max_institution_admins is not None:
+        if req.max_institution_admins < 1:
+            raise HTTPException(status_code=400, detail="Institution admin limit must be at least 1")
+        institution.max_institution_admins = req.max_institution_admins
+    if req.max_faculty is not None:
+        if req.max_faculty < 0:
+            raise HTTPException(status_code=400, detail="Faculty limit cannot be negative")
+        institution.max_faculty = req.max_faculty
+    if req.max_students is not None:
+        if req.max_students < 0:
+            raise HTTPException(status_code=400, detail="Student limit cannot be negative")
+        institution.max_students = req.max_students
 
     await db.commit()
     await db.refresh(institution)
@@ -197,6 +238,9 @@ async def update_institution(
             "code": institution.code,
             "email_domain": institution.email_domain,
             "status": institution.status,
+            "max_institution_admins": institution.max_institution_admins,
+            "max_faculty": institution.max_faculty,
+            "max_students": institution.max_students,
         },
     }
 

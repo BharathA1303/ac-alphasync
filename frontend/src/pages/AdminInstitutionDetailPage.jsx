@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Building2, Users, Search, Loader2, Link2, Copy, X, Trash2,
+    Edit3, Shield, AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academicApi from '../services/academicApi';
@@ -100,11 +101,138 @@ function InviteLinkRow({ link, onDeleted, onDelete }) {
     );
 }
 
-function GenerateInviteModal({ institution, onClose }) {
+function EditLimitsModal({ institution, onClose, onUpdated }) {
+    const [name, setName] = useState(institution.name || '');
+    const [emailDomain, setEmailDomain] = useState(institution.email_domain || '');
+    const [status, setStatus] = useState(institution.status || 'active');
+    const [maxAdmins, setMaxAdmins] = useState(institution.max_institution_admins || 5);
+    const [maxFaculty, setMaxFaculty] = useState(institution.max_faculty || 20);
+    const [maxStudents, setMaxStudents] = useState(institution.max_students || 200);
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!name.trim()) {
+            toast.error('Institution name is required');
+            return;
+        }
+        if (Number(maxAdmins) < 1) {
+            toast.error('Admin limit must be at least 1');
+            return;
+        }
+        setSaving(true);
+        try {
+            const { data } = await academicApi.updateInstitution(institution.id, {
+                name: name.trim(),
+                email_domain: emailDomain.trim() || null,
+                status,
+                max_institution_admins: Number(maxAdmins),
+                max_faculty: Number(maxFaculty),
+                max_students: Number(maxStudents),
+            });
+            toast.success('Institution limits updated');
+            onUpdated(data?.institution);
+            onClose();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to update institution'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}>
+            <div className="w-full max-w-lg rounded-2xl animate-slide-up overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+                <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <div>
+                        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Edit Institution Limits & Info</h2>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{institution.code} · Update user quotas and settings</p>
+                    </div>
+                    <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: 'var(--text-muted)' }} onClick={onClose}>
+                        <X size={18} />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5 max-h-[80vh] overflow-y-auto">
+                    <div>
+                        <label className="label-text">Institution Name</label>
+                        <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="label-text">Status</label>
+                            <select className="input-field" value={status} onChange={(e) => setStatus(e.target.value)}>
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="label-text">Email Domain (optional)</label>
+                            <input className="input-field" value={emailDomain} onChange={(e) => setEmailDomain(e.target.value)} placeholder="e.g. @iitb.ac.in" />
+                        </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl mt-1" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2.5 flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                            <Shield size={13} style={{ color: 'var(--brand)' }} /> User Quotas & Role Limits
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="label-text text-[11px]">Max Admins</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    className="input-field text-sm"
+                                    value={maxAdmins}
+                                    onChange={(e) => setMaxAdmins(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="label-text text-[11px]">Max Faculty</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    className="input-field text-sm"
+                                    value={maxFaculty}
+                                    onChange={(e) => setMaxFaculty(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="label-text text-[11px]">Max Students</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    className="input-field text-sm"
+                                    value={maxStudents}
+                                    onChange={(e) => setMaxStudents(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
+                            Active members cannot exceed these numbers. Super Admin invites Institution Admins, who in turn invite Faculty and Students.
+                        </p>
+                    </div>
+
+                    <button type="submit" className="admin-action-btn admin-action-btn--primary text-sm mt-2 py-2.5" disabled={saving}>
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Edit3 size={14} />} Save Limits & Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function GenerateInviteModal({ institution, onClose, onGenerated }) {
     const [expiry, setExpiry] = useState('7d');
     const [saving, setSaving] = useState(false);
     const [links, setLinks] = useState([]);
     const [loadingLinks, setLoadingLinks] = useState(true);
+
+    const maxAdmins = institution.max_institution_admins ?? 5;
+    const adminCount = institution.admin_count ?? 0;
+    const isQuotaFull = adminCount >= maxAdmins;
 
     const loadLinks = useCallback(async () => {
         setLoadingLinks(true);
@@ -121,11 +249,16 @@ function GenerateInviteModal({ institution, onClose }) {
     useEffect(() => { loadLinks(); }, [loadLinks]);
 
     const handleGenerate = async () => {
+        if (isQuotaFull) {
+            toast.error(`Admin quota reached (${adminCount}/${maxAdmins}). Increase limit to invite more.`);
+            return;
+        }
         setSaving(true);
         try {
             await academicApi.createInstitutionAdminInvite({ institution_id: institution.id, expiry });
-            toast.success('Invite link generated');
+            toast.success('Institution admin invite link generated');
             await loadLinks();
+            if (onGenerated) onGenerated();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to generate invite link'));
         } finally {
@@ -134,18 +267,29 @@ function GenerateInviteModal({ institution, onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}>
             <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl animate-slide-up" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
                 <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid var(--border)' }}>
                     <div>
                         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Inst. Admin Invite Links</h2>
-                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{institution.name}</p>
+                        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            {institution.name} (Admins: {adminCount} / {maxAdmins})
+                        </p>
                     </div>
                     <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: 'var(--text-muted)' }} onClick={onClose}>
                         <X size={18} />
                     </button>
                 </div>
                 <div className="p-5 flex flex-col gap-4">
+                    {isQuotaFull && (
+                        <div className="p-3 rounded-xl flex items-start gap-2.5 text-xs" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+                            <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
+                            <div>
+                                <span className="font-bold">Admin Quota Reached:</span> This institution already has {adminCount} of {maxAdmins} allowed institution admins. Increase the admin limit in <strong>Edit Limits</strong> to generate more invites.
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-end gap-2">
                         <div className="flex-1">
                             <label className="label-text">Expiry</label>
@@ -153,8 +297,12 @@ function GenerateInviteModal({ institution, onClose }) {
                                 {EXPIRY_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         </div>
-                        <button className="admin-action-btn admin-action-btn--primary text-sm" disabled={saving} onClick={handleGenerate}>
-                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate
+                        <button
+                            className="admin-action-btn admin-action-btn--primary text-sm"
+                            disabled={saving || isQuotaFull}
+                            onClick={handleGenerate}
+                        >
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate Invite
                         </button>
                     </div>
 
@@ -190,6 +338,7 @@ export default function AdminInstitutionDetailPage() {
     const [institution, setInstitution] = useState(null);
     const [instLoading, setInstLoading] = useState(true);
     const [showLinkModal, setShowLinkModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     const [members, setMembers] = useState([]);
     const [membersTotal, setMembersTotal] = useState(0);
@@ -258,6 +407,14 @@ export default function AdminInstitutionDetailPage() {
         );
     }
 
+    const maxAdmins = institution.max_institution_admins ?? 5;
+    const maxFaculty = institution.max_faculty ?? 20;
+    const maxStudents = institution.max_students ?? 200;
+
+    const adminPct = maxAdmins ? Math.min(100, Math.round((institution.admin_count / maxAdmins) * 100)) : 0;
+    const facultyPct = maxFaculty ? Math.min(100, Math.round((institution.faculty_count / maxFaculty) * 100)) : 0;
+    const studentPct = maxStudents ? Math.min(100, Math.round((institution.student_count / maxStudents) * 100)) : 0;
+
     return (
         <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6">
             <header className="flex flex-wrap items-start sm:items-center justify-between gap-3 mb-4 sm:mb-5">
@@ -274,9 +431,12 @@ export default function AdminInstitutionDetailPage() {
                         {institution.code}{institution.email_domain ? ` · ${institution.email_domain}` : ''}
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button className="admin-action-btn admin-action-btn--secondary text-sm" onClick={() => setShowEditModal(true)}>
+                        <Edit3 size={14} /> Edit Limits
+                    </button>
                     <button className="admin-action-btn admin-action-btn--primary text-sm" onClick={() => setShowLinkModal(true)}>
-                        <Link2 size={14} /> Invite Links
+                        <Link2 size={14} /> Inst. Admin Invites
                     </button>
                     <button className="admin-action-btn admin-action-btn--secondary text-sm" onClick={() => navigate('/admin/academic')}>
                         <ArrowLeft size={14} /> Back to Institutions
@@ -284,18 +444,44 @@ export default function AdminInstitutionDetailPage() {
                 </div>
             </header>
 
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
                 <div className="admin-card p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Admins</div>
-                    <div className="text-2xl font-extrabold font-mono mt-1">{institution.admin_count}</div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Admins</div>
+                        <div className="text-xs font-bold font-mono" style={{ color: adminPct >= 100 ? '#f59e0b' : 'var(--text-secondary)' }}>{adminPct}%</div>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono mt-1">
+                        {institution.admin_count} <span className="text-sm font-normal font-sans" style={{ color: 'var(--text-muted)' }}>/ {maxAdmins} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${adminPct}%`, background: adminPct >= 100 ? '#f59e0b' : 'var(--brand)' }} />
+                    </div>
                 </div>
+
                 <div className="admin-card p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Faculty</div>
-                    <div className="text-2xl font-extrabold font-mono mt-1">{institution.faculty_count}</div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Faculty</div>
+                        <div className="text-xs font-bold font-mono" style={{ color: facultyPct >= 100 ? '#f59e0b' : 'var(--text-secondary)' }}>{facultyPct}%</div>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono mt-1">
+                        {institution.faculty_count} <span className="text-sm font-normal font-sans" style={{ color: 'var(--text-muted)' }}>/ {maxFaculty} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${facultyPct}%`, background: facultyPct >= 100 ? '#f59e0b' : '#3b82f6' }} />
+                    </div>
                 </div>
+
                 <div className="admin-card p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Students</div>
-                    <div className="text-2xl font-extrabold font-mono mt-1">{institution.student_count}</div>
+                    <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Students</div>
+                        <div className="text-xs font-bold font-mono" style={{ color: studentPct >= 100 ? '#f59e0b' : 'var(--text-secondary)' }}>{studentPct}%</div>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono mt-1">
+                        {institution.student_count} <span className="text-sm font-normal font-sans" style={{ color: 'var(--text-muted)' }}>/ {maxStudents} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${studentPct}%`, background: studentPct >= 100 ? '#f59e0b' : '#10b981' }} />
+                    </div>
                 </div>
             </section>
 
@@ -354,7 +540,19 @@ export default function AdminInstitutionDetailPage() {
             </section>
 
             {showLinkModal && (
-                <GenerateInviteModal institution={institution} onClose={() => setShowLinkModal(false)} />
+                <GenerateInviteModal
+                    institution={institution}
+                    onClose={() => setShowLinkModal(false)}
+                    onGenerated={() => loadInstitution()}
+                />
+            )}
+
+            {showEditModal && (
+                <EditLimitsModal
+                    institution={institution}
+                    onClose={() => setShowEditModal(false)}
+                    onUpdated={() => loadInstitution()}
+                />
             )}
         </div>
     );

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     GraduationCap, Link2, Copy, Loader2, X, Search, LogOut, Trash2,
     ArrowLeft, Circle, ShieldAlert, Trophy, XCircle, RotateCcw, Wifi, WifiOff, User,
-    Activity, FileCheck, TrendingUp,
+    Activity, FileCheck, TrendingUp, AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import academicApi from '../services/academicApi';
@@ -93,13 +93,19 @@ function InviteLinkRow({ link, onDeleted }) {
     );
 }
 
-function GenerateInviteModal({ onClose }) {
+function GenerateInviteModal({ onClose, maxFaculty = 20, maxStudents = 200, currentFaculty = 0, currentStudents = 0, onGenerated }) {
     const [role, setRole] = useState('student');
     const [expiresIn, setExpiresIn] = useState('7d');
     const [generating, setGenerating] = useState(false);
     const [inviteLink, setInviteLink] = useState('');
     const [invites, setInvites] = useState([]);
     const [loadingInvites, setLoadingInvites] = useState(true);
+
+    const isStudentFull = currentStudents >= maxStudents;
+    const isFacultyFull = currentFaculty >= maxFaculty;
+    const isCurrentRoleFull = role === 'student' ? isStudentFull : isFacultyFull;
+    const currentCount = role === 'student' ? currentStudents : currentFaculty;
+    const maxLimit = role === 'student' ? maxStudents : maxFaculty;
 
     const loadInvites = useCallback(async () => {
         setLoadingInvites(true);
@@ -116,6 +122,10 @@ function GenerateInviteModal({ onClose }) {
     useEffect(() => { loadInvites(); }, [loadInvites]);
 
     const handleCreate = async () => {
+        if (isCurrentRoleFull) {
+            toast.error(`${role.toUpperCase()} limit reached (${currentCount}/${maxLimit}). Contact Super Admin to increase quota.`);
+            return;
+        }
         setGenerating(true);
         try {
             const { data } = await academicApi.createMemberInvite({ target_role: role, expiry: expiresIn });
@@ -124,6 +134,7 @@ function GenerateInviteModal({ onClose }) {
             setInviteLink(fullUrl);
             toast.success('Invite link generated');
             loadInvites();
+            if (onGenerated) onGenerated();
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to generate invite'));
         } finally {
@@ -160,25 +171,42 @@ function GenerateInviteModal({ onClose }) {
 
                 <div className="flex flex-col gap-3 mb-4">
                     <div>
-                        <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--text-muted)' }}>Role</label>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>Target Role</label>
+                            <span className="text-[11px] font-mono" style={{ color: isCurrentRoleFull ? '#f59e0b' : 'var(--text-muted)' }}>
+                                Capacity: {currentCount} / {maxLimit}
+                            </span>
+                        </div>
                         <div className="flex gap-2">
-                            {['student', 'faculty'].map((r) => (
+                            {[
+                                { key: 'student', label: `Student (${currentStudents}/${maxStudents})`, full: isStudentFull },
+                                { key: 'faculty', label: `Faculty (${currentFaculty}/${maxFaculty})`, full: isFacultyFull },
+                            ].map((r) => (
                                 <button
-                                    key={r}
+                                    key={r.key}
                                     type="button"
-                                    className="flex-1 py-1.5 text-xs font-semibold rounded-lg capitalize border transition-all"
+                                    className="flex-1 py-1.5 px-2 text-xs font-semibold rounded-lg border transition-all truncate"
                                     style={{
-                                        background: role === r ? 'var(--brand)' : 'var(--bg-muted)',
-                                        color: role === r ? '#04121a' : 'var(--text-muted)',
-                                        borderColor: role === r ? 'var(--brand)' : 'var(--border)',
+                                        background: role === r.key ? 'var(--brand)' : 'var(--bg-muted)',
+                                        color: role === r.key ? '#04121a' : (r.full ? '#f59e0b' : 'var(--text-muted)'),
+                                        borderColor: role === r.key ? 'var(--brand)' : (r.full ? 'rgba(245,158,11,0.4)' : 'var(--border)'),
                                     }}
-                                    onClick={() => setRole(r)}
+                                    onClick={() => setRole(r.key)}
                                 >
-                                    {r}
+                                    {r.label}
                                 </button>
                             ))}
                         </div>
                     </div>
+
+                    {isCurrentRoleFull && (
+                        <div className="p-2.5 rounded-lg flex items-start gap-2 text-xs" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+                            <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                            <div>
+                                <span className="font-bold capitalize">{role} Limit Reached:</span> Your institution has reached the quota of {maxLimit} {role}s. Please contact Super Admin to increase limits.
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--text-muted)' }}>Expiration</label>
@@ -191,10 +219,10 @@ function GenerateInviteModal({ onClose }) {
 
                     <button
                         className="admin-action-btn admin-action-btn--primary text-xs w-full justify-center mt-1"
-                        disabled={generating}
+                        disabled={generating || isCurrentRoleFull}
                         onClick={handleCreate}
                     >
-                        {generating ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate Link
+                        {generating ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Generate {role.toUpperCase()} Invite
                     </button>
 
                     {inviteLink && (
@@ -577,6 +605,7 @@ function MemberRow({ member, onOpen }) {
 
 export default function InstitutionPortalPage() {
     const { user, logout } = useAuthStore();
+    const [dashboard, setDashboard] = useState(null);
     const [selectedMember, setSelectedMember] = useState(null);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [members, setMembers] = useState([]);
@@ -584,6 +613,15 @@ export default function InstitutionPortalPage() {
     const [membersLoading, setMembersLoading] = useState(true);
     const [roleFilter, setRoleFilter] = useState('');
     const [search, setSearch] = useState('');
+
+    const loadDashboard = useCallback(async () => {
+        try {
+            const { data } = await academicApi.getInstitutionDashboard();
+            setDashboard(data);
+        } catch {
+            // non-blocking
+        }
+    }, []);
 
     const loadMembers = useCallback(async () => {
         setMembersLoading(true);
@@ -602,6 +640,10 @@ export default function InstitutionPortalPage() {
     }, [roleFilter, search]);
 
     useEffect(() => {
+        loadDashboard();
+    }, [loadDashboard]);
+
+    useEffect(() => {
         const t = setTimeout(() => loadMembers(), 250);
         return () => clearTimeout(t);
     }, [loadMembers]);
@@ -613,15 +655,23 @@ export default function InstitutionPortalPage() {
                     member={selectedMember}
                     onBack={(removed) => {
                         setSelectedMember(null);
-                        if (removed) loadMembers();
+                        if (removed) {
+                            loadMembers();
+                            loadDashboard();
+                        }
                     }}
                 />
             </div>
         );
     }
 
-    const facultyCount = members.filter((m) => m.role === 'faculty').length;
-    const studentCount = members.filter((m) => m.role === 'student').length;
+    const maxFaculty = dashboard?.max_faculty ?? 20;
+    const maxStudents = dashboard?.max_students ?? 200;
+    const facultyCount = dashboard?.total_faculty ?? members.filter((m) => m.role === 'faculty').length;
+    const studentCount = dashboard?.total_students ?? members.filter((m) => m.role === 'student').length;
+
+    const facultyPct = maxFaculty ? Math.min(100, Math.round((facultyCount / maxFaculty) * 100)) : 0;
+    const studentPct = maxStudents ? Math.min(100, Math.round((studentCount / maxStudents) * 100)) : 0;
 
     return (
         <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col gap-5">
@@ -631,9 +681,9 @@ export default function InstitutionPortalPage() {
                         <GraduationCap size={16} style={{ color: 'var(--brand)' }} />
                         <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Institution Workspace</span>
                     </div>
-                    <h1 className="text-xl sm:text-2xl font-bold">{user?.full_name ? `Welcome, ${user.full_name}` : 'Institution Portal'}</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold">{dashboard?.institution_name || (user?.full_name ? `Welcome, ${user.full_name}` : 'Institution Portal')}</h1>
                     <p className="text-xs sm:text-sm text-gray-400">
-                        Manage member roster, monitor activity logs, and issue retake permissions.
+                        Manage member roster, monitor activity logs, and invite faculty & students.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -647,18 +697,37 @@ export default function InstitutionPortalPage() {
             </header>
 
             {/* Stat Counters KPI Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Roster</div>
-                    <div className="text-lg font-bold font-mono text-heading">{membersTotal}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="admin-card p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total Active Roster</div>
+                    <div className="text-2xl font-extrabold font-mono text-heading mt-1">{membersTotal}</div>
+                    <p className="text-[11px] text-gray-500 mt-1">Total joined faculty &amp; students</p>
                 </div>
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Faculty Members</div>
-                    <div className="text-lg font-bold font-mono" style={{ color: 'var(--brand)' }}>{facultyCount}</div>
+
+                <div className="admin-card p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Faculty Members</div>
+                        <div className="text-xs font-bold font-mono" style={{ color: facultyPct >= 100 ? '#f59e0b' : 'var(--text-secondary)' }}>{facultyPct}%</div>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono mt-1" style={{ color: 'var(--brand)' }}>
+                        {facultyCount} <span className="text-sm font-normal font-sans text-gray-400">/ {maxFaculty} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${facultyPct}%`, background: facultyPct >= 100 ? '#f59e0b' : 'var(--brand)' }} />
+                    </div>
                 </div>
-                <div className="admin-mini-stat">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Enrolled Students</div>
-                    <div className="text-lg font-bold font-mono text-emerald-500">{studentCount}</div>
+
+                <div className="admin-card p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Enrolled Students</div>
+                        <div className="text-xs font-bold font-mono" style={{ color: studentPct >= 100 ? '#f59e0b' : 'var(--text-secondary)' }}>{studentPct}%</div>
+                    </div>
+                    <div className="text-2xl font-extrabold font-mono text-emerald-500 mt-1">
+                        {studentCount} <span className="text-sm font-normal font-sans text-gray-400">/ {maxStudents} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${studentPct}%`, background: studentPct >= 100 ? '#f59e0b' : '#10b981' }} />
+                    </div>
                 </div>
             </div>
 
@@ -722,7 +791,19 @@ export default function InstitutionPortalPage() {
                 </div>
             </section>
 
-            {showInviteModal && <GenerateInviteModal onClose={() => setShowInviteModal(false)} />}
+            {showInviteModal && (
+                <GenerateInviteModal
+                    maxFaculty={maxFaculty}
+                    maxStudents={maxStudents}
+                    currentFaculty={facultyCount}
+                    currentStudents={studentCount}
+                    onClose={() => setShowInviteModal(false)}
+                    onGenerated={() => {
+                        loadMembers();
+                        loadDashboard();
+                    }}
+                />
+            )}
         </div>
     );
 }

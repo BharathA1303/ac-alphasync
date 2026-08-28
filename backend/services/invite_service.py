@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.institution import Institution
@@ -49,6 +49,33 @@ def generate_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+async def _check_role_limit(
+    db: AsyncSession, institution: Institution, target_role: str
+) -> tuple[bool, int, int]:
+    """Check if the institution has room for another user with target_role.
+
+    Returns (is_allowed, current_count, max_limit).
+    """
+    count_res = await db.execute(
+        select(func.count(User.id)).where(
+            User.institution_id == institution.id,
+            User.role == target_role,
+        )
+    )
+    current_count = count_res.scalar() or 0
+
+    if target_role == "institution_admin":
+        limit = institution.max_institution_admins if institution.max_institution_admins is not None else 5
+    elif target_role == "faculty":
+        limit = institution.max_faculty if institution.max_faculty is not None else 20
+    elif target_role == "student":
+        limit = institution.max_students if institution.max_students is not None else 200
+    else:
+        return True, current_count, 0
+
+    return current_count < limit, current_count, limit
+
+
 async def create_invite_link(
     db: AsyncSession,
     institution_id,
@@ -67,6 +94,15 @@ async def create_invite_link(
     institution = await db.get(Institution, institution_uuid)
     if not institution:
         return {"success": False, "error": "Institution not found"}
+
+    # Enforce role capacity limits
+    allowed, current_count, limit = await _check_role_limit(db, institution, target_role)
+    if not allowed:
+        role_label = target_role.replace("_", " ").title()
+        return {
+            "success": False,
+            "error": f"{role_label} limit reached ({current_count}/{limit}) for this institution. Please contact Super Admin to increase the limit.",
+        }
 
     link = InviteLink(
         token=generate_token(),
@@ -181,6 +217,14 @@ async def validate_invite_token(db: AsyncSession, token: str) -> dict:
     institution = await db.get(Institution, link.institution_id)
     if not institution or institution.status != "active":
         return {"valid": False, "reason": "Institution is not active"}
+
+    allowed, current_count, limit = await _check_role_limit(db, institution, link.target_role)
+    if not allowed:
+        role_label = link.target_role.replace("_", " ").title()
+        return {
+            "valid": False,
+            "reason": f"Institution {role_label} limit reached ({current_count}/{limit}). Please contact the administrator.",
+        }
 
     return {
         "valid": True,
