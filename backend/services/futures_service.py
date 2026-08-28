@@ -1347,8 +1347,6 @@ async def get_quote(contract_symbol: str) -> dict:
     """
     sym = str(contract_symbol or "").strip().upper()
     if not sym:
-        return {}
-
     # 1. Try historical replay engine if running in simulation
     try:
         from services.historical_replay import historical_replay_engine
@@ -1360,13 +1358,24 @@ async def get_quote(contract_symbol: str) -> dict:
     except Exception:
         pass
 
-    # 2. Try live broker system quote
+    # 2. Check latest stored candle from database for this futures contract
     try:
-        from services.market_data import get_system_quote_live_only
-
-        quote = await get_system_quote_live_only(sym, allow_recover=True)
-        if quote and (quote.get("ltp") or quote.get("price") or quote.get("lp")):
-            return quote
+        db_candles = await _fetch_stored_candles_from_db(sym, limit=1)
+        if db_candles:
+            last_c = db_candles[-1]
+            return {
+                "symbol": sym,
+                "trading_symbol": sym,
+                "ltp": float(last_c.get("close") or 0.0),
+                "price": float(last_c.get("close") or 0.0),
+                "open": float(last_c.get("open") or 0.0),
+                "high": float(last_c.get("high") or 0.0),
+                "low": float(last_c.get("low") or 0.0),
+                "close": float(last_c.get("close") or 0.0),
+                "volume": int(last_c.get("volume") or 0),
+                "oi": int(last_c.get("open_interest") or 0),
+                "timestamp": int(last_c.get("timestamp") or 0),
+            }
     except Exception:
         pass
 
