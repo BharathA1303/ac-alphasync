@@ -189,6 +189,7 @@ class FuturesArchiveService:
         date_token = trading_day.strftime("%Y%m%d")
 
         urls = [
+            "https://nsearchives.nseindia.com/content/fo/fo.zip",
             _NSE_ARCHIVE_TEMPLATE.format(
                 year=trading_day.year, month=month_str, day_token=day_token
             ),
@@ -198,10 +199,13 @@ class FuturesArchiveService:
         cookies = await self._get_nse_cookies()
         raw_zip: Optional[bytes] = None
 
+        headers = dict(_HTTP_HEADERS)
+        headers["Referer"] = "https://www.nseindia.com/all-reports-derivatives"
+
         for url in urls:
             try:
                 async with httpx.AsyncClient(
-                    headers=_HTTP_HEADERS,
+                    headers=headers,
                     cookies=cookies,
                     follow_redirects=True,
                     timeout=30.0,
@@ -227,7 +231,10 @@ class FuturesArchiveService:
         results: list[dict] = []
         try:
             with zipfile.ZipFile(io.BytesIO(raw_zip)) as zf:
-                csv_files = [n for n in zf.namelist() if n.endswith(".csv")]
+                # Find fo CSV (e.g. fo270826.csv or bhavcopy.csv)
+                csv_files = [n for n in zf.namelist() if n.endswith(".csv") and (n.startswith("fo") or "bhav" in n.lower())]
+                if not csv_files:
+                    csv_files = [n for n in zf.namelist() if n.endswith(".csv")]
                 if not csv_files:
                     logger.error("No CSV found in NSE F&O Bhavcopy ZIP")
                     return []
@@ -237,56 +244,86 @@ class FuturesArchiveService:
 
             reader = csv.DictReader(content.splitlines())
             for row in reader:
-                # Handle both classic Bhavcopy and UDiFF formats
-                # Classic: INSTRUMENT, SYMBOL, EXPIRY_DT, OPEN, HIGH, LOW, CLOSE, SETTLE_PR, CONTRACTS, VAL_INLAKH, OPEN_INT, CHG_IN_OI
-                # UDiFF: TradgSgmt, FinInstrmTp, TckrSymb, XpryDt, OpnPric, HghPric, LwPric, ClsPric, SttlmPric, TtlTradgVol, TtlTrfVal, OpnIntrst, ChngInOpnIntrst
-                instr = (
-                    row.get("INSTRUMENT")
-                    or row.get("FinInstrmTp")
-                    or row.get("INST_TYPE")
-                    or ""
-                ).strip().upper()
+                # 1. Handle standard fo.zip CONTRACT_D format (e.g. FUTSTKAMBUJACEM27-OCT-2026)
+                contract_d = (row.get("CONTRACT_D") or "").strip().upper()
+                if contract_d:
+                    if contract_d.startswith("FUTIDX"):
+                        instr = "FUTIDX"
+                        raw_rest = contract_d[6:]
+                    elif contract_d.startswith("FUTSTK"):
+                        instr = "FUTSTK"
+                        raw_rest = contract_d[6:]
+                    else:
+                        continue  # Skip options (OPTIDX, OPTSTK)
 
-                if instr not in ("FUTIDX", "FUTSTK", "FUTCUR", "FUTCOM"):
-                    # Check if it's UDiFF futures indicator
-                    if not (instr.startswith("FUT") or "FUT" in str(row.get("TckrSymb") or "")):
+                    # Extract expiry from tail (11 chars: DD-MMM-YYYY)
+                    if len(raw_rest) > 11:
+                        expiry_raw = raw_rest[-11:]
+                        symbol = raw_rest[:-11].strip()
+                        expiry_date = _parse_nse_expiry(expiry_raw)
+                    else:
                         continue
 
-                symbol = (
-                    row.get("SYMBOL")
-                    or row.get("TckrSymb")
-                    or row.get("Symbol")
-                    or ""
-                ).strip().upper()
+                    if not symbol or not expiry_date:
+                        continue
 
-                expiry_raw = (
-                    row.get("EXPIRY_DT")
-                    or row.get("XpryDt")
-                    or row.get("ExpiryDate")
-                    or ""
-                ).strip()
+                    open_p = _safe_float(row.get("OPEN_PRICE"))
+                    high_p = _safe_float(row.get("HIGH_PRICE"))
+                    low_p = _safe_float(row.get("LOW_PRICE"))
+                    close_p = _safe_float(row.get("CLOSE_PRIC"))
+                    settle_p = _safe_float(row.get("SETTLEMENT") or close_p)
+                    volume = _safe_int(row.get("TRADED_QUA") or row.get("TRD_NO_CON"))
+                    turnover_lakh = _safe_float(row.get("TRADED_VAL")) / 100000.0
+                    oi = _safe_int(row.get("OI_NO_CON"))
+                    oi_change = 0
+                else:
+                    # 2. Classic Bhavcopy / UDiFF format
+                    instr = (
+                        row.get("INSTRUMENT")
+                        or row.get("FinInstrmTp")
+                        or row.get("INST_TYPE")
+                        or ""
+                    ).strip().upper()
 
-                expiry_date = _parse_nse_expiry(expiry_raw)
-                if not symbol or not expiry_date:
-                    continue
+                    if instr not in ("FUTIDX", "FUTSTK", "FUTCUR", "FUTCOM"):
+                        if not (instr.startswith("FUT") or "FUT" in str(row.get("TckrSymb") or "")):
+                            continue
 
-                open_p = _safe_float(row.get("OPEN") or row.get("OpnPric"))
-                high_p = _safe_float(row.get("HIGH") or row.get("HghPric"))
-                low_p = _safe_float(row.get("LOW") or row.get("LwPric"))
-                close_p = _safe_float(row.get("CLOSE") or row.get("ClsPric"))
-                settle_p = _safe_float(
-                    row.get("SETTLE_PR") or row.get("SttlmPric") or close_p
-                )
-                volume = _safe_int(
-                    row.get("CONTRACTS") or row.get("TtlTradgVol") or row.get("VOL")
-                )
-                turnover_lakh = _safe_float(
-                    row.get("VAL_INLAKH") or row.get("TtlTrfVal") or 0.0
-                )
-                oi = _safe_int(row.get("OPEN_INT") or row.get("OpnIntrst"))
-                oi_change = _safe_int(
-                    row.get("CHG_IN_OI") or row.get("ChngInOpnIntrst")
-                )
+                    symbol = (
+                        row.get("SYMBOL")
+                        or row.get("TckrSymb")
+                        or row.get("Symbol")
+                        or ""
+                    ).strip().upper()
+
+                    expiry_raw = (
+                        row.get("EXPIRY_DT")
+                        or row.get("XpryDt")
+                        or row.get("ExpiryDate")
+                        or ""
+                    ).strip()
+
+                    expiry_date = _parse_nse_expiry(expiry_raw)
+                    if not symbol or not expiry_date:
+                        continue
+
+                    open_p = _safe_float(row.get("OPEN") or row.get("OpnPric"))
+                    high_p = _safe_float(row.get("HIGH") or row.get("HghPric"))
+                    low_p = _safe_float(row.get("LOW") or row.get("LwPric"))
+                    close_p = _safe_float(row.get("CLOSE") or row.get("ClsPric"))
+                    settle_p = _safe_float(
+                        row.get("SETTLE_PR") or row.get("SttlmPric") or close_p
+                    )
+                    volume = _safe_int(
+                        row.get("CONTRACTS") or row.get("TtlTradgVol") or row.get("VOL")
+                    )
+                    turnover_lakh = _safe_float(
+                        row.get("VAL_INLAKH") or row.get("TtlTrfVal") or 0.0
+                    )
+                    oi = _safe_int(row.get("OPEN_INT") or row.get("OpnIntrst"))
+                    oi_change = _safe_int(
+                        row.get("CHG_IN_OI") or row.get("ChngInOpnIntrst")
+                    )
 
                 if close_p <= 0 and settle_p > 0:
                     close_p = settle_p
