@@ -587,7 +587,16 @@ async def get_underlying_spot(
         if not symbol.endswith((".NS", ".BO")):
             symbol = f"{symbol}.NS"
 
-    quote = await get_system_quote_live_only(symbol, allow_recover=True)
+    quote = None
+    try:
+        from services.historical_replay import historical_replay_engine
+        if historical_replay_engine.is_running:
+            quote = historical_replay_engine.get_current_quote(symbol) or historical_replay_engine.get_state(symbol)
+    except Exception:
+        pass
+
+    if not quote:
+        quote = await get_system_quote_live_only(symbol, allow_recover=True)
 
     if not quote:
         return {
