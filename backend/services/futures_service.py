@@ -1240,6 +1240,9 @@ async def derive_futures_quote(contract_symbol: str) -> dict:
         except Exception:
             pass
 
+    if spot_quote is None or not isinstance(spot_quote, dict):
+        spot_quote = {}
+
     spot_price = float(
         spot_quote.get("price") or spot_quote.get("ltp") or spot_quote.get("lp") or 0.0
     )
