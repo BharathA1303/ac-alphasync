@@ -540,7 +540,7 @@ function MemberDetailView({ member, onBack }) {
     );
 }
 
-function MemberRow({ member, onOpen }) {
+function MemberRow({ member, facultyList = [], onOpen, onAssigned }) {
     const initials = (member.full_name || 'User')
         .split(' ')
         .map((n) => n[0])
@@ -549,6 +549,20 @@ function MemberRow({ member, onOpen }) {
         .slice(0, 2);
 
     const isFaculty = member.role === 'faculty';
+    const [assigning, setAssigning] = useState(false);
+
+    const handleAssign = async (facultyId) => {
+        setAssigning(true);
+        try {
+            await academicApi.assignStudentFaculty(member.id, facultyId || null);
+            toast.success(facultyId ? 'Student assigned to faculty' : 'Faculty assignment cleared');
+            onAssigned?.();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to assign faculty'));
+        } finally {
+            setAssigning(false);
+        }
+    };
 
     return (
         <tr
@@ -586,6 +600,26 @@ function MemberRow({ member, onOpen }) {
                     {member.role}
                 </span>
             </td>
+            <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                {isFaculty ? (
+                    <span className="text-[11px] text-gray-500">—</span>
+                ) : (
+                    <select
+                        className="input-field text-xs"
+                        style={{ height: 32, minWidth: 160 }}
+                        disabled={assigning}
+                        value={member.assigned_faculty_id || ''}
+                        onChange={(e) => handleAssign(e.target.value)}
+                    >
+                        <option value="">Unassigned</option>
+                        {facultyList.map((f) => (
+                            <option key={f.id} value={f.id}>
+                                {f.full_name || f.username}
+                            </option>
+                        ))}
+                    </select>
+                )}
+            </td>
             <td className="py-3 px-3 text-right">
                 <button
                     type="button"
@@ -613,6 +647,7 @@ export default function InstitutionPortalPage() {
     const [membersLoading, setMembersLoading] = useState(true);
     const [roleFilter, setRoleFilter] = useState('');
     const [search, setSearch] = useState('');
+    const [facultyList, setFacultyList] = useState([]);
 
     const loadDashboard = useCallback(async () => {
         try {
@@ -629,9 +664,13 @@ export default function InstitutionPortalPage() {
             const params = {};
             if (roleFilter) params.role = roleFilter;
             if (search.trim()) params.search = search.trim();
-            const { data } = await academicApi.listInstitutionMembers(params);
+            const [{ data }, facultyRes] = await Promise.all([
+                academicApi.listInstitutionMembers(params),
+                academicApi.listInstitutionFaculty().catch(() => ({ data: { faculty: [] } })),
+            ]);
             setMembers(data?.members || []);
             setMembersTotal(data?.total || 0);
+            setFacultyList(facultyRes.data?.faculty || []);
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to load members'));
         } finally {
@@ -775,16 +814,25 @@ export default function InstitutionPortalPage() {
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Member</th>
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Role</th>
+                                <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Assigned Faculty</th>
                                 <th className="text-right py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {membersLoading ? (
-                                <tr><td colSpan={3} className="text-center py-8"><Loader2 size={20} className="animate-spin inline text-primary-500" /></td></tr>
+                                <tr><td colSpan={4} className="text-center py-8"><Loader2 size={20} className="animate-spin inline text-primary-500" /></td></tr>
                             ) : members.length === 0 ? (
-                                <tr><td colSpan={3} className="text-center py-8 text-xs text-gray-500">No institution members found matching your search.</td></tr>
+                                <tr><td colSpan={4} className="text-center py-8 text-xs text-gray-500">No institution members found matching your search.</td></tr>
                             ) : (
-                                members.map((m) => <MemberRow key={m.id} member={m} onOpen={setSelectedMember} />)
+                                members.map((m) => (
+                                    <MemberRow
+                                        key={m.id}
+                                        member={m}
+                                        facultyList={facultyList}
+                                        onOpen={setSelectedMember}
+                                        onAssigned={loadMembers}
+                                    />
+                                ))
                             )}
                         </tbody>
                     </table>

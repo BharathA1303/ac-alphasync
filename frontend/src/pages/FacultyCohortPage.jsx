@@ -11,6 +11,7 @@ import WeakConceptList from '../components/faculty/cohort/WeakConceptList';
 import AtRiskList from '../components/faculty/cohort/AtRiskList';
 import BehaviourDistribution from '../components/faculty/cohort/BehaviourDistribution';
 import RemediationModal from '../components/faculty/cohort/RemediationModal';
+import PracticeWindowCard from '../components/faculty/PracticeWindowCard';
 
 export default function FacultyCohortPage() {
     const [courses, setCourses] = useState([]);
@@ -137,6 +138,8 @@ export default function FacultyCohortPage() {
                     </button>
                 </div>
             </div>
+
+            <PracticeWindowCard />
 
             {/* ── 1. Top Stat Row (5 Core KPIs) ────────────────────────────────── */}
             <CohortStatRow data={overviewData} isLoading={loading} />

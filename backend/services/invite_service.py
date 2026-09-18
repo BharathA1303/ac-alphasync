@@ -249,6 +249,12 @@ async def consume_invite_token(db: AsyncSession, token: str, user: User) -> dict
     user.access_expires_at = None
     user.access_duration_days = None
 
+    # Faculty-created student invites auto-attach the student to that faculty.
+    if link.target_role == "student" and link.created_by_user_id:
+        creator = await db.get(User, link.created_by_user_id)
+        if creator and creator.role == "faculty" and creator.institution_id == link.institution_id:
+            user.assigned_faculty_id = creator.id
+
     link.use_count = (link.use_count or 0) + 1
 
     return validation

@@ -15,6 +15,7 @@ from models.algo import AlgoStrategy, AlgoTrade, AlgoLog
 from models.feedback import UserFeedback
 from models.market_data import Instrument, HistoricalCandle, DownloadStatus, SimulationSession
 from models.password_reset_token import PasswordResetToken
+from models.faculty_practice import FacultyPracticeWindow
 
 __all__ = [
     "Institution",
@@ -48,4 +49,5 @@ __all__ = [
     "DownloadStatus",
     "SimulationSession",
     "PasswordResetToken",
+    "FacultyPracticeWindow",
 ]

@@ -139,6 +139,7 @@ def _serialize_user(user: User) -> dict:
         "auth_provider": user.auth_provider,
         "admin_level": user.admin_level,
         "institution_id": str(user.institution_id) if user.institution_id else None,
+        "assigned_faculty_id": str(user.assigned_faculty_id) if user.assigned_faculty_id else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from engines.market_session import IST, NSE_HOLIDAYS_2026, MarketState, market_session
@@ -147,7 +147,15 @@ class ZebuHistoricalDownloader:
             return self._provider
         from services.broker_session import broker_session_manager
 
-        return broker_session_manager.get_any_session()
+        provider = broker_session_manager.get_any_session()
+        if provider is not None:
+            return provider
+        try:
+            from services.master_session import master_session_service
+
+            return master_session_service.get_provider()
+        except Exception:
+            return None
 
     # ── Instrument persistence ─────────────────────────────────────
 
@@ -522,6 +530,157 @@ class ZebuHistoricalDownloader:
             len(run.failed),
         )
         return run
+
+    async def download_range(
+        self,
+        db: AsyncSession,
+        start: date,
+        end: date,
+        skip_existing: bool = True,
+        commit: bool = True,
+    ) -> dict:
+        """
+        Download 1-minute candles for every trading day in [start, end].
+
+        Days already marked SUCCESS in download_status are skipped when
+        skip_existing is True. Never fabricates prices — empty Zebu
+        responses stay empty.
+        """
+        if end < start:
+            start, end = end, start
+
+        days = trading_days_between(start, end)
+        summaries = []
+        skipped = 0
+        downloaded = 0
+        empty = 0
+
+        for trading_day in days:
+            if skip_existing and await _day_already_downloaded(db, trading_day):
+                skipped += 1
+                summaries.append(
+                    {
+                        "trading_date": str(trading_day),
+                        "status": "skipped",
+                        "rows": 0,
+                    }
+                )
+                continue
+
+            run = await self.download_day(db, trading_day, commit=commit)
+            downloaded += 1
+            if run.total_rows == 0:
+                empty += 1
+            summaries.append(
+                {
+                    "trading_date": str(trading_day),
+                    "status": run.overall_status,
+                    "rows": run.total_rows,
+                    "failed": len(run.failed),
+                }
+            )
+
+        return {
+            "start": str(start),
+            "end": str(end),
+            "trading_days": len(days),
+            "downloaded": downloaded,
+            "skipped": skipped,
+            "empty": empty,
+            "days": summaries,
+        }
+
+    async def probe_tpseries_day(self, trading_day: date) -> dict:
+        """Read-only Zebu /TPSeries check for one session. Never writes prices."""
+        from services.simulation_universe import build_universe
+
+        provider = self._get_provider()
+        if provider is None:
+            return {
+                "date": str(trading_day),
+                "ok": False,
+                "bars": 0,
+                "error": "No authenticated Zebu session",
+            }
+
+        universe = build_universe()
+        inst = next(
+            (
+                item
+                for item in universe
+                if "RELIANCE" in str(item.trading_symbol or "").upper()
+            ),
+            universe[0] if universe else None,
+        )
+        if inst is None:
+            return {
+                "date": str(trading_day),
+                "ok": False,
+                "bars": 0,
+                "error": "No universe instrument",
+            }
+        try:
+            raw = await self.fetch_candles(inst, trading_day, interval="1")
+            valid = self.validate_candles(raw or [], trading_day)
+            return {
+                "date": str(trading_day),
+                "ok": len(valid) > 0,
+                "bars": len(valid),
+                "raw": len(raw or []),
+                "symbol": inst.trading_symbol,
+            }
+        except Exception as exc:
+            return {
+                "date": str(trading_day),
+                "ok": False,
+                "bars": 0,
+                "symbol": inst.trading_symbol,
+                "error": str(exc),
+            }
+
+
+def trading_days_between(start: date, end: date) -> list[date]:
+    """Inclusive trading days in [start, end]."""
+    if end < start:
+        start, end = end, start
+    days = []
+    cursor = start
+    while cursor <= end:
+        if is_trading_day(cursor):
+            days.append(cursor)
+        cursor += timedelta(days=1)
+    return days
+
+
+async def _day_already_downloaded(db: AsyncSession, trading_day: date) -> bool:
+    """True when this day already has at least one successful 1-minute download."""
+    stmt = (
+        select(func.count())
+        .select_from(DownloadStatus)
+        .where(
+            DownloadStatus.trading_date == trading_day,
+            DownloadStatus.status == DOWNLOAD_SUCCESS,
+            DownloadStatus.rows > 0,
+        )
+    )
+    count = (await db.execute(stmt)).scalar_one()
+    return int(count or 0) > 0
+
+
+async def dates_with_candles(
+    db: AsyncSession, start: date, end: date
+) -> dict[date, int]:
+    """Map trading_date -> candle row count for dates in [start, end]."""
+    stmt = (
+        select(HistoricalCandle.trading_date, func.count())
+        .where(
+            HistoricalCandle.trading_date >= start,
+            HistoricalCandle.trading_date <= end,
+        )
+        .group_by(HistoricalCandle.trading_date)
+    )
+    rows = (await db.execute(stmt)).all()
+    return {row[0]: int(row[1] or 0) for row in rows}
 
 
 # ── Singleton ──────────────────────────────────────────────────────

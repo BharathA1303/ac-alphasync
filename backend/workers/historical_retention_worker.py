@@ -1,6 +1,6 @@
 """
 Historical Retention Worker — prunes market data older than the retention
-window (default 100 days).
+window (default 365 days / 1 year of faculty practice data).
 
 Deletes ONLY from historical_candles and download_status.
 NEVER touches users, orders, positions, portfolios, auth, broker config,
@@ -18,7 +18,7 @@ from models.market_data import DownloadStatus, HistoricalCandle
 
 logger = logging.getLogger(__name__)
 
-RETENTION_DAYS = 100
+RETENTION_DAYS = 365
 _CHECK_INTERVAL = 86400  # once daily
 _STARTUP_DELAY = 300  # let the system stabilize first
 

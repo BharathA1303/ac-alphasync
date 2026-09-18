@@ -137,6 +137,7 @@ async def init_db():
         from models import course as course_model  # noqa — academic course/lesson/assessment tables
         from models import assignment as assignment_model  # noqa — academic order-log assignments & submissions
         from models import password_reset_token  # noqa  — password reset tokens
+        from models import faculty_practice as faculty_practice_model  # noqa — faculty date windows
         from strategies.zeroloss import models as zeroloss_models  # noqa
 
         # Ensure admin panel models (TwoFactorAuth, AdminSession, etc.) are loaded
@@ -303,8 +304,34 @@ async def init_db():
             await _ensure_users_column(
                 "invited_via_token", "invited_via_token VARCHAR(64)"
             )
+            await _ensure_users_column(
+                "assigned_faculty_id", "assigned_faculty_id CHAR(36)"
+            )
             await conn.execute(
                 text("CREATE INDEX IF NOT EXISTS ix_users_institution_id ON users (institution_id);")
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_users_assigned_faculty_id "
+                    "ON users (assigned_faculty_id);"
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS faculty_practice_windows (
+                        id CHAR(36) PRIMARY KEY,
+                        faculty_id CHAR(36) NOT NULL,
+                        institution_id CHAR(36) NOT NULL,
+                        start_date DATE NOT NULL,
+                        end_date DATE NOT NULL,
+                        current_date DATE NOT NULL,
+                        status VARCHAR(16) NOT NULL DEFAULT 'active',
+                        created_at DATETIME,
+                        updated_at DATETIME
+                    );
+                    """
+                )
             )
 
             # Academic institution limit columns
@@ -497,6 +524,37 @@ async def init_db():
                         WHERE table_name = 'users' AND column_name = 'invited_via_token'
                     ) THEN
                         ALTER TABLE users ADD COLUMN invited_via_token VARCHAR(64);
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'users' AND column_name = 'assigned_faculty_id'
+                    ) THEN
+                        ALTER TABLE users ADD COLUMN assigned_faculty_id UUID REFERENCES users(id);
+                        CREATE INDEX IF NOT EXISTS ix_users_assigned_faculty_id
+                            ON users (assigned_faculty_id);
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_name = 'faculty_practice_windows'
+                    ) THEN
+                        CREATE TABLE faculty_practice_windows (
+                            id UUID PRIMARY KEY,
+                            faculty_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+                            start_date DATE NOT NULL,
+                            end_date DATE NOT NULL,
+                            current_date DATE NOT NULL,
+                            status VARCHAR(16) NOT NULL DEFAULT 'active',
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT uq_faculty_practice_windows_faculty UNIQUE (faculty_id)
+                        );
+                        CREATE INDEX ix_faculty_practice_windows_institution
+                            ON faculty_practice_windows (institution_id);
+                        CREATE INDEX ix_faculty_practice_windows_status
+                            ON faculty_practice_windows (status);
                     END IF;
                 EXCEPTION WHEN others THEN
                     RAISE NOTICE 'Academic migration note: %', SQLERRM;

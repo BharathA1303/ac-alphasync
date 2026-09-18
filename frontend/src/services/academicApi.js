@@ -68,6 +68,16 @@ const academicApi = {
         return api.delete(`/institution/members/${memberId}`);
     },
 
+    assignStudentFaculty(memberId, facultyId) {
+        return api.post(`/institution/members/${memberId}/assign-faculty`, {
+            faculty_id: facultyId || null,
+        });
+    },
+
+    listInstitutionFaculty() {
+        return api.get('/institution/faculty');
+    },
+
     // ── Institution Admin: course approval (this institution only) ──
     listInstitutionCourses(params = {}) {
         return api.get('/institution/courses', { params });

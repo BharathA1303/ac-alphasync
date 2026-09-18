@@ -60,6 +60,10 @@ class User(Base):
         UUID(as_uuid=True), ForeignKey("institutions.id"), nullable=True
     )
     invited_via_token = Column(String(64), nullable=True)
+    # Faculty who owns this student (institution_admin assigns; invite auto-attach).
+    assigned_faculty_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
 
     # ── Admin hierarchy ────────────────────────────────────────────
     # "root" = super admin (only one, set via ROOT_ADMIN_EMAIL config)
@@ -117,6 +121,7 @@ class User(Base):
         Index("ix_users_role_active", "role", "is_active"),
         Index("ix_users_account_status", "account_status"),
         Index("ix_users_institution_id", "institution_id"),
+        Index("ix_users_assigned_faculty_id", "assigned_faculty_id"),
     )
 
 

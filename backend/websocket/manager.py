@@ -272,11 +272,29 @@ class ConnectionManager:
             }
             for conn_id in list(subscribers):
                 ws = self.active_connections.get(conn_id)
-                if ws:
-                    try:
-                        await ws.send_json(msg)
-                    except Exception:
-                        dead.append(conn_id)
+                if not ws:
+                    continue
+                payload = price_data
+                user_id = self.connection_users.get(conn_id)
+                try:
+                    from services.faculty_practice import is_overlay_user, quote_for_user_cached
+
+                    if user_id and is_overlay_user(user_id):
+                        overlay = quote_for_user_cached(user_id, sym)
+                        if overlay is None:
+                            continue
+                        payload = overlay
+                except Exception:
+                    pass
+                try:
+                    await ws.send_json({
+                        "type": "quote",
+                        "channel": "prices",
+                        **payload,
+                        "symbol": sym,
+                    })
+                except Exception:
+                    dead.append(conn_id)
             for d in dead:
                 self.disconnect(d)
 

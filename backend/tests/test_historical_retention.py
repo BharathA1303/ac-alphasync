@@ -1,7 +1,7 @@
 """
 Tests for the historical retention worker.
 
-Verifies the 100-day cutoff boundary and — critically — that the purge
+Verifies the 365-day cutoff boundary and — critically — that the purge
 never touches users, orders, portfolios, or instruments.
 """
 
@@ -55,8 +55,8 @@ async def _candle(db, instrument, trading_date, close=100.0):
 
 
 class TestCutoffCalculation:
-    def test_default_retention_is_100_days(self):
-        assert RETENTION_DAYS == 100
+    def test_default_retention_is_365_days(self):
+        assert RETENTION_DAYS == 365
 
     def test_cutoff_is_today_minus_retention(self):
         assert cutoff_date(100, TODAY) == TODAY - timedelta(days=100)

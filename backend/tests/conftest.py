@@ -24,6 +24,7 @@ from models.market_data import (
     DownloadStatus,
     SimulationSession,
 )
+from models.faculty_practice import FacultyPracticeWindow
 from engines.market_session import market_session
 from config.settings import settings
 
