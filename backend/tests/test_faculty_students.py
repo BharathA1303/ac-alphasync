@@ -1,5 +1,7 @@
 """Tests for faculty student scoping."""
 
+import uuid
+
 import pytest
 
 from models.user import User
@@ -55,3 +57,52 @@ async def test_faculty_only_sees_assigned_students(db):
 
     seen = await get_faculty_students(faculty_a, db)
     assert [u.username for u in seen] == ["sa"]
+
+
+@pytest.mark.asyncio
+async def test_bulk_assign_students_to_one_faculty(db):
+    from models.institution import Institution
+    from services.faculty_students import assign_students_to_faculty
+
+    inst = Institution(name="Bulk Uni", code=f"BU{uuid.uuid4().hex[:6]}")
+    db.add(inst)
+    await db.flush()
+    faculty = User(
+        email="bulkfac@test.local",
+        username="bulkfac",
+        full_name="Bulk Faculty",
+        role="faculty",
+        is_active=True,
+        account_status="active",
+        institution_id=inst.id,
+    )
+    s1 = User(
+        email="bs1@test.local",
+        username="bs1",
+        full_name="Bulk Student 1",
+        role="student",
+        is_active=True,
+        account_status="active",
+        institution_id=inst.id,
+    )
+    s2 = User(
+        email="bs2@test.local",
+        username="bs2",
+        full_name="Bulk Student 2",
+        role="student",
+        is_active=True,
+        account_status="active",
+        institution_id=inst.id,
+    )
+    db.add_all([faculty, s1, s2])
+    await db.flush()
+
+    result = await assign_students_to_faculty(
+        db,
+        institution_id=inst.id,
+        student_ids=[str(s1.id), str(s2.id)],
+        faculty=faculty,
+    )
+    assert result["assigned"] == 2
+    seen = await get_faculty_students(faculty, db)
+    assert {u.username for u in seen} == {"bs1", "bs2"}

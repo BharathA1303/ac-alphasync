@@ -38,6 +38,13 @@ export default function PracticeWindowCard() {
         loadPracticeWindow();
     }, [loadPracticeWindow]);
 
+    useEffect(() => {
+        const status = downloadInfo?.status;
+        if (status !== 'downloading') return undefined;
+        const timer = setInterval(loadPracticeWindow, 4000);
+        return () => clearInterval(timer);
+    }, [downloadInfo?.status, loadPracticeWindow]);
+
     const handleSaveWindow = async () => {
         if (!startDate || !endDate) {
             toast.error('Select a start and end date');
@@ -58,9 +65,28 @@ export default function PracticeWindowCard() {
     };
 
     const availableCount = availableDates.filter((d) => d.available).length;
-    const selectedUnavailable = availableDates.filter(
-        (d) => startDate && endDate && d.date >= startDate && d.date <= endDate && !d.available
-    ).length;
+    const selectedDates = availableDates.filter(
+        (d) => startDate && endDate && d.date >= startDate && d.date <= endDate
+    );
+    const selectedReady = selectedDates.filter((d) => d.available).length;
+    const selectedUnavailable = selectedDates.length - selectedReady;
+    const replayDate = windowInfo?.replay_date || windowInfo?.current_date;
+    const downloadStatus = downloadInfo?.status;
+
+    let dataStatus = `${availableCount} stored day${availableCount === 1 ? '' : 's'} in the last year`;
+    if (startDate && endDate) {
+        dataStatus = `${selectedReady}/${selectedDates.length || 0} selected trading days have 1-minute market data`;
+    }
+    if (downloadStatus === 'downloading') {
+        dataStatus += ' · downloading missing days from Zebu';
+    } else if (downloadStatus === 'unavailable') {
+        dataStatus += ` · ${downloadInfo?.error || 'Zebu is offline; missing days stay empty'}`;
+    } else if (downloadStatus === 'ready' && selectedUnavailable === 0 && selectedDates.length > 0) {
+        dataStatus += ' · market data ready';
+    } else if (downloadStatus === 'partial' || downloadStatus === 'failed') {
+        const missing = downloadInfo?.missing?.length || selectedUnavailable;
+        dataStatus += ` · ${missing} day(s) still have no candles`;
+    }
 
     return (
         <div className="rounded-xl border border-edge/15 bg-surface-900/70 p-4 space-y-3">
@@ -78,7 +104,7 @@ export default function PracticeWindowCard() {
                 {windowInfo?.status === 'active' && (
                     <span className="text-[11px] font-semibold text-emerald-400">
                         Active {windowInfo.start_date} → {windowInfo.end_date}
-                        {windowInfo.current_date ? ` · replaying ${windowInfo.current_date}` : ''}
+                        {replayDate ? ` · replaying ${replayDate}` : ''}
                     </span>
                 )}
             </div>
@@ -115,9 +141,7 @@ export default function PracticeWindowCard() {
                     Assign to students
                 </button>
                 <span className="text-[11px] text-gray-500">
-                    {availableCount} stored day{availableCount === 1 ? '' : 's'} in the last year
-                    {selectedUnavailable > 0 ? ` · ${selectedUnavailable} selected day(s) need download` : ''}
-                    {downloadInfo?.status && downloadInfo.status !== 'idle' ? ` · download: ${downloadInfo.status}` : ''}
+                    {dataStatus}
                 </span>
             </div>
         </div>

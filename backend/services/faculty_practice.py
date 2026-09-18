@@ -385,6 +385,7 @@ def serialize_window(window: Optional[FacultyPracticeWindow], extra: Optional[di
         "start_date": window.start_date.isoformat(),
         "end_date": window.end_date.isoformat(),
         "current_date": window.current_date.isoformat() if window.current_date else None,
+        "replay_date": window.current_date.isoformat() if window.current_date else None,
         "status": window.status,
     }
     if extra:

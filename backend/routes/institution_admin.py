@@ -26,6 +26,8 @@ from models.course import (
 from dependencies.institution import require_institution_admin
 from services import invite_service
 from services.invite_service import _as_uuid, _as_aware_utc
+from config.settings import settings
+from routes.direct_auth import _hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,18 @@ class GrantRetakeRequest(BaseModel):
 
 class AssignFacultyRequest(BaseModel):
     faculty_id: Optional[str] = None
+
+
+class BulkAssignFacultyRequest(BaseModel):
+    student_ids: list[str]
+    faculty_id: Optional[str] = None
+
+
+class CreateFacultyRequest(BaseModel):
+    full_name: str
+    username: str
+    email: str
+    password: str
 
 
 @router.get("/dashboard")
@@ -275,6 +289,126 @@ async def list_faculty(
             for f in faculty
         ]
     }
+
+
+@router.post("/faculty")
+async def create_faculty(
+    req: CreateFacultyRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if not admin.institution_id:
+        raise HTTPException(status_code=400, detail="Institution admin is not attached to an institution")
+
+    full_name = (req.full_name or "").strip()
+    username = (req.username or "").strip().lower()
+    email = (req.email or "").strip().lower()
+    password = req.password or ""
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required")
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="A valid email is required")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    institution = await db.get(Institution, admin.institution_id)
+    if not institution:
+        raise HTTPException(status_code=404, detail="Institution not found")
+
+    allowed, current_count, limit = await invite_service._check_role_limit(
+        db, institution, "faculty"
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faculty limit reached ({current_count}/{limit}). Contact Super Admin to increase quota.",
+        )
+
+    existing_user = (
+        await db.execute(select(User).where(func.lower(User.username) == username))
+    ).scalar_one_or_none()
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Username already taken")
+
+    existing_email = (
+        await db.execute(select(User).where(func.lower(User.email) == email))
+    ).scalar_one_or_none()
+    if existing_email:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    now = datetime.now(timezone.utc)
+    faculty = User(
+        email=email,
+        username=username,
+        full_name=full_name,
+        password_hash=_hash_password(password),
+        auth_provider="direct",
+        is_verified=True,
+        is_active=True,
+        virtual_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
+        role="faculty",
+        institution_id=admin.institution_id,
+        account_status="active",
+        approved_at=now,
+        access_expires_at=None,
+        access_duration_days=None,
+    )
+    db.add(faculty)
+    await db.flush()
+    db.add(
+        Portfolio(
+            user_id=faculty.id,
+            available_capital=settings.DEFAULT_VIRTUAL_CAPITAL,
+        )
+    )
+    await db.commit()
+    await db.refresh(faculty)
+    return {
+        "success": True,
+        "faculty": {
+            "id": str(faculty.id),
+            "full_name": faculty.full_name,
+            "username": faculty.username,
+            "email": faculty.email,
+        },
+    }
+
+
+@router.post("/students/assign-faculty")
+async def bulk_assign_student_faculty(
+    req: BulkAssignFacultyRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    student_ids = [sid for sid in (req.student_ids or []) if sid]
+    if not student_ids:
+        raise HTTPException(status_code=400, detail="Select at least one student")
+
+    faculty = None
+    faculty_uuid = _as_uuid(req.faculty_id) if req.faculty_id else None
+    if faculty_uuid is not None:
+        faculty = await db.get(User, faculty_uuid)
+        if (
+            not faculty
+            or faculty.role != "faculty"
+            or faculty.institution_id != admin.institution_id
+        ):
+            raise HTTPException(status_code=404, detail="Faculty not found in your institution")
+
+    from services.faculty_students import assign_students_to_faculty
+
+    result = await assign_students_to_faculty(
+        db,
+        institution_id=admin.institution_id,
+        student_ids=student_ids,
+        faculty=faculty,
+    )
+    await db.commit()
+    from services.faculty_practice import refresh_overlay_index
+    await refresh_overlay_index(db)
+    return {"success": True, **result}
 
 
 @router.post("/members/{member_id}/assign-faculty")
