@@ -151,6 +151,14 @@ class AutoSimulationWorker:
             await simulation_controller.halt(db)
             await db.commit()
 
+        try:
+            from services.faculty_practice import advance_windows_after_session
+
+            async with async_session_factory() as db:
+                await advance_windows_after_session(db)
+        except Exception as exc:
+            logger.debug("Faculty practice window advance skipped: %s", exc)
+
         self._halts += 1
         logger.info(
             "Auto simulation halted (market is %s); last replayed prices are "

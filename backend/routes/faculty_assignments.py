@@ -20,6 +20,7 @@ from models.assignment import TradingAssignment, AssignmentSubmission
 from models.course import Course
 from dependencies.faculty import require_faculty
 from services.assignment_evaluator import evaluate_student_assignment
+from services.faculty_students import get_faculty_students
 
 logger = logging.getLogger(__name__)
 
@@ -240,16 +241,8 @@ async def get_faculty_assignment_detail(
     if not assignment:
         raise HTTPException(status_code=404, detail="Trading assignment not found")
 
-    # Fetch all students in the institution
-    students_stmt = select(User).where(
-        and_(
-            User.institution_id == user.institution_id,
-            User.role == "student",
-            User.is_active == True,
-        )
-    ).order_by(User.full_name.asc())
-    students_res = await db.execute(students_stmt)
-    students = list(students_res.scalars().all())
+    # Fetch students assigned to this faculty
+    students = await get_faculty_students(user, db)
 
     # Fetch existing submissions for this assignment
     sub_stmt = select(AssignmentSubmission).where(

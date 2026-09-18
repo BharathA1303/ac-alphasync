@@ -89,7 +89,7 @@ function getNavigationSections(role) {
     };
   }
 
-  // 2. Priority 2: Trading Lab
+  // 2. Priority 2: Trading Lab (hidden for Super Admin / Institution Admin)
   const tradingLabSection = {
     label: "Trading Lab",
     items: [
@@ -111,6 +111,10 @@ function getNavigationSections(role) {
       { to: "/auto-alpha", icon: Shield, label: "Alpha Auto" },
     ],
   };
+
+  if (role === "admin" || role === "institution_admin") {
+    return [academicSection];
+  }
 
   return [academicSection, tradingLabSection, derivativesSection];
 }

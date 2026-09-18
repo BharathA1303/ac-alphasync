@@ -91,6 +91,29 @@ const facultyApi = {
     acceptQuestions(courseId, assessmentId) {
         return api.post(`/faculty/courses/${courseId}/assessments/${assessmentId}/accept-questions`);
     },
+
+    getPracticeWindow() {
+        return api.get('/faculty/practice-window');
+    },
+
+    listPracticeDates() {
+        return api.get('/faculty/practice-window/dates');
+    },
+
+    probePracticeHistory() {
+        return api.get('/faculty/practice-window/probe');
+    },
+
+    setPracticeWindow(startDate, endDate) {
+        return api.put('/faculty/practice-window', {
+            start_date: startDate,
+            end_date: endDate,
+        });
+    },
+
+    clearPracticeWindow() {
+        return api.delete('/faculty/practice-window');
+    },
 };
 
 export default facultyApi;

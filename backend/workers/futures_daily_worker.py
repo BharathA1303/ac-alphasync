@@ -6,7 +6,7 @@ Guarantees:
     - Runs automatically once per day after 18:15 IST.
     - Idempotent: Re-running collapses onto existing database rows.
     - Self-healing: Retries on network glitches with exponential backoff.
-    - Automatic retention: Prunes historical derivative candles older than 100 days.
+    - Automatic retention: Prunes historical derivative candles older than 365 days.
     - Completely isolated from the equity data feed.
 """
 
@@ -62,10 +62,12 @@ class FuturesDailyWorker:
         self._last_summary = summary
         self._runs += 1
 
-        # Run automatic retention purge (100 days)
+        # Run automatic retention purge (1 year)
         try:
+            from workers.historical_retention_worker import RETENTION_DAYS
+
             async with async_session_factory() as db:
-                retention_res = await purge_old_market_data(db, retention_days=100)
+                retention_res = await purge_old_market_data(db, retention_days=RETENTION_DAYS)
                 logger.info(f"FuturesDailyWorker: Retention summary: {retention_res}")
         except Exception as e:
             logger.warning(f"FuturesDailyWorker: Retention purge error: {e}")

@@ -22,7 +22,7 @@ from models import (
     TradingAssignment, AssignmentSubmission, Order, Portfolio, Holding
 )
 from dependencies.faculty import require_faculty
-from services.invite_service import _as_uuid
+from services.faculty_students import get_faculty_students
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +61,8 @@ NISM_MODULES = [
 
 
 async def _get_faculty_students(faculty: User, course_id: Optional[str], db: AsyncSession) -> List[User]:
-    """Helper to fetch all active student accounts in faculty's institution or specific course."""
-    student_query = select(User).where(User.role == "student")
-    if faculty.institution_id:
-        student_query = student_query.where(User.institution_id == faculty.institution_id)
-    
-    res = await db.execute(student_query)
-    students = res.scalars().all()
-    return students
+    """Active students assigned to this faculty (not the whole institution)."""
+    return await get_faculty_students(faculty, db, course_id=course_id)
 
 
 # ── 1. GET /api/faculty/cohort/courses ──────────────────────────────────────────

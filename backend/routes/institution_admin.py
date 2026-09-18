@@ -59,6 +59,10 @@ class GrantRetakeRequest(BaseModel):
     assessment_id: str
 
 
+class AssignFacultyRequest(BaseModel):
+    faculty_id: Optional[str] = None
+
+
 @router.get("/dashboard")
 async def get_dashboard(
     admin: User = Depends(require_institution_admin),
@@ -214,6 +218,14 @@ async def list_members(
     )
     rows = result.all()
 
+    faculty_ids = {u.assigned_faculty_id for u, _ in rows if u.assigned_faculty_id}
+    faculty_names = {}
+    if faculty_ids:
+        fac_rows = (
+            await db.execute(select(User).where(User.id.in_(faculty_ids)))
+        ).scalars().all()
+        faculty_names = {f.id: f.full_name or f.username for f in fac_rows}
+
     return {
         "total": total,
         "page": page,
@@ -225,6 +237,8 @@ async def list_members(
                 "email": u.email,
                 "username": u.username,
                 "role": u.role,
+                "assigned_faculty_id": str(u.assigned_faculty_id) if u.assigned_faculty_id else None,
+                "assigned_faculty_name": faculty_names.get(u.assigned_faculty_id),
                 "pnl": float(p.total_pnl) if p else 0.0,
                 "pnl_percent": float(p.total_pnl_percent) if p else 0.0,
                 "current_value": float(p.current_value) if p else 0.0,
@@ -232,6 +246,72 @@ async def list_members(
             }
             for u, p in rows
         ],
+    }
+
+
+@router.get("/faculty")
+async def list_faculty(
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(User)
+        .where(
+            User.institution_id == admin.institution_id,
+            User.role == "faculty",
+            User.is_active == True,  # noqa: E712
+        )
+        .order_by(User.full_name.asc())
+    )
+    faculty = result.scalars().all()
+    return {
+        "faculty": [
+            {
+                "id": str(f.id),
+                "full_name": f.full_name,
+                "username": f.username,
+                "email": f.email,
+            }
+            for f in faculty
+        ]
+    }
+
+
+@router.post("/members/{member_id}/assign-faculty")
+async def assign_student_faculty(
+    member_id: str,
+    req: AssignFacultyRequest,
+    admin: User = Depends(require_institution_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    student = await _get_own_member(db, admin, member_id)
+    if student.role != "student":
+        raise HTTPException(status_code=400, detail="Only students can be assigned to faculty")
+
+    faculty_uuid = _as_uuid(req.faculty_id) if req.faculty_id else None
+    if faculty_uuid is None:
+        student.assigned_faculty_id = None
+        await db.commit()
+        from services.faculty_practice import refresh_overlay_index
+        await refresh_overlay_index(db)
+        return {"success": True, "assigned_faculty_id": None}
+
+    faculty = await db.get(User, faculty_uuid)
+    if (
+        not faculty
+        or faculty.role != "faculty"
+        or faculty.institution_id != admin.institution_id
+    ):
+        raise HTTPException(status_code=404, detail="Faculty not found in your institution")
+
+    student.assigned_faculty_id = faculty.id
+    await db.commit()
+    from services.faculty_practice import refresh_overlay_index
+    await refresh_overlay_index(db)
+    return {
+        "success": True,
+        "assigned_faculty_id": str(faculty.id),
+        "assigned_faculty_name": faculty.full_name,
     }
 
 

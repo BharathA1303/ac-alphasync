@@ -3,6 +3,7 @@ import { LayoutDashboard, ChartCandlestick, ClipboardList, Briefcase, Menu } fro
 import { MOBILE_NAV_ROUTES } from '../constants/breakpoints';
 import { useResponsive } from '../hooks/useResponsive';
 import { cn } from '../../utils/cn';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 const ICONS = {
   dashboard: LayoutDashboard,
@@ -15,8 +16,10 @@ const ICONS = {
 export function ResponsiveBottomNavigation() {
   const { isDesktop } = useResponsive();
   const location = useLocation();
+  const role = useAuthStore((s) => s.user?.role);
 
   if (isDesktop) return null;
+  if (role === 'admin' || role === 'institution_admin') return null;
 
   return (
     <nav

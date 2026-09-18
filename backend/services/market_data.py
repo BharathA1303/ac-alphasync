@@ -1913,6 +1913,15 @@ async def get_quote(symbol: str, user_id: str) -> dict:
     """
     symbol = _format_symbol(symbol)
 
+    try:
+        from services.faculty_practice import overlay_quote
+
+        overlay = await overlay_quote(user_id, symbol)
+        if overlay:
+            return _adjust_for_market_state(overlay)
+    except Exception:
+        pass
+
     # SIMULATION mode: serve replayed state only. Calling the live provider
     # here would return REAL market prices inside a simulated session.
     if _simulation_data_mode_active():
@@ -1937,6 +1946,15 @@ async def get_quote_safe(symbol: str, user_id: str) -> Optional[dict]:
     """Like get_quote() but returns None instead of raising on safe errors."""
     fmt = _format_symbol(symbol)
     market_frozen = _is_market_frozen()
+
+    try:
+        from services.faculty_practice import overlay_quote
+
+        overlay = await overlay_quote(user_id, fmt)
+        if overlay:
+            return _adjust_for_market_state(overlay)
+    except Exception:
+        pass
 
     # Prefer Redis-backed broker stream data first (authoritative across API calls).
     # During closed sessions, allow frozen last-tradable price.

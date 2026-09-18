@@ -58,6 +58,16 @@ async def lifespan(app: FastAPI):
 
     await init_db()
 
+    try:
+        from services.faculty_practice import refresh_overlay_index
+        from database.connection import async_session_factory
+
+        async with async_session_factory() as db:
+            await refresh_overlay_index(db)
+        logger.info("Faculty practice overlay index loaded")
+    except Exception as e:
+        logger.warning(f"Faculty practice overlay init skipped: {e}")
+
     # ── Initialize Redis (for price cache, shared across sessions) ──
     try:
         from cache.redis_client import get_redis
@@ -327,7 +337,7 @@ async def lifespan(app: FastAPI):
             asyncio.create_task(algo_strategy_worker.run()),
             asyncio.create_task(auto_squareoff_worker.run()),
             asyncio.create_task(access_expiry_worker.run()),
-            # Historical market data: daily download + 100-day retention purge.
+            # Historical market data: daily download + 1-year retention purge.
             asyncio.create_task(historical_download_worker.run()),
             asyncio.create_task(historical_retention_worker.run()),
             asyncio.create_task(futures_daily_worker.run()),
@@ -481,6 +491,7 @@ from routes.default_courses import router as default_courses_router
 from routes.faculty_assignments import router as faculty_assignments_router
 from routes.student_assignments import router as student_assignments_router
 from routes.faculty_cohort import router as faculty_cohort_router
+from routes.faculty_practice import router as faculty_practice_router
 from routes.institution_compliance import router as institution_compliance_router
 
 app.include_router(direct_auth_router)  # Firebase-free auth (must be first)
@@ -506,6 +517,7 @@ app.include_router(institution_admin_router)
 app.include_router(institution_compliance_router)
 app.include_router(faculty_router)
 app.include_router(faculty_cohort_router)
+app.include_router(faculty_practice_router)
 app.include_router(student_academy_router)
 app.include_router(default_courses_router)
 app.include_router(faculty_assignments_router)
@@ -649,29 +661,35 @@ async def debug_db():
 async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
     connection_id = client_id or str(uuid.uuid4())
 
-    # Extract user_id from Firebase ID token (query param)
+    # Extract user_id from direct JWT or Firebase ID token (query param)
     user_id = None
     token = websocket.query_params.get("token")
     if token:
         try:
-            from services.auth_service import verify_id_token
-            from sqlalchemy import select as sa_select
-            from models.user import User as UserModel
-            from database.connection import async_session_factory
+            from routes.direct_auth import decode_direct_jwt
 
-            claims = verify_id_token(token)
-            if claims:
-                firebase_uid = claims.get("uid")
-                if firebase_uid:
-                    async with async_session_factory() as db:
-                        result = await db.execute(
-                            sa_select(UserModel).where(
-                                UserModel.firebase_uid == firebase_uid
+            direct_uid = decode_direct_jwt(token)
+            if direct_uid:
+                user_id = str(direct_uid)
+            else:
+                from services.auth_service import verify_id_token
+                from sqlalchemy import select as sa_select
+                from models.user import User as UserModel
+                from database.connection import async_session_factory
+
+                claims = verify_id_token(token)
+                if claims:
+                    firebase_uid = claims.get("uid")
+                    if firebase_uid:
+                        async with async_session_factory() as db:
+                            result = await db.execute(
+                                sa_select(UserModel).where(
+                                    UserModel.firebase_uid == firebase_uid
+                                )
                             )
-                        )
-                        ws_user = result.scalar_one_or_none()
-                        if ws_user:
-                            user_id = str(ws_user.id)
+                            ws_user = result.scalar_one_or_none()
+                            if ws_user:
+                                user_id = str(ws_user.id)
         except Exception as e:
             logger.warning(
                 f"WebSocket token verification failed for {connection_id}: {e}"

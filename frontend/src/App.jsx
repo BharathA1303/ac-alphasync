@@ -13,6 +13,7 @@ import InstitutionRoute from './components/InstitutionRoute';
 import FacultyRoute from './components/FacultyRoute';
 import StudentRoute from './components/StudentRoute';
 import NonStudentRoute from './components/NonStudentRoute';
+import ManagerTradingRedirect from './components/ManagerTradingRedirect';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './stores/useAuthStore';
 
@@ -104,19 +105,19 @@ export default function App() {
                                 </ProtectedRoute>
                             }
                         >
-                            <Route path="/dashboard" element={<DashboardWorkspace />} />
+                            <Route path="/dashboard" element={<ManagerTradingRedirect><DashboardWorkspace /></ManagerTradingRedirect>} />
                             <Route path="/leaderboard" element={<LeaderboardPage />} />
                             <Route path="/mentor" element={<AIMentorPage />} />
-                            <Route path="/terminal" element={<TradingWorkspace />} />
-                            <Route path="/market" element={<MarketPage />} />
-                            <Route path="/futures" element={<FuturesPage />} />
-                            <Route path="/options" element={<OptionsPage />} />
+                            <Route path="/terminal" element={<ManagerTradingRedirect><TradingWorkspace /></ManagerTradingRedirect>} />
+                            <Route path="/market" element={<ManagerTradingRedirect><MarketPage /></ManagerTradingRedirect>} />
+                            <Route path="/futures" element={<ManagerTradingRedirect><FuturesPage /></ManagerTradingRedirect>} />
+                            <Route path="/options" element={<ManagerTradingRedirect><OptionsPage /></ManagerTradingRedirect>} />
                             <Route path="/commodities" element={<Navigate to="/dashboard" replace />} />
-                            <Route path="/portfolio" element={<PortfolioPage />} />
-                            <Route path="/orders" element={<OrdersPage />} />
-                            <Route path="/algo" element={<AlgoTradingPage />} />
-                            <Route path="/zeroloss" element={<ZeroLossPage />} />
-                            <Route path="/auto-alpha" element={<ZeroLossPage />} />
+                            <Route path="/portfolio" element={<ManagerTradingRedirect><PortfolioPage /></ManagerTradingRedirect>} />
+                            <Route path="/orders" element={<ManagerTradingRedirect><OrdersPage /></ManagerTradingRedirect>} />
+                            <Route path="/algo" element={<ManagerTradingRedirect><AlgoTradingPage /></ManagerTradingRedirect>} />
+                            <Route path="/zeroloss" element={<ManagerTradingRedirect><ZeroLossPage /></ManagerTradingRedirect>} />
+                            <Route path="/auto-alpha" element={<ManagerTradingRedirect><ZeroLossPage /></ManagerTradingRedirect>} />
                             <Route path="/settings" element={<SettingsPage />} />
                             <Route path="/bug-report" element={<BugReportPage />} />
                             {/* ── Admin routes (inside AppShell — sidebar visible) ── */}

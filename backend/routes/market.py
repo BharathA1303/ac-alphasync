@@ -366,6 +366,26 @@ async def get_history(
     is_intraday = interval in intraday_intervals
 
     cache_key = f"hist:{fmt_symbol}:{period}:{interval}"
+    if not is_commodity and user:
+        try:
+            from services.faculty_practice import candles_for_user, is_overlay_user
+            from database.connection import async_session_factory
+
+            if is_overlay_user(str(user.id)):
+                async with async_session_factory() as overlay_db:
+                    overlay_candles = await candles_for_user(
+                        overlay_db, str(user.id), fmt_symbol, period=period, interval=interval
+                    )
+                if overlay_candles:
+                    return {
+                        "symbol": fmt_symbol,
+                        "candles": overlay_candles,
+                        "count": len(overlay_candles),
+                        "source": "faculty_practice",
+                    }
+        except Exception as e:
+            logger.debug(f"Faculty practice history fetch failed for {fmt_symbol}: {e}")
+
     if not is_commodity:
         try:
             from core.market_data_mode import market_data_mode
