@@ -44,7 +44,8 @@ class FacultyPracticeWindow(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     # Historical day currently being replayed for this faculty's students.
-    current_date = Column(Date, nullable=False)
+    # Column is replay_date because PostgreSQL treats CURRENT_DATE as a keyword.
+    current_date = Column("replay_date", Date, nullable=False)
     status = Column(
         String(16),
         nullable=False,

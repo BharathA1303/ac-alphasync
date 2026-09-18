@@ -325,7 +325,7 @@ async def init_db():
                         institution_id CHAR(36) NOT NULL,
                         start_date DATE NOT NULL,
                         end_date DATE NOT NULL,
-                        current_date DATE NOT NULL,
+                        replay_date DATE NOT NULL,
                         status VARCHAR(16) NOT NULL DEFAULT 'active',
                         created_at DATETIME,
                         updated_at DATETIME
@@ -545,7 +545,7 @@ async def init_db():
                             institution_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
                             start_date DATE NOT NULL,
                             end_date DATE NOT NULL,
-                            current_date DATE NOT NULL,
+                            replay_date DATE NOT NULL,
                             status VARCHAR(16) NOT NULL DEFAULT 'active',
                             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

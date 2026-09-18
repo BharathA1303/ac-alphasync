@@ -67,7 +67,7 @@ def upgrade() -> None:
             sa.Column("institution_id", uuid_type, nullable=False),
             sa.Column("start_date", sa.Date(), nullable=False),
             sa.Column("end_date", sa.Date(), nullable=False),
-            sa.Column("current_date", sa.Date(), nullable=False),
+            sa.Column("replay_date", sa.Date(), nullable=False),
             sa.Column(
                 "status",
                 sa.String(16),
