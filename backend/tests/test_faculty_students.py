@@ -1,7 +1,6 @@
 """Tests for faculty student scoping."""
 
 import pytest
-from sqlalchemy import select
 
 from models.user import User
 from services.faculty_students import get_faculty_students
