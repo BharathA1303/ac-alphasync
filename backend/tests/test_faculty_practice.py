@@ -98,6 +98,41 @@ class TestPracticeWindow:
         assert window.status == WINDOW_ACTIVE
         assert window.start_date == start
 
+    async def test_reports_ready_when_selected_day_has_candles(self, db):
+        inst = await _make_institution(db, "Data Uni")
+        faculty = await _make_user(db, "faculty", inst.id, "fac_data")
+        trading_day = practice.practice_max_date()
+        for _ in range(14):
+            if is_trading_day(trading_day):
+                break
+            trading_day -= timedelta(days=1)
+        inst_row = Instrument(
+            token="2222",
+            trading_symbol="TCS-EQ",
+            exchange="NSE",
+            instrument_type="EQUITY",
+        )
+        db.add(inst_row)
+        await db.flush()
+        db.add(
+            HistoricalCandle(
+                instrument_id=inst_row.id,
+                trading_date=trading_day,
+                timestamp=datetime(trading_day.year, trading_day.month, trading_day.day, 3, 45, tzinfo=timezone.utc),
+                open=10,
+                high=11,
+                low=9,
+                close=10.5,
+                volume=100,
+                source="zebu_tp_series",
+            )
+        )
+        await db.flush()
+        result = await practice.set_practice_window(db, faculty, trading_day, trading_day)
+        assert result["success"] is True
+        assert result["missing_days"] == []
+        assert result["window"]["download"]["status"] == "ready"
+
 
 @pytest.mark.asyncio
 class TestOverlayQuote:

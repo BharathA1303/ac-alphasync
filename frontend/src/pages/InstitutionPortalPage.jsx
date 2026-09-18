@@ -267,6 +267,84 @@ function GenerateInviteModal({ onClose, maxFaculty = 20, maxStudents = 200, curr
     );
 }
 
+function CreateFacultyModal({ onClose, onCreated, facultyCount = 0, maxFaculty = 20 }) {
+    const [fullName, setFullName] = useState('');
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [saving, setSaving] = useState(false);
+    const atLimit = facultyCount >= maxFaculty;
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        if (atLimit) {
+            toast.error(`Faculty limit reached (${facultyCount}/${maxFaculty}). Contact Super Admin to increase quota.`);
+            return;
+        }
+        setSaving(true);
+        try {
+            await academicApi.createInstitutionFaculty({
+                full_name: fullName.trim(),
+                username: username.trim(),
+                email: email.trim(),
+                password,
+            });
+            toast.success('Faculty account created');
+            onCreated?.();
+            onClose();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to add faculty'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}>
+            <form
+                className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+                onSubmit={handleCreate}
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Add faculty</h3>
+                    <button type="button" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400" onClick={onClose}>
+                        <X size={16} />
+                    </button>
+                </div>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                    Creates a faculty login for this campus. Capacity {facultyCount} / {maxFaculty}.
+                </p>
+                <div className="flex flex-col gap-3">
+                    <label className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        Full name
+                        <input className="input-field text-sm mt-1 text-heading" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    </label>
+                    <label className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        Username
+                        <input className="input-field text-sm mt-1 text-heading" required value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
+                    </label>
+                    <label className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        Email
+                        <input className="input-field text-sm mt-1 text-heading" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+                    </label>
+                    <label className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        Temporary password
+                        <input className="input-field text-sm mt-1 text-heading" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+                    </label>
+                </div>
+                <div className="flex justify-end gap-2 mt-5">
+                    <button type="button" className="admin-action-btn admin-action-btn--secondary text-xs" onClick={onClose}>Cancel</button>
+                    <button type="submit" className="admin-action-btn admin-action-btn--primary text-xs" disabled={saving || atLimit}>
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+                        {atLimit ? 'Quota full' : 'Create faculty'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
 function GrantRetakeRow({ memberId, attempt, onGranted }) {
     const [granting, setGranting] = useState(false);
 
@@ -540,7 +618,7 @@ function MemberDetailView({ member, onBack }) {
     );
 }
 
-function MemberRow({ member, facultyList = [], onOpen, onAssigned }) {
+function MemberRow({ member, facultyList = [], onOpen, onAssigned, selected, onToggleSelect }) {
     const initials = (member.full_name || 'User')
         .split(' ')
         .map((n) => n[0])
@@ -570,6 +648,19 @@ function MemberRow({ member, facultyList = [], onOpen, onAssigned }) {
             className="hover:bg-surface-800/40 transition-all"
             onClick={() => onOpen(member)}
         >
+            <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                {isFaculty ? (
+                    <span className="inline-block w-4" />
+                ) : (
+                    <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                        checked={Boolean(selected)}
+                        onChange={() => onToggleSelect?.(member.id)}
+                        aria-label={`Select ${member.full_name}`}
+                    />
+                )}
+            </td>
             <td className="py-3 px-3">
                 <div className="flex items-center gap-3">
                     <div
@@ -605,8 +696,8 @@ function MemberRow({ member, facultyList = [], onOpen, onAssigned }) {
                     <span className="text-[11px] text-gray-500">—</span>
                 ) : (
                     <select
-                        className="input-field text-xs"
-                        style={{ height: 32, minWidth: 160 }}
+                        className="input-field roster-faculty-select text-xs text-heading"
+                        style={{ height: 36, minWidth: 200, maxWidth: 280 }}
                         disabled={assigning}
                         value={member.assigned_faculty_id || ''}
                         onChange={(e) => handleAssign(e.target.value)}
@@ -648,6 +739,10 @@ export default function InstitutionPortalPage() {
     const [roleFilter, setRoleFilter] = useState('');
     const [search, setSearch] = useState('');
     const [facultyList, setFacultyList] = useState([]);
+    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+    const [bulkFacultyId, setBulkFacultyId] = useState('');
+    const [bulkAssigning, setBulkAssigning] = useState(false);
+    const [showCreateFaculty, setShowCreateFaculty] = useState(false);
 
     const loadDashboard = useCallback(async () => {
         try {
@@ -661,7 +756,7 @@ export default function InstitutionPortalPage() {
     const loadMembers = useCallback(async () => {
         setMembersLoading(true);
         try {
-            const params = {};
+            const params = { page_size: 100 };
             if (roleFilter) params.role = roleFilter;
             if (search.trim()) params.search = search.trim();
             const [{ data }, facultyRes] = await Promise.all([
@@ -671,6 +766,7 @@ export default function InstitutionPortalPage() {
             setMembers(data?.members || []);
             setMembersTotal(data?.total || 0);
             setFacultyList(facultyRes.data?.faculty || []);
+            setSelectedStudentIds([]);
         } catch (err) {
             toast.error(parseApiError(err, 'Failed to load members'));
         } finally {
@@ -711,6 +807,44 @@ export default function InstitutionPortalPage() {
 
     const facultyPct = maxFaculty ? Math.min(100, Math.round((facultyCount / maxFaculty) * 100)) : 0;
     const studentPct = maxStudents ? Math.min(100, Math.round((studentCount / maxStudents) * 100)) : 0;
+    const visibleStudents = members.filter((m) => m.role === 'student');
+    const allVisibleSelected = visibleStudents.length > 0 && visibleStudents.every((m) => selectedStudentIds.includes(m.id));
+
+    const toggleStudent = (id) => {
+        setSelectedStudentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    const toggleSelectAllVisible = () => {
+        if (allVisibleSelected) {
+            const visible = new Set(visibleStudents.map((m) => m.id));
+            setSelectedStudentIds((prev) => prev.filter((id) => !visible.has(id)));
+            return;
+        }
+        setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...visibleStudents.map((m) => m.id)])));
+    };
+
+    const handleBulkAssign = async (facultyId) => {
+        if (!selectedStudentIds.length) {
+            toast.error('Select at least one student');
+            return;
+        }
+        setBulkAssigning(true);
+        try {
+            const { data } = await academicApi.assignStudentsFacultyBulk(selectedStudentIds, facultyId || null);
+            const name = data?.assigned_faculty_name;
+            toast.success(
+                name
+                    ? `Assigned ${data.assigned} student${data.assigned === 1 ? '' : 's'} to ${name}`
+                    : `Cleared faculty for ${data.assigned} student${data.assigned === 1 ? '' : 's'}`
+            );
+            setSelectedStudentIds([]);
+            await loadMembers();
+        } catch (err) {
+            toast.error(parseApiError(err, 'Failed to assign selected students'));
+        } finally {
+            setBulkAssigning(false);
+        }
+    };
 
     return (
         <div className="admin-shell p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col gap-5">
@@ -778,7 +912,7 @@ export default function InstitutionPortalPage() {
                         <div className="relative">
                             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
-                                className="input-field text-xs pl-8"
+                                className="input-field text-xs pl-8 text-heading"
                                 style={{ height: 32, minWidth: 200 }}
                                 placeholder="Search name or email..."
                                 value={search}
@@ -805,13 +939,74 @@ export default function InstitutionPortalPage() {
                                 </button>
                             ))}
                         </div>
+                        {roleFilter === 'faculty' && (
+                            <button
+                                type="button"
+                                className="admin-action-btn admin-action-btn--primary text-xs"
+                                onClick={() => setShowCreateFaculty(true)}
+                            >
+                                Add Faculty
+                            </button>
+                        )}
                     </div>
                 </div>
+
+                {visibleStudents.length > 0 && (
+                    <div
+                        className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-xl"
+                        style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
+                    >
+                        <span className="text-xs font-semibold text-heading">
+                            {selectedStudentIds.length} student{selectedStudentIds.length === 1 ? '' : 's'} selected
+                        </span>
+                        <select
+                            className="input-field roster-faculty-select text-xs text-heading"
+                            style={{ height: 36, minWidth: 220 }}
+                            value={bulkFacultyId}
+                            onChange={(e) => setBulkFacultyId(e.target.value)}
+                        >
+                            <option value="">Choose faculty…</option>
+                            {facultyList.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                    {f.full_name || f.username}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            className="admin-action-btn admin-action-btn--primary text-xs"
+                            disabled={bulkAssigning || !selectedStudentIds.length || !bulkFacultyId}
+                            onClick={() => handleBulkAssign(bulkFacultyId)}
+                        >
+                            {bulkAssigning ? <Loader2 size={12} className="animate-spin" /> : null}
+                            Assign selected
+                        </button>
+                        <button
+                            type="button"
+                            className="admin-action-btn admin-action-btn--secondary text-xs"
+                            disabled={bulkAssigning || !selectedStudentIds.length}
+                            onClick={() => handleBulkAssign('')}
+                        >
+                            Unassign selected
+                        </button>
+                    </div>
+                )}
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <th className="text-left py-2.5 px-3 w-10">
+                                    {visibleStudents.length > 0 && (
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                                            checked={allVisibleSelected}
+                                            onChange={toggleSelectAllVisible}
+                                            aria-label="Select all students on this page"
+                                        />
+                                    )}
+                                </th>
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Member</th>
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Role</th>
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Assigned Faculty</th>
@@ -820,9 +1015,9 @@ export default function InstitutionPortalPage() {
                         </thead>
                         <tbody>
                             {membersLoading ? (
-                                <tr><td colSpan={4} className="text-center py-8"><Loader2 size={20} className="animate-spin inline text-primary-500" /></td></tr>
+                                <tr><td colSpan={5} className="text-center py-8"><Loader2 size={20} className="animate-spin inline text-primary-500" /></td></tr>
                             ) : members.length === 0 ? (
-                                <tr><td colSpan={4} className="text-center py-8 text-xs text-gray-500">No institution members found matching your search.</td></tr>
+                                <tr><td colSpan={5} className="text-center py-8 text-xs text-gray-500">No institution members found matching your search.</td></tr>
                             ) : (
                                 members.map((m) => (
                                     <MemberRow
@@ -831,6 +1026,8 @@ export default function InstitutionPortalPage() {
                                         facultyList={facultyList}
                                         onOpen={setSelectedMember}
                                         onAssigned={loadMembers}
+                                        selected={selectedStudentIds.includes(m.id)}
+                                        onToggleSelect={toggleStudent}
                                     />
                                 ))
                             )}
@@ -847,6 +1044,17 @@ export default function InstitutionPortalPage() {
                     currentStudents={studentCount}
                     onClose={() => setShowInviteModal(false)}
                     onGenerated={() => {
+                        loadMembers();
+                        loadDashboard();
+                    }}
+                />
+            )}
+            {showCreateFaculty && (
+                <CreateFacultyModal
+                    facultyCount={facultyCount}
+                    maxFaculty={maxFaculty}
+                    onClose={() => setShowCreateFaculty(false)}
+                    onCreated={() => {
                         loadMembers();
                         loadDashboard();
                     }}

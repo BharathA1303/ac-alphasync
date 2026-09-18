@@ -74,8 +74,19 @@ const academicApi = {
         });
     },
 
+    assignStudentsFacultyBulk(studentIds, facultyId) {
+        return api.post('/institution/students/assign-faculty', {
+            student_ids: studentIds,
+            faculty_id: facultyId || null,
+        });
+    },
+
     listInstitutionFaculty() {
         return api.get('/institution/faculty');
+    },
+
+    createInstitutionFaculty(payload) {
+        return api.post('/institution/faculty', payload);
     },
 
     // ── Institution Admin: course approval (this institution only) ──

@@ -289,6 +289,31 @@
     color: #0d1421 !important;
   }
 
+  /* Native <select> inherits color-scheme: dark from :root and becomes
+     unreadable on the light campus roster (pale text on white). */
+  .light select,
+  .light select.input-field,
+  .light select.roster-faculty-select {
+    color-scheme: light;
+    color: #0f1117 !important;
+    background-color: #ffffff !important;
+    border-color: #C4CCDA !important;
+    font-weight: 600;
+  }
+
+  .light select option,
+  .light select.roster-faculty-select option {
+    color: #0f1117;
+    background-color: #ffffff;
+  }
+
+  .roster-faculty-select {
+    color: var(--text-primary);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-strong);
+    font-weight: 600;
+  }
+
   .light .section-title {
     color: #0d1421 !important;
   }
