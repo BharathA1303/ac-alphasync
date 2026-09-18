@@ -9,7 +9,6 @@ import toast from 'react-hot-toast';
 import assignmentApi from '../services/assignmentApi';
 import { useAuthStore } from '../stores/useAuthStore';
 import PracticeWindowCard from '../components/faculty/PracticeWindowCard';
-import PracticeWindowCard from '../components/faculty/PracticeWindowCard';
 
 function parseApiError(error, fallback = 'Request failed') {
     return error?.response?.data?.detail || error?.message || fallback;
@@ -917,8 +916,6 @@ export default function FacultyAssignmentsPage() {
                     New Trading Task
                 </button>
             </div>
-
-            <PracticeWindowCard />
 
             <PracticeWindowCard />
 
